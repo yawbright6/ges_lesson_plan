@@ -50,6 +50,7 @@ import {
   UsageSection,
   UsersSection,
 } from '@/features/admin/AdminSections';
+import { SharedLessonsSection } from '@/features/admin/SharedLessonsSection';
 import { adminSections } from '@/features/admin/adminConstants';
 import { styles } from '@/features/admin/adminStyles';
 import type {
@@ -267,6 +268,7 @@ export default function AdminScreen() {
           scheme_generation: toWhole(appSettingsDraft.schemeCost),
           scheme_parsing: toWhole(appSettingsDraft.parsingCost),
           teaching_notes_generation: toWhole(appSettingsDraft.teachingNotesCost),
+          test_item_rewrite: toWhole(appSettingsDraft.testItemRewriteCost),
         },
         generated_file_retention: {
           days: Math.max(1, toWhole(appSettingsDraft.retentionDays)),
@@ -277,6 +279,17 @@ export default function AdminScreen() {
         translation_provider: {
           provider: appSettingsDraft.translationProvider || 'anthropic',
         },
+        visual_generation: {
+          enabled: appSettingsDraft.visualGenerationEnabled,
+          auto_generate: appSettingsDraft.visualAutoGenerate,
+          provider: appSettingsDraft.visualProvider || 'gemini',
+          model: appSettingsDraft.visualModel || 'gemini-3.1-flash-image-preview',
+          max_visuals_per_lesson: Math.max(0, toWhole(appSettingsDraft.visualMaxPerLesson)),
+          credit_cost_per_visual: Math.max(0, toWhole(appSettingsDraft.visualCreditCost)),
+        },
+        ...(appSettingsDraft.geminiApiKey.trim()
+          ? { gemini_api_key: { value: appSettingsDraft.geminiApiKey.trim() } }
+          : {}),
       });
       Alert.alert('Settings saved', 'App settings have been updated.');
       await load();
@@ -468,24 +481,30 @@ export default function AdminScreen() {
               <MaterialCommunityIcons name={sidebarCollapsed ? 'chevron-right' : 'chevron-left'} size={22} color={colors.primary} />
             </Pressable>
           </View>
-          {adminSections.map((item) => {
-            const active = item.id === section;
-            return (
-              <Pressable
-                key={item.id}
-                style={[styles.navItem, sidebarCollapsed && styles.navItemCollapsed, active && styles.navItemActive]}
-                onPress={() => {
-                  setSection(item.id);
-                  if (isMobile) setSidebarOpen(false);
-                }}
-              >
-                <MaterialCommunityIcons name={item.icon} size={22} color={active ? '#fff' : colors.primary} />
-                {sidebarCollapsed ? null : (
-                  <Text style={[styles.navLabel, active && styles.navLabelActive]}>{item.label}</Text>
-                )}
-              </Pressable>
-            );
-          })}
+          <ScrollView
+            style={styles.sidebarNav}
+            contentContainerStyle={styles.sidebarNavContent}
+            showsVerticalScrollIndicator={false}
+          >
+            {adminSections.map((item) => {
+              const active = item.id === section;
+              return (
+                <Pressable
+                  key={item.id}
+                  style={[styles.navItem, sidebarCollapsed && styles.navItemCollapsed, active && styles.navItemActive]}
+                  onPress={() => {
+                    setSection(item.id);
+                    if (isMobile) setSidebarOpen(false);
+                  }}
+                >
+                  <MaterialCommunityIcons name={item.icon} size={21} color={active ? '#fff' : colors.primary} />
+                  {sidebarCollapsed ? null : (
+                    <Text style={[styles.navLabel, active && styles.navLabelActive]}>{item.label}</Text>
+                  )}
+                </Pressable>
+              );
+            })}
+          </ScrollView>
         </View>
       ) : null}
 
@@ -572,6 +591,7 @@ export default function AdminScreen() {
                   loadMore={() => loadMoreReport('phone-signups')}
                 />
               ) : null}
+              {section === 'shared-lessons' ? <SharedLessonsSection /> : null}
               {section === 'logs' ? (
                 <LogsSection
                   logs={dashboard.logs}

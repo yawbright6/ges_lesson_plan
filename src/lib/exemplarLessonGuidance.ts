@@ -31,6 +31,8 @@ type IndicatorFocusGroup = {
   code?: string;
   indicator: string;
   exemplars: string[];
+  priorExemplars?: string[];
+  deferredExemplars?: string[];
 };
 
 export function buildExemplarLessonGuidance(input: {
@@ -53,7 +55,7 @@ export function buildExemplarLessonGuidance(input: {
   const focusGroups = entries.flatMap((entry) => getFocusGroupsForEntry(entry, source));
   if (!focusGroups.length) return undefined;
 
-  const lessonCount = Math.max(1, Math.min(input.sessionsPerWeek ?? 3, 3));
+  const lessonCount = Math.max(1, Math.min(input.sessionsPerWeek ?? 3, 4));
   const allFocuses = buildLessonFocuses(focusGroups, lessonCount, input.subject);
   const focusIndex = Math.min(
     Math.max((input.sessionIndex ?? 1) - 1, 0),
@@ -143,12 +145,15 @@ function getBestMatchingGroupsForEntry(
 }
 
 function getExemplarsForEntry(entry: SchemeWeekEntry, source: ExemplarSource): string[] {
-  const entryExemplars = entry.exemplars ?? [];
+  const entryExemplars = (entry.exemplars ?? []).map(cleanCurriculumText).filter(Boolean);
   const directCodes = uniqueStrings([
     ...extractIndicatorCodes(entry.indicator),
     ...extractIndicatorCodes(entry.contentStandard),
   ]);
-  const directExemplars = directCodes.flatMap((code) => source[code]?.exemplars ?? []);
+  const directExemplars = directCodes
+    .flatMap((code) => source[code]?.exemplars ?? [])
+    .map(cleanCurriculumText)
+    .filter(Boolean);
   if (directExemplars.length) return [...entryExemplars, ...directExemplars];
 
   const standardCode = extractStandardCode([entry.contentStandard, entry.indicator].join(' '));
@@ -172,8 +177,8 @@ function recordToGroup(
 ): IndicatorFocusGroup {
   return {
     code,
-    indicator: cleanIndicatorText(record.indicator),
-    exemplars: uniqueStrings(record.exemplars),
+    indicator: cleanCurriculumText(cleanIndicatorText(record.indicator)),
+    exemplars: uniqueStrings(record.exemplars.map(cleanCurriculumText).filter(Boolean)),
   };
 }
 
@@ -196,7 +201,9 @@ function getBestMatchingRecords(
 
   return scored
     .filter((item) => item.score === bestScore)
-    .flatMap((item) => item.exemplars);
+    .flatMap((item) => item.exemplars)
+    .map(cleanCurriculumText)
+    .filter(Boolean);
 }
 
 function getBestMatchingGroupRecords(
@@ -227,63 +234,125 @@ function buildLessonFocuses(
   subject: string
 ): string[] {
   const mode = getSubjectMode(subject);
-  const assignments = assignGroupsToLessons(groups, lessonCount);
-
-  return assignments.map((items, index) => {
+  const coreLessonCount = Math.min(lessonCount, 3);
+  const strictBoundaries = shouldUseStrictBoundaries(groups, coreLessonCount);
+  const assignments = assignGroupsToLessons(groups, coreLessonCount, mode);
+  const coreFocuses = assignments.map((items, index) => {
     const focusItems = items.length ? items : [groups[Math.min(index, groups.length - 1)]];
-    const focus = focusItems
-      .filter(Boolean)
-      .map(formatFocusGroup)
-      .join(' ');
+    const focus = strictBoundaries
+      ? formatBoundedLessonFocus({
+          currentGroups: focusItems.filter(Boolean),
+          previousGroups: assignments.slice(0, index).flat(),
+          futureGroups: assignments.slice(index + 1).flat(),
+          index,
+          lessonCount: coreLessonCount,
+        })
+      : focusItems
+          .filter(Boolean)
+          .map(formatFocusGroup)
+          .join(' ');
 
-    return decorateFocus(focus, mode, index, lessonCount);
+    return decorateFocus(focus, mode, index, coreLessonCount);
   });
+
+  if (lessonCount <= 3) return coreFocuses;
+
+  return [
+    ...coreFocuses,
+    decorateFocus(formatOptionalFourthFocus(groups), mode, coreFocuses.length, lessonCount),
+  ];
 }
 
 function decorateFocus(focus: string, mode: string, index: number, lessonCount: number): string {
+  const grounding = getIndicatorGroundingInstruction(mode);
+
   if (mode === 'english') {
-    return `Use as supporting teaching points, practice prompts and assessment cues, not as a separate weekly topic: ${focus}`;
+    return `${grounding} Use as supporting teaching points, practice prompts and assessment cues, not as a separate weekly topic: ${focus}`;
   }
 
   if (mode === 'ghanaian-language') {
-    return `Use as language-support guidance for the selected weekly aspect: oral practice, reading, usage, writing, cultural context, literature response and assessment cues, not as a separate unrelated weekly topic: ${focus}`;
+    return `${grounding} Use as language-support guidance for the selected weekly aspect: oral practice, reading, usage, writing, cultural context, literature response and assessment cues, not as a separate unrelated weekly topic: ${focus}`;
   }
 
   if (mode === 'french') {
-    return `Use as French language-support guidance for the selected weekly communicative function: listening, speaking, reading, writing, vocabulary, role-play, pronunciation, culture and assessment cues, not as a separate unrelated weekly topic: ${focus}`;
+    return `${grounding} Use as French language-support guidance for the selected weekly communicative function: listening, speaking, reading, writing, vocabulary, role-play, pronunciation, culture and assessment cues, not as a separate unrelated weekly topic: ${focus}`;
   }
 
   if (mode === 'mathematics') {
     return index === lessonCount - 1
-      ? `Consolidate with worked examples, similar practice problems and assessment: ${focus}`
-      : `Teach through anchor examples, worked examples and guided practice: ${focus}`;
+      ? `${grounding} Consolidate with worked examples, similar practice problems and assessment: ${focus}`
+      : `${grounding} Teach through anchor examples, worked examples and guided practice: ${focus}`;
   }
 
   if (mode === 'science') {
-    return `Use as investigation, observation, demonstration, discussion and assessment guidance: ${focus}`;
+    return `${grounding} Use as investigation, observation, demonstration, discussion and assessment guidance: ${focus}`;
   }
 
   if (mode === 'social-studies') {
-    return `Use as inquiry, local examples, discussion, role-play, research, presentation or community-action guidance: ${focus}`;
+    return `${grounding} Use as inquiry, local examples, discussion, role-play, research, presentation or community-action guidance: ${focus}`;
   }
 
   if (mode === 'computing') {
-    return `Use as practical ICT demonstration, hands-on exploration, troubleshooting, safe use or digital artefact guidance: ${focus}`;
+    return `${grounding} Use as practical ICT demonstration, hands-on exploration, troubleshooting, safe use or digital artefact guidance: ${focus}`;
   }
 
   if (mode === 'career-technology') {
-    return `Use as practical workshop, design, production, safety, materials, tools or enterprise activity guidance: ${focus}`;
+    return `${grounding} Use as practical workshop, design, production, safety, materials, tools or enterprise activity guidance: ${focus}`;
   }
 
   if (mode === 'rme') {
-    return `Use as religious knowledge, moral reflection, values application, discussion, role-play or community-life guidance: ${focus}`;
+    return `${grounding} Use as religious knowledge, moral reflection, values application, discussion, role-play or community-life guidance: ${focus}`;
   }
 
   if (mode === 'creative-arts-design') {
-    return `Use as creative process guidance: exploration, design thinking, media/technique practice, performance or making, display, appreciation and appraisal: ${focus}`;
+    return `${grounding} Use as creative process guidance: exploration, design thinking, media/technique practice, performance or making, display, appreciation and appraisal: ${focus}`;
   }
 
-  return `Use as curriculum exemplar guidance for activities, examples and assessment: ${focus}`;
+  if (mode === 'physical-education') {
+    return `${grounding} Use as Physical Education skill-progression guidance: warm-up, demonstration, safe practice, repeated performance, correction, teamwork and assessment: ${focus}`;
+  }
+
+  return `${grounding} Use as curriculum exemplar guidance for activities, examples and assessment: ${focus}`;
+}
+
+function getIndicatorGroundingInstruction(mode: string): string {
+  if (mode === 'computing') {
+    return 'Always begin from the assigned indicator: extract and teach any ICT concepts, tool names, interface terms, procedures, rules or expected learner skills present in it before using the exemplars. If the indicator is broad or skill-only, give a concise but meaningful skill explanation using the topic and sub-strand for context; do not invent unrelated content.';
+  }
+
+  if (mode === 'mathematics') {
+    return 'Always begin from the assigned indicator: extract and teach any mathematical concept, vocabulary, rule, method, process or common error point present in it before using the exemplars. If the indicator is broad or skill-only, give a concise but meaningful skill explanation using the topic and sub-strand for context; do not invent unrelated content.';
+  }
+
+  if (mode === 'science') {
+    return 'Always begin from the assigned indicator: extract and teach any science concept, process, variable, material, safety point or observable evidence present in it before using the exemplars. If the indicator is broad or skill-only, give a concise but meaningful skill explanation using the topic and sub-strand for context; do not invent unrelated content.';
+  }
+
+  if (mode === 'career-technology') {
+    return 'Always begin from the assigned indicator: extract and teach any tool, material, process, safety rule, design term or practical skill expectation present in it before using the exemplars. If the indicator is broad or skill-only, give a concise but meaningful skill explanation using the topic and sub-strand for context; do not invent unrelated content.';
+  }
+
+  if (mode === 'creative-arts-design') {
+    return 'Always begin from the assigned indicator: extract and teach any medium, technique, design principle, performance concept or appraisal vocabulary present in it before using the exemplars. If the indicator is broad or skill-only, give a concise but meaningful skill explanation using the topic and sub-strand for context; do not invent unrelated content.';
+  }
+
+  if (mode === 'physical-education') {
+    return 'Always begin from the assigned indicator: extract and teach any movement concept, skill cue, safety rule, performance criterion or teamwork expectation present in it before using the exemplars. If the indicator is broad or skill-only, give a concise but meaningful skill explanation using the topic and sub-strand for context; do not invent unrelated content.';
+  }
+
+  if (mode === 'english' || mode === 'ghanaian-language' || mode === 'french') {
+    return 'Always begin from the assigned indicator: extract and teach any communicative function, vocabulary, language structure, text feature or pronunciation focus present in it before using the exemplars. If the indicator is broad or skill-only, give a concise but meaningful skill explanation using the topic and sub-strand for context; do not invent unrelated content.';
+  }
+
+  if (mode === 'rme') {
+    return 'Always begin from the assigned indicator: extract and teach any belief, moral concept, value, practice, story or life-application idea present in it before using the exemplars. If the indicator is broad or skill-only, give a concise but meaningful skill explanation using the topic and sub-strand for context; do not invent unrelated content.';
+  }
+
+  if (mode === 'social-studies') {
+    return 'Always begin from the assigned indicator: extract and teach any civic, historical, geographical, economic or social concept present in it before using the exemplars. If the indicator is broad or skill-only, give a concise but meaningful skill explanation using the topic and sub-strand for local context; do not invent unrelated content.';
+  }
+
+  return 'Always begin from the assigned indicator: extract and teach any concept, term, skill, process, rule or value present in it before using the exemplars. If the indicator is broad or skill-only, give a concise but meaningful skill explanation using the topic and sub-strand for context; do not invent unrelated content.';
 }
 
 function splitEvenly(values: string[], groups: number): string[][] {
@@ -300,14 +369,15 @@ function splitEvenly(values: string[], groups: number): string[][] {
 
 function assignGroupsToLessons(
   groups: IndicatorFocusGroup[],
-  lessonCount: number
+  lessonCount: number,
+  mode: string
 ): IndicatorFocusGroup[][] {
   if (lessonCount <= 1) return [groups];
-  if (groups.length === 1) return splitSingleGroupAcrossLessons(groups[0], lessonCount);
+  if (groups.length === 1) return splitSingleGroupAcrossLessons(groups[0], lessonCount, mode);
   if (groups.length >= lessonCount) return splitGroupListEvenly(groups, lessonCount);
 
   const allocations = allocateLessonCounts(groups, lessonCount);
-  return allocations.flatMap(({ group, count }) => splitSingleGroupAcrossLessons(group, count));
+  return allocations.flatMap(({ group, count }) => splitSingleGroupAcrossLessons(group, count, mode));
 }
 
 function splitGroupListEvenly(
@@ -344,14 +414,18 @@ function allocateLessonCounts(
 
 function splitSingleGroupAcrossLessons(
   group: IndicatorFocusGroup,
-  lessonCount: number
+  lessonCount: number,
+  mode: string
 ): IndicatorFocusGroup[][] {
-  const exemplarChunks = splitEvenly(group.exemplars, lessonCount);
+  const orderedExemplars = orderExemplarsForProgression(group.exemplars, mode);
+  const exemplarChunks = splitEvenly(orderedExemplars, lessonCount);
 
-  return exemplarChunks.map((exemplars) => [
+  return exemplarChunks.map((exemplars, index) => [
     {
       ...group,
       exemplars: exemplars.length ? exemplars : group.exemplars,
+      priorExemplars: exemplarChunks.slice(0, index).flat(),
+      deferredExemplars: exemplarChunks.slice(index + 1).flat(),
     },
   ]);
 }
@@ -370,9 +444,180 @@ function formatFocusGroup(group: IndicatorFocusGroup): string {
   return `Assigned indicator: ${codePrefix}${group.indicator}. ${exemplarText}`;
 }
 
+function shouldUseStrictBoundaries(groups: IndicatorFocusGroup[], lessonCount: number): boolean {
+  if (lessonCount <= 1) return false;
+  if (groups.length > lessonCount) return true;
+  if (groups.length > 1 && lessonCount <= 2) return true;
+
+  const totalExemplars = groups.reduce((sum, group) => sum + group.exemplars.length, 0);
+  const hasDenseGroup = groups.some((group) => group.exemplars.length > lessonCount);
+  const hasComplexIndicator = groups.some((group) => estimateConceptCount(group.indicator) >= 3);
+  const hasMixedPurpose = groups.some((group) => {
+    const stages = new Set(group.exemplars.map((exemplar) => classifyExemplarStage(exemplar, 'general')));
+    return stages.size >= 2 && group.exemplars.length > 2;
+  });
+
+  return totalExemplars > lessonCount + 1 || hasDenseGroup || hasComplexIndicator || hasMixedPurpose;
+}
+
+function formatBoundedLessonFocus(input: {
+  currentGroups: IndicatorFocusGroup[];
+  previousGroups: IndicatorFocusGroup[];
+  futureGroups: IndicatorFocusGroup[];
+  index: number;
+  lessonCount: number;
+}): string {
+  const current = input.currentGroups.map(formatTeachNowGroup).join(' ');
+  const previous = uniqueStrings([
+    ...input.previousGroups.flatMap((group) => group.exemplars),
+    ...input.currentGroups.flatMap((group) => group.priorExemplars ?? []),
+  ]);
+  const future = uniqueStrings([
+    ...input.futureGroups.flatMap((group) => group.exemplars),
+    ...input.currentGroups.flatMap((group) => group.deferredExemplars ?? []),
+  ]);
+  const lessonRole = getLessonRole(input.index, input.lessonCount);
+  const reviewText = previous.length
+    ? `Review only, do not reteach as main content: ${previous.join(' ')}`
+    : 'Use prerequisite ideas from the indicator only as brief context.';
+  const futureText = future.length
+    ? `Do not teach yet as main content: ${future.join(' ')}`
+    : 'No later exemplar is withheld for this week.';
+
+  return `${lessonRole} Teach now: ${current} ${reviewText} ${futureText} If the assigned indicator mentions more concepts than today's lesson-only exemplars need, unpack only the indicator concepts needed for Teach now and leave the rest for the later boundary. Keep starter, activities, performance indicator and assessment inside the Teach now boundary.`;
+}
+
+function formatTeachNowGroup(group: IndicatorFocusGroup): string {
+  const codePrefix = group.code ? `${group.code} ` : '';
+  const exemplarText = group.exemplars.length
+    ? group.exemplars.join(' ')
+    : 'Use only the activities implied by this assigned indicator.';
+
+  return `Assigned indicator: ${codePrefix}${group.indicator}. Lesson-only exemplars: ${exemplarText}`;
+}
+
+function getLessonRole(index: number, lessonCount: number): string {
+  if (lessonCount === 2) {
+    return index === 0
+      ? 'This is the foundation lesson: introduce and unpack the assigned concept(s), then handle only the first/foundation exemplar set.'
+      : 'This is the application and consolidation lesson: briefly review earlier work, then handle the remaining/deeper exemplar set.';
+  }
+
+  if (index === 0) return 'This is the foundation lesson: introduce concepts, vocabulary and simple recognition/practice.';
+  if (index === lessonCount - 1) return 'This is the application and consolidation lesson: use deeper practice, production, investigation, performance or assessment.';
+  return 'This is the guided practice lesson: develop the middle exemplar set without jumping to final consolidation.';
+}
+
+function orderExemplarsForProgression(exemplars: string[], mode: string): string[] {
+  return exemplars
+    .map((exemplar, index) => ({
+      exemplar,
+      index,
+      stage: classifyExemplarStage(exemplar, mode),
+    }))
+    .sort((left, right) => left.stage - right.stage || left.index - right.index)
+    .map((item) => item.exemplar);
+}
+
+function classifyExemplarStage(exemplar: string, mode: string): number {
+  const text = normalizeForVerbMatch(exemplar);
+  const foundation = getFoundationVerbs(mode);
+  const application = getApplicationVerbs(mode);
+
+  if (hasAnyVerb(text, foundation)) return 0;
+  if (hasAnyVerb(text, application)) return 2;
+  return 1;
+}
+
+function normalizeForVerbMatch(value: string): string {
+  return value.toLowerCase().replace(/[^a-z0-9]+/g, ' ').replace(/\s+/g, ' ').trim();
+}
+
+function hasAnyVerb(text: string, verbs: string[]): boolean {
+  return verbs.some((verb) => text.includes(normalizeForVerbMatch(verb)));
+}
+
+function getFoundationVerbs(mode: string): string[] {
+  const shared = ['identify', 'list', 'name', 'state', 'recognise', 'recognize', 'observe', 'describe', 'define'];
+
+  if (mode === 'mathematics') return [...shared, 'estimate', 'represent', 'read'];
+  if (mode === 'science') return [...shared, 'observe', 'predict', 'classify'];
+  if (mode === 'computing') return [...shared, 'explain', 'investigate'];
+  if (mode === 'english' || mode === 'ghanaian-language' || mode === 'french') {
+    return [...shared, 'listen', 'repeat', 'recite', 'read', 'pronounce', 'vocabulary'];
+  }
+  if (mode === 'creative-arts-design') return [...shared, 'explore', 'sketch', 'experiment'];
+  if (mode === 'career-technology') return [...shared, 'explain', 'select', 'measure'];
+  if (mode === 'physical-education') return [...shared, 'demonstrate', 'practise basic', 'warm'];
+  if (mode === 'rme' || mode === 'social-studies') return [...shared, 'explain', 'discuss'];
+
+  return shared;
+}
+
+function getApplicationVerbs(mode: string): string[] {
+  const shared = [
+    'apply',
+    'solve',
+    'create',
+    'make',
+    'design',
+    'construct',
+    'produce',
+    'present',
+    'evaluate',
+    'appraise',
+    'compare',
+    'distinguish',
+    'differentiate',
+    'investigate',
+    'explore',
+    'role play',
+    'role-play',
+    'perform',
+    'display',
+    'exhibit',
+    'write',
+  ];
+
+  if (mode === 'computing') return [...shared, 'troubleshoot', 'configure', 'format', 'enter', 'use'];
+  if (mode === 'mathematics') return [...shared, 'calculate', 'draw', 'derive', 'prove'];
+  if (mode === 'science') return [...shared, 'experiment', 'record', 'analyse', 'analyze', 'conclude'];
+  if (mode === 'english' || mode === 'ghanaian-language' || mode === 'french') {
+    return [...shared, 'compose', 'speak', 'dramatise', 'dramatize', 'summarise', 'summarize'];
+  }
+  if (mode === 'career-technology') return [...shared, 'cut', 'join', 'cook', 'sew', 'assemble'];
+  if (mode === 'creative-arts-design') return [...shared, 'compose', 'choreograph', 'perform'];
+  if (mode === 'physical-education') return [...shared, 'play', 'compete', 'officiate'];
+
+  return shared;
+}
+
+function estimateConceptCount(value: string): number {
+  return value
+    .split(/\s+(?:and|or|,|\/|\(|\))\s*/i)
+    .map((part) => part.trim())
+    .filter((part) => part.length > 3).length;
+}
+
+function formatOptionalFourthFocus(groups: IndicatorFocusGroup[]): string {
+  const assignedIndicators = uniqueStrings(
+    groups.map((group) => `${group.code ? `${group.code} ` : ''}${group.indicator}`)
+  );
+  const exemplarPool = uniqueStrings(groups.flatMap((group) => group.exemplars)).slice(0, 8);
+
+  const indicatorText = assignedIndicators.length
+    ? assignedIndicators.join('; ')
+    : 'the indicators already assigned earlier in the week';
+  const exemplarText = exemplarPool.length
+    ? `Previously treated exemplar pool: ${exemplarPool.join(' ')}`
+    : 'Use the same examples and activities already treated earlier in the week.';
+
+  return `Optional fourth lesson: do not introduce a new indicator. Revisit only already treated indicators (${indicatorText}) through extra practice, remediation, enrichment, project completion, peer review and short assessment. ${exemplarText}`;
+}
+
 function extractIndicatorCodes(value?: string): string[] {
   const text = normalizeCurriculumCodeSpacing(value ?? '');
-  const directCodes = text.match(/B[789](?:\/JHS[123])?(?:\.\d+){4}/g) ?? [];
+  const directCodes = text.match(/B[1-9](?:\/JHS[1-3])?(?:\.\d+){4}/g) ?? [];
   const expanded = [...directCodes];
 
   for (const code of directCodes) {
@@ -396,12 +641,12 @@ function extractIndicatorCodes(value?: string): string[] {
 }
 
 function extractStandardCode(value?: string): string {
-  return normalizeCurriculumCodeSpacing(value ?? '').match(/B[789](?:\/JHS[123])?(?:\.\d+){3}/)?.[0] ?? '';
+  return normalizeCurriculumCodeSpacing(value ?? '').match(/B[1-9](?:\/JHS[1-3])?(?:\.\d+){3}/)?.[0] ?? '';
 }
 
 function extractCurriculumCodePrefixes(value?: string): string[] {
   const text = normalizeCurriculumCodeSpacing(value ?? '');
-  const matches = text.match(/B[789](?:\/JHS[123])?(?:\.\d+){2,3}/g) ?? [];
+  const matches = text.match(/B[1-9](?:\/JHS[1-3])?(?:\.\d+){2,3}/g) ?? [];
   return uniqueStrings(matches);
 }
 
@@ -418,6 +663,23 @@ function cleanIndicatorText(value?: string): string {
     .replace(/^B[1-9](?:\/JHS[1-3])?(?:\.\d+){4}(?:-\d+(?:\.\d+)*)?\s*/, '')
     .replace(/\s+/g, ' ')
     .trim();
+}
+
+function cleanCurriculumText(value: string): string {
+  return value
+    .replace(/â€™/g, "'")
+    .replace(/â€œ|â€/g, '"')
+    .replace(/â€“|â€”/g, '-')
+    .replace(/Â©/g, '')
+    .replace(/\b\d+\s*©?\s*NaCCA,?\s+Ministry of Education\s+\d{4}\b/gi, '')
+    .replace(/\bNaCCA,?\s+Ministry of Education\s+\d{4}\b/gi, '')
+    .replace(/\bSUB-STRAND\s+\d+:[^"]*$/gi, '')
+    .replace(/\bSUBJECT SPECIFIC\s+(?:PRACTICES|CONTENT)[^"]*$/gi, '')
+    .replace(/\bCONTENT STANDARD\s*:?\s*$/gi, '')
+    .replace(/\bCONT['’]?D\b/gi, '')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .replace(/^\.+\s*/, '');
 }
 
 function getExemplarSource(subject: string): ExemplarSource | null {

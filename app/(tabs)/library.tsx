@@ -14,11 +14,11 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { router, useFocusEffect } from 'expo-router';
-import { Button } from '@/components/Button';
 import { useToast } from '@/components/ToastProvider';
 import {
   exportLessonPlanPdf,
   exportLessonPlansPdf,
+  exportRewrittenTestPaperPdf,
   exportSchemePdf,
   exportTeachingNotesPdf,
   shareLessonPlan,
@@ -28,24 +28,27 @@ import {
 import { deleteLessonPlan, loadLessonWorks } from '@/lib/lessonStore';
 import { deleteScheme, loadSchemes } from '@/lib/schemeStore';
 import { deleteTeachingNotes, loadTeachingNotes } from '@/lib/teachingNotesStore';
-import { getErrorMessage } from '@/lib/appError';
+import { deleteTestPaper, loadTestPapers } from '@/lib/testPaperStore';
 import { colors, radii, shadows, spacing, typography } from '@/theme/colors';
 import type { LessonPlanBundle, SavedLessonWork } from '@/types/lessonPlan';
 import type { SchemeOfWork } from '@/types/scheme';
 import type { TeachingNotes } from '@/types/teachingNotes';
+import type { CompiledTestPaper } from '@/types/testItemCompiler';
 
-type LibraryTab = 'lesson' | 'scheme' | 'notes';
+type LibraryTab = 'lesson' | 'scheme' | 'notes' | 'tests';
 type SortMode = 'newest' | 'title';
 
 type LibraryItem =
   | { kind: 'lesson'; work: SavedLessonWork }
   | { kind: 'scheme'; scheme: SchemeOfWork }
-  | { kind: 'notes'; notes: TeachingNotes };
+  | { kind: 'notes'; notes: TeachingNotes }
+  | { kind: 'tests'; paper: CompiledTestPaper };
 
 const tabs: Array<{ key: LibraryTab; label: string; icon: keyof typeof Ionicons.glyphMap }> = [
   { key: 'lesson', label: 'Lesson Plan', icon: 'document-text-outline' },
   { key: 'scheme', label: 'Scheme', icon: 'calendar-outline' },
   { key: 'notes', label: 'Teaching Notes', icon: 'reader-outline' },
+  { key: 'tests', label: 'Test Papers', icon: 'clipboard-outline' },
 ];
 
 export default function LibraryScreen() {
@@ -56,27 +59,20 @@ export default function LibraryScreen() {
   const [lessonWorks, setLessonWorks] = useState<SavedLessonWork[]>([]);
   const [notes, setNotes] = useState<TeachingNotes[]>([]);
   const [schemes, setSchemes] = useState<SchemeOfWork[]>([]);
-  const [loadErrors, setLoadErrors] = useState<string[]>([]);
+  const [testPapers, setTestPapers] = useState<CompiledTestPaper[]>([]);
 
   const refresh = useCallback(async () => {
-    const [lessonResult, notesResult, schemeResult] = await Promise.allSettled([
+    const [lessonResult, notesResult, schemeResult, testsResult] = await Promise.allSettled([
       loadLessonWorks(),
       loadTeachingNotes(),
       loadSchemes(),
+      loadTestPapers(),
     ]);
     setLessonWorks(lessonResult.status === 'fulfilled' ? lessonResult.value : []);
     setNotes(notesResult.status === 'fulfilled' ? notesResult.value : []);
     setSchemes(schemeResult.status === 'fulfilled' ? schemeResult.value : []);
-    const errors = [
-      lessonResult.status === 'rejected' ? `Lesson plans: ${getErrorMessage(lessonResult.reason)}` : '',
-      notesResult.status === 'rejected' ? `Teaching notes: ${getErrorMessage(notesResult.reason)}` : '',
-      schemeResult.status === 'rejected' ? `Schemes: ${getErrorMessage(schemeResult.reason)}` : '',
-    ].filter(Boolean);
-    setLoadErrors(errors);
-    if (errors.length) {
-      showToast({ message: errors[0], type: 'error' });
-    }
-  }, [showToast]);
+    setTestPapers(testsResult.status === 'fulfilled' ? testsResult.value : []);
+  }, []);
 
   useEffect(() => {
     refresh();
@@ -93,15 +89,17 @@ export default function LibraryScreen() {
       lesson: lessonWorks.length,
       scheme: schemes.length,
       notes: notes.length,
+      tests: testPapers.length,
     }),
-    [lessonWorks.length, notes.length, schemes.length],
+    [lessonWorks.length, notes.length, schemes.length, testPapers.length],
   );
 
   const activeItems = useMemo<LibraryItem[]>(() => {
     if (activeTab === 'lesson') return lessonWorks.map((work) => ({ kind: 'lesson', work }));
     if (activeTab === 'scheme') return schemes.map((scheme) => ({ kind: 'scheme', scheme }));
-    return notes.map((item) => ({ kind: 'notes', notes: item }));
-  }, [activeTab, lessonWorks, notes, schemes]);
+    if (activeTab === 'notes') return notes.map((item) => ({ kind: 'notes', notes: item }));
+    return testPapers.map((paper) => ({ kind: 'tests', paper }));
+  }, [activeTab, lessonWorks, notes, schemes, testPapers]);
 
   const filteredItems = useMemo(() => {
     const normalizedQuery = query.trim().toLowerCase();
@@ -147,6 +145,14 @@ export default function LibraryScreen() {
     showToast({ message: 'Teaching notes deleted.' });
   }
 
+  async function confirmDeleteTestPaper(paper: CompiledTestPaper) {
+    const confirmed = await confirmRemoval('Delete test paper', `Delete ${paper.title}?`);
+    if (!confirmed || !paper.id) return;
+    await deleteTestPaper(paper.id);
+    await refresh();
+    showToast({ message: 'Test paper deleted.' });
+  }
+
   return (
     <FlatList
       style={styles.container}
@@ -154,27 +160,17 @@ export default function LibraryScreen() {
       data={filteredItems}
       keyExtractor={getItemKey}
       ListHeaderComponent={
-        <>
-          <LibraryHeader
-            activeTab={activeTab}
-            activeTabLabel={activeTabLabel}
-            counts={counts}
-            query={query}
-            sortMode={sortMode}
-            totalVisible={filteredItems.length}
-            onChangeQuery={setQuery}
-            onChangeSort={setSortMode}
-            onSelectTab={setActiveTab}
-          />
-          {loadErrors.length ? (
-            <View style={styles.errorBanner}>
-              {loadErrors.map((message) => (
-                <Text key={message} style={styles.errorText}>{message}</Text>
-              ))}
-              <Button title="Retry" variant="secondary" onPress={refresh} style={styles.retryButton} />
-            </View>
-          ) : null}
-        </>
+        <LibraryHeader
+          activeTab={activeTab}
+          activeTabLabel={activeTabLabel}
+          counts={counts}
+          query={query}
+          sortMode={sortMode}
+          totalVisible={filteredItems.length}
+          onChangeQuery={setQuery}
+          onChangeSort={setSortMode}
+          onSelectTab={setActiveTab}
+        />
       }
       ListEmptyComponent={<EmptyState activeTabLabel={activeTabLabel} hasQuery={Boolean(query.trim())} />}
       renderItem={({ item }) =>
@@ -182,14 +178,35 @@ export default function LibraryScreen() {
           <LessonCard work={item.work} onDelete={() => confirmDeleteLesson(item.work)} />
         ) : item.kind === 'scheme' ? (
           <SchemeCard scheme={item.scheme} onDelete={() => confirmDeleteScheme(item.scheme)} />
-        ) : (
+        ) : item.kind === 'notes' ? (
           <TeachingNotesCard notes={item.notes} onDelete={() => confirmDeleteNotes(item.notes)} />
+        ) : (
+          <TestPaperCard paper={item.paper} onDelete={() => confirmDeleteTestPaper(item.paper)} />
         )
       }
       initialNumToRender={12}
       maxToRenderPerBatch={12}
       windowSize={7}
       removeClippedSubviews={Platform.OS !== 'web'}
+    />
+  );
+}
+
+function TestPaperCard({ paper, onDelete }: { paper: CompiledTestPaper; onDelete: () => void }) {
+  return (
+    <DocumentCard
+      icon="clipboard-outline"
+      title={`${paper.subject} - ${paper.classLevel} - ${paper.termTitle ?? 'Term'} Test`}
+      subtitle={`${paper.totalMarks} marks | ${paper.title}`}
+      meta={formatDate(paper.createdAt)}
+      onOpen={() => router.push(`/test-paper/${paper.id}`)}
+      actions={
+        <CardActions
+          onShare={() => exportRewrittenTestPaperPdf(paper)}
+          onPdf={() => exportRewrittenTestPaperPdf(paper)}
+          onDelete={onDelete}
+        />
+      }
     />
   );
 }
@@ -224,7 +241,7 @@ function LibraryHeader({
           <Text style={styles.sub}>Find, open, export, and manage everything you have created.</Text>
         </View>
         <View style={styles.fileCountPill}>
-          <Text style={styles.fileCountValue}>{counts.lesson + counts.scheme + counts.notes}</Text>
+          <Text style={styles.fileCountValue}>{counts.lesson + counts.scheme + counts.notes + counts.tests}</Text>
           <Text style={styles.fileCountLabel}>files</Text>
         </View>
       </View>
@@ -479,13 +496,15 @@ function confirmRemoval(title: string, message: string): Promise<boolean> {
 function getItemKey(item: LibraryItem) {
   if (item.kind === 'lesson') return `lesson-${item.work.id ?? `${item.work.subject}-${item.work.week}`}`;
   if (item.kind === 'scheme') return `scheme-${item.scheme.id ?? `${item.scheme.subject}-${item.scheme.term}`}`;
-  return `notes-${item.notes.id ?? `${item.notes.subject}-${item.notes.week}`}`;
+  if (item.kind === 'notes') return `notes-${item.notes.id ?? `${item.notes.subject}-${item.notes.week}`}`;
+  return `test-${item.paper.id ?? `${item.paper.subject}-${item.paper.classLevel}-${item.paper.createdAt}`}`;
 }
 
 function getItemTitle(item: LibraryItem) {
   if (item.kind === 'lesson') return `${item.work.subject} ${item.work.classLevel} Week ${item.work.week}`;
   if (item.kind === 'scheme') return `${item.scheme.subject} ${item.scheme.classLevel} ${item.scheme.term}`;
-  return `${item.notes.subject} ${item.notes.classLevel} Week ${item.notes.week}`;
+  if (item.kind === 'notes') return `${item.notes.subject} ${item.notes.classLevel} Week ${item.notes.week}`;
+  return `${item.paper.subject} ${item.paper.classLevel} ${item.paper.termTitle ?? ''}`;
 }
 
 function getSearchText(item: LibraryItem) {
@@ -503,6 +522,10 @@ function getSearchText(item: LibraryItem) {
     const scheme = item.scheme;
     return [scheme.title, scheme.subject, scheme.classLevel, scheme.term, scheme.academicYear].join(' ').toLowerCase();
   }
+  if (item.kind === 'tests') {
+    const paper = item.paper;
+    return [paper.title, paper.subject, paper.classLevel, paper.termTitle, paper.totalMarks].join(' ').toLowerCase();
+  }
   const note = item.notes;
   return [note.title, note.subject, note.classLevel, note.topic, note.week, note.lessonNumber].join(' ').toLowerCase();
 }
@@ -513,7 +536,9 @@ function getTimestamp(item: LibraryItem) {
       ? item.work.updatedAt ?? item.work.createdAt
       : item.kind === 'scheme'
         ? item.scheme.createdAt
-        : item.notes.updatedAt ?? item.notes.createdAt;
+        : item.kind === 'notes'
+          ? item.notes.updatedAt ?? item.notes.createdAt
+          : item.paper.createdAt;
   const timestamp = value ? new Date(value).getTime() : 0;
   return Number.isFinite(timestamp) ? timestamp : 0;
 }
@@ -620,17 +645,6 @@ const styles = StyleSheet.create({
   searchInput: { flex: 1, minHeight: 42, color: colors.text, fontSize: 15 },
   sortRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: spacing[4] },
   resultsText: { ...typography.bodySm, color: colors.textMuted, fontWeight: '600' },
-  errorBanner: {
-    backgroundColor: colors.dangerSoft,
-    borderWidth: 1,
-    borderColor: colors.danger,
-    borderRadius: radii.md,
-    padding: spacing[5],
-    marginBottom: spacing[5],
-    gap: spacing[3],
-  },
-  errorText: { ...typography.bodySm, color: colors.danger },
-  retryButton: { alignSelf: 'flex-start', minHeight: 40 },
   sortSegment: {
     flexDirection: 'row',
     borderWidth: 1,

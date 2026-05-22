@@ -13,6 +13,16 @@ export const mathematicsExemplarsByIndicator: Record<string, MathematicsExemplar
     ],
     sourcePage: 32,
   },
+  "B7.1.1.1.2": {
+    indicator: "Compare and order whole numbers more than 1,000,000,000 and represent the comparison using >, < or =",
+    exemplars: [
+      "Skip count forwards and backwards in 25s, 50s and 250s beginning from 1000.",
+      "Identify numbers which are 500,000 more than or less than a given 8-digit or 9-digit number.",
+      "Use phrases such as is equal to, is greater than and is less than, as well as the symbols >, < and =, to compare any two numbers.",
+      "Identify, read and write numbers in given positions in a number chart."
+    ],
+    sourcePage: 33,
+  },
   "B7.1.1.1.3": {
     indicator: "Round (off, up, down) whole numbers more than Personal Development understanding and the 1,000,000,000 to the nearest hundred-thousand, ten-thousands, and Leadership (PL) use of place value for thousands, hundreds and tens expressing quantities recorded as base ten",
     exemplars: [
@@ -1106,6 +1116,16 @@ export const mathematicsExemplarsByIndicator: Record<string, MathematicsExemplar
     indicator: "Identify simple and compound surds. Critical Thinking and understanding of surds as",
     exemplars: [
           "E.g. Problem solving (CP) real numbers, the process of adding and subtracting of Communication and surds as well as determining i. √2, ii. 7√3, iii. 2√5 Collaboration (CC) (using a calculator) the approximate square root of a iBv9. (.1√.32.+4.√2 7E−xp√la5i)n the identities/rules of surds Creativity and number that is not a perfect Innovation (CI) Rule 1 Rule 4 square. √R𝑎𝑎ul×e 𝑎𝑎2 = √𝑎𝑎 × √𝑎𝑎 Rule 5𝑎𝑎 √𝑎𝑎 ± 𝑎𝑎√𝑎𝑎 = (𝑎𝑎 ± 𝑎𝑎)√𝑎𝑎 𝑎𝑎 √𝑎𝑎 𝑎𝑎 𝑎𝑎 𝑎𝑎 − 𝑎𝑎√𝑚𝑚 √ = = × R𝑎𝑎ule 3√ 𝑎𝑎 Rul𝑎𝑎e +6 𝑎𝑎√𝑚𝑚 𝑎𝑎 + 𝑎𝑎√𝑚𝑚 𝑎𝑎 − 𝑎𝑎√𝑚𝑚 𝑎𝑎 𝑎𝑎 √𝑎𝑎 𝑎𝑎√𝑎𝑎 𝑎𝑎 𝑎𝑎 𝑎𝑎 + 𝑎𝑎√𝑚𝑚 = × = = × √𝑎𝑎 √𝑎𝑎 √𝑎𝑎 𝑎𝑎 𝑎𝑎 − 𝑎𝑎√𝑚𝑚 𝑎𝑎 − 𝑎𝑎√𝑚𝑚 𝑎𝑎 + 𝑎𝑎√𝑚𝑚"
+    ],
+    sourcePage: 200,
+  },
+  "B9.1.2.4.2": {
+    indicator: "Explain the identities/rules of surds.",
+    exemplars: [
+      "Explain and apply the product rule for surds, for example sqrt(a x b) = sqrt(a) x sqrt(b).",
+      "Explain and apply the quotient rule for surds, for example sqrt(a / b) = sqrt(a) / sqrt(b), where appropriate.",
+      "Use addition and subtraction rules for like surds, for example a sqrt(m) + b sqrt(m) = (a + b) sqrt(m).",
+      "Use rationalisation ideas involving conjugates to simplify expressions with surds in the denominator."
     ],
     sourcePage: 200,
   },

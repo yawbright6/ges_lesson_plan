@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Alert,
   KeyboardAvoidingView,
@@ -18,8 +18,9 @@ import { GenerationProgress } from '@/components/GenerationProgress';
 import { LessonPlanStack, LessonPlanTable } from '@/components/LessonPlanTable';
 import { PreviewActionButton, PreviewActions, PreviewHeader } from '@/components/PreviewChrome';
 import { SelectField } from '@/components/SelectField';
+import ShareWithAdminModal from '@/components/ShareWithAdminModal';
 import { useToast } from '@/components/ToastProvider';
-import { formatAiActionError, generateLessonPlan, isInsufficientCreditsError } from '@/lib/ai';
+import { formatAiActionError, generateLessonPlan, isInsufficientCreditsError, translateLessonPlan } from '@/lib/ai';
 import { defaultRuntimeSettings, loadRuntimeAppSettings } from '@/lib/appSettings';
 import { loadCreditBalance } from '@/lib/credits';
 import { exportLessonPlanPdf, exportLessonPlansPdf, shareLessonPlan, shareLessonPlans } from '@/lib/export';
@@ -32,6 +33,7 @@ import {
   getWeekOptions,
   LESSONS_PER_WEEK_OPTIONS,
   TERM_OPTIONS,
+  LOCAL_LANGUAGE_OPTIONS,
 } from '@/lib/options';
 import { findMatchingScheme, loadMatchingSchemes } from '@/lib/schemeStore';
 import {
@@ -39,9 +41,10 @@ import {
   setLessonsPerWeekForSubject,
 } from '@/lib/subjectPrefs';
 import { calculateWeekEnding, loadTermStartDate, saveTermStartDate } from '@/lib/termDates';
+import { loadLastSelectedTerm, saveLastSelectedTerm } from '@/lib/termPrefs';
 import { loadTeacherProfile } from '@/lib/teacherProfile';
 import { colors, radii, shadows, spacing, typography } from '@/theme/colors';
-import type { ClassLevel, LessonPlan } from '@/types/lessonPlan';
+import type { ClassLevel, LessonPlan, LessonPlanBundle } from '@/types/lessonPlan';
 import type { SchemeOfWork } from '@/types/scheme';
 
 type LessonSelection = number | 'all';
@@ -52,6 +55,7 @@ export default function GenerateScreen() {
   const [subject, setSubject] = useState(getDefaultSubjectForClassLevel('B7'));
   const [week, setWeek] = useState('1');
   const [term, setTerm] = useState('Term 1');
+  const [termPrefsLoaded, setTermPrefsLoaded] = useState(false);
   const [sessionsPerWeekInput, setSessionsPerWeekInput] = useState('3');
   const [sessionIndex, setSessionIndex] = useState<LessonSelection>(1);
   const [termStartDate, setTermStartDate] = useState('');
@@ -65,15 +69,9 @@ export default function GenerateScreen() {
   const [selectedSchemeId, setSelectedSchemeId] = useState<string | null>(null);
   const [savedPlanIds, setSavedPlanIds] = useState<string[]>([]);
   const [savedBundleId, setSavedBundleId] = useState<string | null>(null);
-  const generationAbortController = useRef<AbortController | null>(null);
-  const mounted = useRef(true);
-
-  useEffect(() => {
-    return () => {
-      mounted.current = false;
-      generationAbortController.current?.abort();
-    };
-  }, []);
+  const [shareModalOpen, setShareModalOpen] = useState(false);
+  const [previewLocalLanguage, setPreviewLocalLanguage] = useState('');
+  const [previewTranslating, setPreviewTranslating] = useState(false);
 
   const subjectOptions = useMemo(
     () => getSubjectOptionsForClassLevel(classLevel),
@@ -129,10 +127,7 @@ export default function GenerateScreen() {
           setCreditBalance(balance);
           setLessonCreditCost(settings.featureCreditCosts.lesson_generation);
         })
-        .catch((err) => {
-          const message = err instanceof Error ? err.message : 'Unable to load credit settings.';
-          showToast({ message, type: 'error' });
-        });
+        .catch(() => undefined);
     }, [refreshSchemes]),
   );
 
@@ -189,6 +184,22 @@ export default function GenerateScreen() {
   }, [subject, sessionsPerWeek]);
 
   useEffect(() => {
+    let active = true;
+    loadLastSelectedTerm().then((savedTerm) => {
+      if (active && savedTerm) setTerm(savedTerm);
+    }).catch(() => undefined).finally(() => {
+      if (active) setTermPrefsLoaded(true);
+    });
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (termPrefsLoaded) saveLastSelectedTerm(term).catch(() => undefined);
+  }, [term, termPrefsLoaded]);
+
+  useEffect(() => {
     const currentWeek = Number(week);
     if (availableWeeks.length && !availableWeeks.includes(currentWeek)) {
       setWeek(String(availableWeeks[0]));
@@ -232,18 +243,10 @@ export default function GenerateScreen() {
       return;
     }
 
-    const controller = new AbortController();
-    generationAbortController.current?.abort();
-    generationAbortController.current = controller;
     setLoading(true);
-
     try {
-      if (controller.signal.aborted || !mounted.current) return;
-
       if (sessionIndex === 'all') {
         const balance = await loadCreditBalance();
-        if (controller.signal.aborted || !mounted.current) return;
-        
         if (balance < generationCost) {
           const message = `You need ${formatCredits(generationCost)} to generate all ${sessionsPerWeek} lessons for this week.`;
           showToast({ message, type: 'error' });
@@ -256,8 +259,6 @@ export default function GenerateScreen() {
       }
 
       const teacherProfile = await loadTeacherProfile();
-      if (controller.signal.aborted || !mounted.current) return;
-
       const weekEnding = calculateWeekEnding(termStartDate, weekNum);
       const classSize = teacherProfile.classSizes?.[classLevel]?.trim() ?? '';
       const generated: LessonPlan[] = [];
@@ -265,8 +266,6 @@ export default function GenerateScreen() {
       let bundleId: string | null = null;
 
       for (const lessonNumber of selectedLessonNumbers) {
-        if (controller.signal.aborted || !mounted.current) break;
-
         const result = await generateLessonPlan(
           {
             subject: subject.trim(),
@@ -284,7 +283,6 @@ export default function GenerateScreen() {
             classSize,
           },
           selectedScheme,
-          { signal: controller.signal },
         );
         const enrichedResult = {
           ...result,
@@ -295,29 +293,25 @@ export default function GenerateScreen() {
           schoolName: teacherProfile.schoolName || undefined,
           schoolDistrict: teacherProfile.schoolDistrict || undefined,
         };
-        generated.push(enrichedResult);
         if (sessionIndex !== 'all') {
           const saved = await saveLessonPlan(enrichedResult);
           if (saved.id) savedIds.push(saved.id);
+          generated.push(saved);
+        } else {
+          generated.push(enrichedResult);
         }
       }
-
-      if (controller.signal.aborted || !mounted.current) return;
 
       if (sessionIndex === 'all') {
         const savedBundle = await saveLessonPlanBundle(generated);
         bundleId = savedBundle.id ?? null;
+        generated.splice(0, generated.length, ...savedBundle.plans);
       }
 
-      if (controller.signal.aborted || !mounted.current) return;
-      
       setSavedPlanIds(savedIds);
       setSavedBundleId(bundleId);
       setGeneratedPlans(generated);
-      loadCreditBalance().then((balance) => {
-        if (!controller.signal.aborted && mounted.current) setCreditBalance(balance);
-      }).catch(() => undefined);
-      
+      loadCreditBalance().then(setCreditBalance).catch(() => undefined);
       const usedFallback = generated.some(
         (result) =>
           typeof result.references === 'string' &&
@@ -332,37 +326,30 @@ export default function GenerateScreen() {
               : 'Lesson plan generated successfully.',
       });
     } catch (err: unknown) {
-      if (!controller.signal.aborted && mounted.current) {
-        const message = formatAiActionError(err);
-        logAppError({
-          source: 'client',
-          action: 'generate_lesson_plan',
-          message,
-          metadata: { subject, classLevel, week, sessionIndex, sessionsPerWeek },
-        });
-        showToast({ message, type: 'error' });
-        if (isInsufficientCreditsError(err)) {
-          Alert.alert('Not enough credits', message, [
-            { text: 'Cancel', style: 'cancel' },
-            { text: 'Get credits', onPress: () => router.push('/(tabs)/credits') },
-          ]);
-        } else {
-          Alert.alert('Generation failed', message);
-        }
+      const message = formatAiActionError(err);
+      logAppError({
+        source: 'client',
+        action: 'generate_lesson_plan',
+        message,
+        metadata: { subject, classLevel, week, sessionIndex, sessionsPerWeek },
+      });
+      showToast({ message, type: 'error' });
+      if (isInsufficientCreditsError(err)) {
+        Alert.alert('Not enough credits', message, [
+          { text: 'Cancel', style: 'cancel' },
+          { text: 'Get credits', onPress: () => router.push('/(tabs)/credits') },
+        ]);
+      } else {
+        Alert.alert('Generation failed', message);
       }
     } finally {
-      if (!controller.signal.aborted && mounted.current) {
-        setLoading(false);
-      }
-      if (generationAbortController.current === controller) {
-        generationAbortController.current = null;
-      }
+      setLoading(false);
     }
   }
 
   if (generatedPlans.length) {
     const singlePlan = generatedPlans.length === 1 ? generatedPlans[0] : null;
-    const hasSavedFullView = singlePlan ? Boolean(savedPlanIds[0]) : Boolean(savedBundleId);
+    const canTranslatePreview = generatedPlans.every((plan) => isGhanaianLanguageSubject(plan.subject));
     const shareGeneratedPlans = () => {
       if (singlePlan) {
         shareLessonPlan(singlePlan);
@@ -377,17 +364,33 @@ export default function GenerateScreen() {
         exportLessonPlansPdf(generatedPlans);
       }
     };
-    const openFullView = () => {
-      if (singlePlan && savedPlanIds[0]) {
-        router.push(`/lesson/${savedPlanIds[0]}`);
+    const translateGeneratedPlans = async () => {
+      if (!previewLocalLanguage) {
+        Alert.alert('Choose language', 'Select a local language first.');
         return;
       }
-      if (savedPlanIds.length) {
-        router.push(`/lesson/week?ids=${encodeURIComponent(savedPlanIds.join(','))}`);
-        return;
-      }
-      if (savedBundleId) {
-        router.push(`/lesson/week?bundleId=${encodeURIComponent(savedBundleId)}`);
+      setPreviewTranslating(true);
+      try {
+        if (singlePlan) {
+          const translated = await translateLessonPlan(singlePlan, previewLocalLanguage);
+          const saved = await saveLessonPlan(translated);
+          setGeneratedPlans([saved]);
+          setSavedPlanIds(saved.id ? [saved.id] : []);
+          setSavedBundleId(null);
+        } else {
+          const translatedPlans = await Promise.all(
+            generatedPlans.map((plan) => translateLessonPlan(plan, previewLocalLanguage)),
+          );
+          const savedBundle = await saveLessonPlanBundle(translatedPlans);
+          setGeneratedPlans(savedBundle.plans);
+          setSavedPlanIds([]);
+          setSavedBundleId(savedBundle.id ?? null);
+        }
+        showToast({ message: 'Translated lesson plan saved.' });
+      } catch (err) {
+        Alert.alert('Translation failed', err instanceof Error ? err.message : 'Could not translate lesson plan.');
+      } finally {
+        setPreviewTranslating(false);
       }
     };
     return (
@@ -398,20 +401,63 @@ export default function GenerateScreen() {
             setGeneratedPlans([]);
             setSavedPlanIds([]);
             setSavedBundleId(null);
+            setShareModalOpen(false);
+            setPreviewLocalLanguage('');
           }}
           onShare={shareGeneratedPlans}
         />
         {singlePlan ? <LessonPlanTable plan={singlePlan} /> : <LessonPlanStack plans={generatedPlans} />}
+        {canTranslatePreview ? (
+          <View style={styles.translatePanel}>
+            <SelectField
+              label={singlePlan ? 'Translate lesson plan' : 'Translate week plan'}
+              value={previewLocalLanguage}
+              options={LOCAL_LANGUAGE_OPTIONS}
+              onChange={setPreviewLocalLanguage}
+              helperText="Creates an NLLB machine-translation draft of the indicator and lesson phases."
+            />
+          </View>
+        ) : null}
         <PreviewActions>
-          <PreviewActionButton title="Save as PDF" onPress={saveGeneratedPlansAsPdf} />
-          {hasSavedFullView ? (
+          {canTranslatePreview ? (
             <PreviewActionButton
-              title="Open full view"
+              title="Translate"
+              icon="language-outline"
               variant="secondary"
-              onPress={openFullView}
+              loading={previewTranslating}
+              onPress={translateGeneratedPlans}
             />
           ) : null}
+          <PreviewActionButton
+            title="Send to Admin"
+            icon="shield-checkmark-outline"
+            variant="secondary"
+            span={canTranslatePreview ? 'half' : 'full'}
+            onPress={() => setShareModalOpen(true)}
+          />
+          <PreviewActionButton title="PDF" icon="document-text-outline" onPress={saveGeneratedPlansAsPdf} />
+          <PreviewActionButton
+            title="Teaching Notes"
+            icon="reader-outline"
+            variant="secondary"
+            onPress={() =>
+              router.push(
+                singlePlan
+                  ? `/tools/teaching-notes?lessonPlanId=${encodeURIComponent(singlePlan.id ?? '')}`
+                  : `/tools/teaching-notes?lessonPlanIds=${encodeURIComponent(generatedPlans.map((plan) => plan.id).filter(Boolean).join(','))}`,
+              )
+            }
+          />
         </PreviewActions>
+        <ShareWithAdminModal
+          isOpen={shareModalOpen}
+          lessonId={singlePlan?.id ?? savedBundleId ?? ''}
+          lessonData={singlePlan ?? buildGeneratedBundle(generatedPlans, savedBundleId)}
+          onClose={() => setShareModalOpen(false)}
+          onSuccess={() => {
+            showToast({ message: 'Lesson shared with admin successfully!' });
+          }}
+        />
       </View>
     );
   }
@@ -604,6 +650,12 @@ export default function GenerateScreen() {
 
 const styles = StyleSheet.create({
   previewContainer: { flex: 1, backgroundColor: colors.bg },
+  translatePanel: {
+    padding: spacing[5],
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+    backgroundColor: colors.surface,
+  },
   content: { padding: spacing[7], paddingBottom: spacing[12], gap: spacing[5] },
   hero: {
     backgroundColor: colors.surfaceAlt,
@@ -751,4 +803,33 @@ const styles = StyleSheet.create({
 
 function formatCredits(value: number) {
   return `${value} ${value === 1 ? 'credit' : 'credits'}`;
+}
+
+function isGhanaianLanguageSubject(subject?: string) {
+  return subject?.trim().toLowerCase() === 'ghanaian language';
+}
+
+function buildGeneratedBundle(plans: LessonPlan[], savedBundleId: string | null): LessonPlanBundle {
+  const first = plans[0];
+  const subject = first?.subject ?? 'Lesson';
+  const classLevel = first?.classLevel ?? 'B7';
+  const week = first?.week ?? 1;
+  const termTitle = first?.termTitle ?? '';
+  const createdAt = first?.createdAt ?? new Date().toISOString();
+  const lessonCount = plans.length;
+
+  return {
+    kind: 'bundle',
+    id: savedBundleId ?? `generated-week-plan-${subject}-${classLevel}-${week}-${createdAt}`,
+    title: `${subject} ${classLevel} Week ${week} (${lessonCount} lessons)`,
+    subject,
+    classLevel,
+    termTitle,
+    week,
+    weekTitle: first?.weekTitle ?? `WEEK ${week}`,
+    lessonCount,
+    plans,
+    createdAt,
+    updatedAt: new Date().toISOString(),
+  };
 }

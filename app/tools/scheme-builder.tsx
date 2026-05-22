@@ -24,6 +24,7 @@ import {
 } from '@/lib/schemeBuilder';
 import { getWeekEntries, getWeekTopic } from '@/lib/schemeWeek';
 import { saveScheme } from '@/lib/schemeStore';
+import { loadLastSelectedTerm, saveLastSelectedTerm } from '@/lib/termPrefs';
 import {
   CLASS_LEVEL_OPTIONS,
   getDefaultSubjectForClassLevel,
@@ -46,6 +47,7 @@ export default function SchemeBuilderScreen() {
   const [classLevel, setClassLevel] = useState<ClassLevel>('B7');
   const [subject, setSubject] = useState(getDefaultSubjectForClassLevel('B7'));
   const [term, setTerm] = useState('Term 1');
+  const [termPrefsLoaded, setTermPrefsLoaded] = useState(false);
   const [numberOfWeeksInput, setNumberOfWeeksInput] = useState('12');
   const [includeFullYear, setIncludeFullYear] = useState(false);
   const [selectedStrands, setSelectedStrands] = useState<string[]>([]);
@@ -124,6 +126,22 @@ export default function SchemeBuilderScreen() {
   const activeWeekEntries = getWeekEntries(
     weeks.find((week) => week.week === activeWeek) ?? { week: activeWeek }
   );
+
+  useEffect(() => {
+    let active = true;
+    loadLastSelectedTerm().then((savedTerm) => {
+      if (active && savedTerm) setTerm(savedTerm);
+    }).catch(() => undefined).finally(() => {
+      if (active) setTermPrefsLoaded(true);
+    });
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (termPrefsLoaded) saveLastSelectedTerm(term).catch(() => undefined);
+  }, [term, termPrefsLoaded]);
 
   useEffect(() => {
     if (!subjectOptions.some((option) => option.value === subject)) {
@@ -483,7 +501,12 @@ export default function SchemeBuilderScreen() {
           </View>
           <Button title="Save Scheme" onPress={handleSave} loading={saving} style={styles.saveButton} />
         </View>
-        <SchemePreview scheme={previewScheme} />
+        <SchemePreview
+          scheme={previewScheme}
+          onRemoveEntry={(weekNumber, entryIndex) =>
+            setWeeks((current) => removeEntryFromWeek(current, weekNumber, entryIndex))
+          }
+        />
       </View>
     </ScrollView>
   );
@@ -547,7 +570,13 @@ function ChipGrid({
   );
 }
 
-function SchemePreview({ scheme }: { scheme: SchemeOfWork }) {
+function SchemePreview({
+  scheme,
+  onRemoveEntry,
+}: {
+  scheme: SchemeOfWork;
+  onRemoveEntry: (weekNumber: number, entryIndex: number) => void;
+}) {
   return (
     <View style={styles.previewList}>
       {scheme.weeks.map((week) => {
@@ -560,9 +589,19 @@ function SchemePreview({ scheme }: { scheme: SchemeOfWork }) {
             {entries.length ? (
               entries.map((entry, index) => (
                 <View key={`${week.week}-${index}-${entry.indicator}`} style={styles.previewEntry}>
-                  <Text style={styles.previewEntryTitle}>
-                    {entry.strand || 'Strand'} - {entry.subStrand || 'Sub-strand'}
-                  </Text>
+                  <View style={styles.previewEntryHeader}>
+                    <Text style={styles.previewEntryTitle}>
+                      {entry.strand || 'Strand'} - {entry.subStrand || 'Sub-strand'}
+                    </Text>
+                    <Pressable
+                      accessibilityRole="button"
+                      accessibilityLabel="Remove preview entry"
+                      onPress={() => onRemoveEntry(week.week, index)}
+                      style={styles.previewRemoveButton}
+                    >
+                      <Ionicons name="close" size={16} color={colors.danger} />
+                    </Pressable>
+                  </View>
                   <Text style={styles.previewText}>{entry.topic || 'Topic pending'}</Text>
                   <Text style={styles.previewLabel}>Content Standard</Text>
                   <Text style={styles.previewText}>{entry.contentStandard || 'Not specified'}</Text>
@@ -909,7 +948,21 @@ const styles = StyleSheet.create({
     paddingTop: spacing[3],
     marginTop: spacing[3],
   },
+  previewEntryHeader: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    gap: spacing[3],
+  },
   previewEntryTitle: { ...typography.label, color: colors.primary, marginBottom: spacing[2] },
+  previewRemoveButton: {
+    width: 28,
+    height: 28,
+    borderRadius: radii.pill,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.dangerSoft,
+  },
   previewLabel: {
     ...typography.eyebrow,
     color: colors.textMuted,

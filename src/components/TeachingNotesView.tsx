@@ -1,8 +1,40 @@
+import { useEffect, useState } from 'react';
 import { Image, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { loadRuntimeAppSettingsOrDefault } from '@/lib/appSettings';
+import {
+  contentBlockToVisual,
+  getTeachingNoteContentBlocks,
+  isVisualTeachingNoteBlockType,
+} from '@/lib/teachingNoteContent';
 import { colors } from '@/theme/colors';
-import type { TeachingNoteVisual, TeachingNotes } from '@/types/teachingNotes';
+import type { TeachingNoteContentBlock, TeachingNoteVisual, TeachingNotes } from '@/types/teachingNotes';
 
-export function TeachingNotesView({ notes }: { notes: TeachingNotes }) {
+export function TeachingNotesView({
+  notes,
+  showVisuals,
+  showGeneratedVisuals: showGeneratedVisualsOverride,
+}: {
+  notes: TeachingNotes;
+  /** @deprecated Use showGeneratedVisuals */
+  showVisuals?: boolean;
+  showGeneratedVisuals?: boolean;
+}) {
+  const resolvedOverride = showGeneratedVisualsOverride ?? showVisuals ?? false; // DISABLED: Visual generation disabled for testing
+  const [showGeneratedVisuals, setShowGeneratedVisuals] = useState(false); // DISABLED: Force false for testing
+
+  useEffect(() => {
+    if (resolvedOverride !== undefined) {
+      setShowGeneratedVisuals(resolvedOverride);
+      return;
+    }
+    loadRuntimeAppSettingsOrDefault()
+      .then((settings) => setShowGeneratedVisuals(settings.visualGeneration.enabled))
+      .catch(() => setShowGeneratedVisuals(false));
+  }, [resolvedOverride]);
+
+  const contentBlocks = getTeachingNoteContentBlocks(notes, {
+    includeGeneratedVisuals: showGeneratedVisuals,
+  });
   return (
     <ScrollView style={styles.scroll} contentContainerStyle={styles.content}>
       <View style={styles.header}>
@@ -15,8 +47,8 @@ export function TeachingNotesView({ notes }: { notes: TeachingNotes }) {
       </View>
 
       <Section title="Overview" text={notes.overview} />
+      <ContentBlocks blocks={contentBlocks} />
       <ListSection title="Teacher Preparation" items={notes.preparation} />
-      <VisualSection visuals={notes.visuals ?? []} />
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Teaching Guide</Text>
         {notes.phaseGuidance.map((phase) => (
@@ -36,6 +68,37 @@ export function TeachingNotesView({ notes }: { notes: TeachingNotes }) {
       <ListSection title="Board Summary" items={notes.boardSummary} />
       <ListSection title="Homework / Follow-up" items={notes.homework ?? []} />
     </ScrollView>
+  );
+}
+
+function ContentBlocks({ blocks }: { blocks: TeachingNoteContentBlock[] }) {
+  if (!blocks.length) return null;
+  return (
+    <View style={styles.section}>
+      <Text style={styles.sectionTitle}>Lesson Note</Text>
+      {blocks.map((block) => {
+        if (isVisualTeachingNoteBlockType(block.type)) {
+          return <VisualBlock key={block.id} visual={contentBlockToVisual(block)} />;
+        }
+        if (block.type === 'heading') {
+          return <Text key={block.id} style={styles.contentHeading}>{block.text || block.title}</Text>;
+        }
+        if (block.items?.length) {
+          return (
+            <View key={block.id} style={styles.contentBlock}>
+              {block.title ? <Text style={styles.visualTitle}>{block.title}</Text> : null}
+              {block.items.map((item, index) => <Bullet key={index} text={item} />)}
+            </View>
+          );
+        }
+        return block.text ? (
+          <View key={block.id} style={styles.contentBlock}>
+            {block.title ? <Text style={styles.visualTitle}>{block.title}</Text> : null}
+            <Text style={styles.body}>{block.text}</Text>
+          </View>
+        ) : null;
+      })}
+    </View>
   );
 }
 
@@ -59,18 +122,6 @@ function ListSection({ title, items }: { title: string; items: string[] }) {
   );
 }
 
-function VisualSection({ visuals }: { visuals: TeachingNoteVisual[] }) {
-  if (!visuals.length) return null;
-  return (
-    <View style={styles.section}>
-      <Text style={styles.sectionTitle}>Content Diagrams and Examples</Text>
-      {visuals.map((visual) => (
-        <VisualBlock key={visual.id} visual={visual} />
-      ))}
-    </View>
-  );
-}
-
 function Bullet({ text }: { text: string }) {
   return (
     <View style={styles.bulletRow}>
@@ -81,14 +132,33 @@ function Bullet({ text }: { text: string }) {
 }
 
 function VisualBlock({ visual }: { visual: TeachingNoteVisual }) {
+  const barChart = visual.data?.length ? (
+    <View style={styles.chart}>
+      {visual.data.slice(0, 5).map((item, index) => {
+        const maxValue = Math.max(...visual.data!.map((entry) => entry.value), 1);
+        return (
+          <View key={`${item.label}-${index}`} style={styles.barRow}>
+            <Text style={styles.barLabel}>{item.label}</Text>
+            <View style={styles.barTrack}>
+              <View style={[styles.barFill, { width: `${Math.max(8, (item.value / maxValue) * 100)}%` }]} />
+            </View>
+            <Text style={styles.barValue}>{item.value}</Text>
+          </View>
+        );
+      })}
+    </View>
+  ) : null;
+
   return (
     <View style={styles.visual}>
       <Text style={styles.visualTitle}>{visual.title}</Text>
       {visual.imageUrl ? (
         <Image source={{ uri: visual.imageUrl }} style={styles.visualImage} resizeMode="contain" />
+      ) : barChart ? (
+        barChart
       ) : (
         <View style={styles.diagramBox}>
-          {(visual.steps ?? visual.labels?.map((item) => item.label) ?? (visual.prompt ? [visual.prompt] : [])).map((item, index) => (
+          {(visual.steps ?? visual.labels?.map((item) => item.label) ?? []).map((item, index) => (
             <View key={`${visual.id}-${index}`} style={styles.diagramStep}>
               <Text style={styles.diagramIndex}>{index + 1}</Text>
               <Text style={styles.diagramText}>{item}</Text>
@@ -152,6 +222,8 @@ const styles = StyleSheet.create({
     marginTop: 8,
   },
   phaseTitle: { color: colors.primary, fontWeight: '800', marginBottom: 6 },
+  contentBlock: { marginBottom: 10 },
+  contentHeading: { fontSize: 16, fontWeight: '800', color: colors.primaryDark, marginBottom: 8 },
   visual: {
     borderWidth: 1,
     borderColor: colors.border,
@@ -198,4 +270,10 @@ const styles = StyleSheet.create({
     color: colors.primary,
     fontWeight: '700',
   },
+  chart: { gap: 8 },
+  barRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  barLabel: { width: 72, fontSize: 12, color: colors.text },
+  barTrack: { flex: 1, height: 12, backgroundColor: '#e8e8e4', borderRadius: 4, overflow: 'hidden' },
+  barFill: { height: '100%', backgroundColor: colors.primary },
+  barValue: { width: 28, fontSize: 12, color: colors.textMuted, textAlign: 'right' },
 });

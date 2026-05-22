@@ -123,11 +123,19 @@ export function emptyAppSettingsDraft(): AppSettingsDraft {
     schemeCost: '1',
     parsingCost: '1',
     teachingNotesCost: '1',
+    testItemRewriteCost: '1',
     retentionDays: '15',
     purchasingEnabled: false,
     paystackMode: 'live',
     parserBackend: 'active',
     translationProvider: 'anthropic',
+    visualGenerationEnabled: false,
+    visualAutoGenerate: false,
+    visualProvider: 'gemini',
+    visualModel: 'gemini-3.1-flash-image-preview',
+    visualMaxPerLesson: '2',
+    visualCreditCost: '1',
+    geminiApiKey: '',
   };
 }
 
@@ -141,6 +149,7 @@ export function settingsToDraft(settings: AdminSetting[]): AppSettingsDraft {
   const paystack = byKey.get('paystack_mode') ?? {};
   const parser = byKey.get('parser_backend') ?? {};
   const translation = byKey.get('translation_provider') ?? {};
+  const visualGeneration = byKey.get('visual_generation') ?? {};
 
   return {
     starterCredits: String(numberSetting(starter.credits, 5)),
@@ -152,11 +161,19 @@ export function settingsToDraft(settings: AdminSetting[]): AppSettingsDraft {
     schemeCost: String(numberSetting(costs.scheme_generation, 1)),
     parsingCost: String(numberSetting(costs.scheme_parsing, 1)),
     teachingNotesCost: String(numberSetting(costs.teaching_notes_generation, 1)),
+    testItemRewriteCost: String(numberSetting(costs.test_item_rewrite, 1)),
     retentionDays: String(numberSetting(retention.days, 15)),
     purchasingEnabled: booleanSetting(purchasing.enabled, false),
     paystackMode: String(paystack.mode ?? 'live'),
     parserBackend: String(parser.provider ?? 'active'),
     translationProvider: String(translation.provider ?? 'anthropic'),
+    visualGenerationEnabled: booleanSetting(visualGeneration.enabled, false),
+    visualAutoGenerate: booleanSetting(visualGeneration.auto_generate, false),
+    visualProvider: String(visualGeneration.provider ?? 'gemini'),
+    visualModel: String(visualGeneration.model ?? 'gemini-3.1-flash-image-preview'),
+    visualMaxPerLesson: String(numberSetting(visualGeneration.max_visuals_per_lesson, 2)),
+    visualCreditCost: String(numberSetting(visualGeneration.credit_cost_per_visual, 1)),
+    geminiApiKey: '',
   };
 }
 

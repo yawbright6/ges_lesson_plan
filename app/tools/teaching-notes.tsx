@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { Field } from '@/components/Field';
@@ -23,47 +23,30 @@ import type { TeachingNotes } from '@/types/teachingNotes';
 
 export default function TeachingNotesToolScreen() {
   const { showToast } = useToast();
-  const { lessonPlanId } = useLocalSearchParams<{ lessonPlanId?: string }>();
+  const { lessonPlanId, lessonPlanIds } = useLocalSearchParams<{ lessonPlanId?: string; lessonPlanIds?: string }>();
   const [plans, setPlans] = useState<LessonPlan[]>([]);
   const [query, setQuery] = useState('');
   const [selectedPlan, setSelectedPlan] = useState<LessonPlan | null>(null);
+  const [bulkPlans, setBulkPlans] = useState<LessonPlan[]>([]);
+  const [bulkResults, setBulkResults] = useState<TeachingNotes[]>([]);
+  const [bulkGenerating, setBulkGenerating] = useState(false);
+  const [bulkProgress, setBulkProgress] = useState(0);
   const [versions, setVersions] = useState<TeachingNotes[]>([]);
   const [activeNotes, setActiveNotes] = useState<TeachingNotes | null>(null);
   const [loading, setLoading] = useState(false);
-  const [loadError, setLoadError] = useState('');
   const [creditBalance, setCreditBalance] = useState(0);
   const [creditCost, setCreditCost] = useState(1);
-  // ✅ Track abort controller for generation
-  const generationAbortController = useRef<AbortController | null>(null);
-  const mounted = useRef(true);
-
-  // ✅ Cleanup on unmount: cancel generation if in progress
-  useEffect(() => {
-    return () => {
-      mounted.current = false;
-      generationAbortController.current?.abort();
-    };
-  }, []);
 
   const refresh = useCallback(async () => {
-    try {
-      const [lessonWorks, balance, settings] = await Promise.all([
-        loadLessonWorks(),
-        loadCreditBalance().catch(() => 0),
-        loadRuntimeAppSettings(),
-      ]);
-      if (!mounted.current) return;
-      setPlans(flattenLessonWorks(lessonWorks));
-      setCreditBalance(balance);
-      setCreditCost(settings.featureCreditCosts.teaching_notes_generation);
-      setLoadError('');
-    } catch (err) {
-      if (!mounted.current) return;
-      const message = err instanceof Error ? err.message : 'Unable to load teaching notes data.';
-      setLoadError(message);
-      showToast({ message, type: 'error' });
-    }
-  }, [showToast]);
+    const [lessonWorks, balance, settings] = await Promise.all([
+      loadLessonWorks(),
+      loadCreditBalance().catch(() => 0),
+      loadRuntimeAppSettings(),
+    ]);
+    setPlans(flattenLessonWorks(lessonWorks));
+    setCreditBalance(balance);
+    setCreditCost(settings.featureCreditCosts.teaching_notes_generation);
+  }, []);
 
   useEffect(() => {
     refresh();
@@ -76,6 +59,21 @@ export default function TeachingNotesToolScreen() {
       selectPlan(match);
     }
   }, [lessonPlanId, plans, selectedPlan]);
+
+  useEffect(() => {
+    if (!lessonPlanIds || !plans.length || bulkPlans.length) return;
+    const idSet = new Set(
+      lessonPlanIds
+        .split(',')
+        .map((id) => id.trim())
+        .filter(Boolean),
+    );
+    const matches = plans.filter((plan) => plan.id && idSet.has(plan.id));
+    if (matches.length) {
+      setBulkPlans(matches);
+      selectPlan(matches[0]);
+    }
+  }, [lessonPlanIds, plans, bulkPlans.length]);
 
   useFocusEffect(
     useCallback(() => {
@@ -119,15 +117,9 @@ export default function TeachingNotesToolScreen() {
       return;
     }
 
-    const controller = new AbortController();
-    generationAbortController.current?.abort();
-    generationAbortController.current = controller;
     setLoading(true);
-
     try {
-      const generated = await generateTeachingNotes(selectedPlan, { signal: controller.signal });
-      if (controller.signal.aborted || !mounted.current) return;
-
+      const generated = await generateTeachingNotes(selectedPlan);
       const saved = await saveTeachingNotes({
         ...generated,
         lessonPlanId: selectedPlan.id,
@@ -142,44 +134,97 @@ export default function TeachingNotesToolScreen() {
           subStrand: selectedPlan.subStrand,
         },
       });
-      
-      if (controller.signal.aborted || !mounted.current) return;
-
       const planVersions = await loadTeachingNotesForLesson(selectedPlan.id);
-      if (!controller.signal.aborted && mounted.current) {
-        setVersions(planVersions);
-        setActiveNotes(saved);
-        loadCreditBalance().then((balance) => {
-          if (!controller.signal.aborted && mounted.current) setCreditBalance(balance);
-        }).catch(() => undefined);
-        showToast({ message: `Teaching notes version ${saved.versionNumber ?? 1} generated.` });
-      }
+      setVersions(planVersions);
+      setActiveNotes(saved);
+      loadCreditBalance().then(setCreditBalance).catch(() => undefined);
+      showToast({ message: `Teaching notes version ${saved.versionNumber ?? 1} generated.` });
     } catch (err: unknown) {
-      if (!controller.signal.aborted && mounted.current) {
-        const message = formatAiActionError(err);
-        logAppError({
-          source: 'client',
-          action: 'generate_teaching_notes',
-          message,
-          metadata: { lessonPlanId: selectedPlan.id, subject: selectedPlan.subject },
-        });
-        showToast({ message, type: 'error' });
-        if (isInsufficientCreditsError(err)) {
-          Alert.alert('Not enough credits', message, [
-            { text: 'Cancel', style: 'cancel' },
-            { text: 'Get credits', onPress: () => router.push('/(tabs)/credits') },
-          ]);
-        } else {
-          Alert.alert('Generation failed', message);
-        }
+      const message = formatAiActionError(err);
+      logAppError({
+        source: 'client',
+        action: 'generate_teaching_notes',
+        message,
+        metadata: { lessonPlanId: selectedPlan.id, subject: selectedPlan.subject },
+      });
+      showToast({ message, type: 'error' });
+      if (isInsufficientCreditsError(err)) {
+        Alert.alert('Not enough credits', message, [
+          { text: 'Cancel', style: 'cancel' },
+          { text: 'Get credits', onPress: () => router.push('/(tabs)/credits') },
+        ]);
+      } else {
+        Alert.alert('Generation failed', message);
       }
     } finally {
-      if (!controller.signal.aborted && mounted.current) {
-        setLoading(false);
+      setLoading(false);
+    }
+  }
+
+  async function handleGenerateBulk() {
+    if (!bulkPlans.length) return;
+    const missingSaved = bulkPlans.find((plan) => !plan.id);
+    if (missingSaved) {
+      Alert.alert('Save required', 'All lessons must be saved before bulk teaching notes can be generated.');
+      return;
+    }
+
+    setBulkGenerating(true);
+    setBulkProgress(0);
+    setBulkResults([]);
+    const generatedNotes: TeachingNotes[] = [];
+
+    try {
+      for (let index = 0; index < bulkPlans.length; index += 1) {
+        const plan = bulkPlans[index];
+        setSelectedPlan(plan);
+        const generated = await generateTeachingNotes(plan);
+        const saved = await saveTeachingNotes({
+          ...generated,
+          lessonPlanId: plan.id!,
+          sourceLessonPlan: {
+            id: plan.id,
+            subject: plan.subject,
+            classLevel: plan.classLevel,
+            week: plan.week,
+            lessonNumber: plan.lessonNumber,
+            topic: plan.topic,
+            strand: plan.strand,
+            subStrand: plan.subStrand,
+          },
+        });
+        generatedNotes.push(saved);
+        setBulkResults([...generatedNotes]);
+        setBulkProgress(index + 1);
       }
-      if (generationAbortController.current === controller) {
-        generationAbortController.current = null;
+
+      const firstPlan = bulkPlans[0];
+      if (firstPlan?.id) {
+        const planVersions = await loadTeachingNotesForLesson(firstPlan.id);
+        setVersions(planVersions);
+        setActiveNotes(generatedNotes[0] ?? null);
       }
+      loadCreditBalance().then(setCreditBalance).catch(() => undefined);
+      showToast({ message: `Teaching notes generated for ${generatedNotes.length} lessons.` });
+    } catch (err: unknown) {
+      const message = formatAiActionError(err);
+      logAppError({
+        source: 'client',
+        action: 'generate_bulk_teaching_notes',
+        message,
+        metadata: { lessonPlanIds: bulkPlans.map((plan) => plan.id), generated: generatedNotes.length },
+      });
+      showToast({ message, type: 'error' });
+      if (isInsufficientCreditsError(err)) {
+        Alert.alert('Not enough credits', message, [
+          { text: 'Cancel', style: 'cancel' },
+          { text: 'Get credits', onPress: () => router.push('/(tabs)/credits') },
+        ]);
+      } else {
+        Alert.alert('Bulk generation stopped', `${message}\n\nGenerated ${generatedNotes.length} of ${bulkPlans.length} lesson notes.`);
+      }
+    } finally {
+      setBulkGenerating(false);
     }
   }
 
@@ -188,7 +233,7 @@ export default function TeachingNotesToolScreen() {
       <View style={styles.preview}>
         <View style={styles.previewActions}>
           <Button title="Back to lessons" variant="secondary" onPress={() => setActiveNotes(null)} style={styles.actionButton} />
-          <Button title="Save Notes as PDF" onPress={() => exportTeachingNotesPdf(activeNotes)} style={styles.actionButton} />
+          <Button title="PDF" onPress={() => exportTeachingNotesPdf(activeNotes)} style={styles.actionButton} />
           <Button title="Regenerate" variant="secondary" onPress={handleGenerate} disabled={loading} style={styles.actionButton} />
           <GenerationProgress active={loading} label="Regenerating teaching notes" estimateMs={85000} />
         </View>
@@ -230,10 +275,45 @@ export default function TeachingNotesToolScreen() {
         autoCapitalize="none"
       />
 
-      {loadError ? (
-        <View style={styles.errorBanner}>
-          <Text style={styles.errorText}>{loadError}</Text>
-          <Button title="Retry" variant="secondary" onPress={refresh} style={styles.retryButton} />
+      {bulkPlans.length ? (
+        <View style={styles.bulkCard}>
+          <Text style={styles.selectedTitle}>Bulk lesson format</Text>
+          <Text style={styles.cardTitle}>Generate teaching notes for all {bulkPlans.length} lessons</Text>
+          <Text style={styles.cardSub}>
+            {bulkPlans[0]?.subject} {bulkPlans[0]?.classLevel} - Week {bulkPlans[0]?.week}
+          </Text>
+          <View style={styles.bulkList}>
+            {bulkPlans.map((plan, index) => (
+              <Pressable key={plan.id ?? index} style={styles.bulkLessonRow} onPress={() => selectPlan(plan)}>
+                <Text style={styles.bulkLessonTitle}>Lesson {plan.sessionIndex ?? index + 1}</Text>
+                <Text style={styles.bulkLessonMeta} numberOfLines={1}>{plan.topic || plan.performanceIndicator || plan.lessonNumber}</Text>
+              </Pressable>
+            ))}
+          </View>
+          <CreditUsagePreview
+            cost={bulkPlans.length * creditCost}
+            balance={creditBalance}
+            label={`Generating notes for all ${bulkPlans.length} lessons uses ${bulkPlans.length * creditCost} ${bulkPlans.length * creditCost === 1 ? 'credit' : 'credits'}.`}
+            onBuyCredits={() => router.push('/(tabs)/credits')}
+          />
+          <View style={styles.buttonRow}>
+            <Button
+              title={bulkResults.length ? 'Generate all again' : 'Generate notes for all'}
+              onPress={handleGenerateBulk}
+              loading={bulkGenerating}
+              disabled={bulkGenerating}
+              style={styles.actionButton}
+            />
+            <Button title="Clear bulk" variant="secondary" onPress={() => setBulkPlans([])} disabled={bulkGenerating} style={styles.actionButton} />
+          </View>
+          <GenerationProgress
+            active={bulkGenerating}
+            label={`Generating lesson notes ${bulkProgress + 1 > bulkPlans.length ? bulkPlans.length : bulkProgress + 1} of ${bulkPlans.length}`}
+            estimateMs={85000 * Math.max(1, bulkPlans.length - bulkProgress)}
+          />
+          {bulkResults.length ? (
+            <Text style={styles.cardSub}>{bulkResults.length} of {bulkPlans.length} note sets saved.</Text>
+          ) : null}
         </View>
       ) : null}
 
@@ -338,6 +418,31 @@ const styles = StyleSheet.create({
     gap: spacing[4],
     ...shadows.sm,
   },
+  bulkCard: {
+    backgroundColor: colors.surfaceAlt,
+    borderRadius: radii.lg,
+    padding: spacing[7],
+    borderWidth: 1,
+    borderColor: colors.primary,
+    gap: spacing[4],
+    ...shadows.sm,
+  },
+  bulkList: {
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radii.md,
+    overflow: 'hidden',
+    backgroundColor: colors.surface,
+  },
+  bulkLessonRow: {
+    paddingHorizontal: spacing[4],
+    paddingVertical: spacing[3],
+    borderBottomWidth: 1,
+    borderBottomColor: colors.borderSubtle,
+    gap: 2,
+  },
+  bulkLessonTitle: { ...typography.label, color: colors.text },
+  bulkLessonMeta: { ...typography.bodySm, color: colors.textMuted },
   selectedTitle: {
     ...typography.eyebrow,
     color: colors.primaryDark,
@@ -356,16 +461,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   emptyText: { ...typography.body, color: colors.textMuted },
-  errorBanner: {
-    backgroundColor: colors.dangerSoft,
-    borderWidth: 1,
-    borderColor: colors.danger,
-    borderRadius: radii.md,
-    padding: spacing[5],
-    gap: spacing[3],
-  },
-  errorText: { ...typography.bodySm, color: colors.danger },
-  retryButton: { alignSelf: 'flex-start', minHeight: 40 },
   preview: { flex: 1, backgroundColor: colors.bg },
   previewActions: {
     padding: spacing[5],

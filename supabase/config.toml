@@ -35,3 +35,6 @@ verify_jwt = true
 
 [functions.log-app-error]
 verify_jwt = false
+
+[functions.rewrite-test-items]
+verify_jwt = true

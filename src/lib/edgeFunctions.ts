@@ -5,6 +5,8 @@ type InvokeEdgeFunctionOptions = {
   headers?: Record<string, string>;
   requireAuth?: boolean;
   authErrorMessage?: string;
+  signal?: AbortSignal;
+  timeoutMs?: number;
 };
 
 export class EdgeFunctionError extends Error {
@@ -38,7 +40,7 @@ export async function invokeEdgeFunction<T>(
   options: InvokeEdgeFunctionOptions = {},
 ): Promise<T> {
   const requireAuth = options.requireAuth ?? true;
-  const token = await getAccessToken();
+  let token = await getAccessToken();
 
   if (requireAuth && !token) {
     throw new Error(options.authErrorMessage ?? 'Sign in first.');
@@ -48,16 +50,27 @@ export async function invokeEdgeFunction<T>(
     throw new Error('Supabase URL or anon key is missing.');
   }
 
-  const response = await fetchWithTimeout(`${supabaseUrl}/functions/v1/${functionName}`, {
-    method: 'POST',
-    headers: {
-      apikey: supabaseAnonKey,
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      'content-type': 'application/json',
-      ...(options.headers ?? {}),
+  // If no token but not requiring auth, get anon token for the Authorization header
+  if (!token && !requireAuth) {
+    const { data } = await supabase.auth.signInAnonymously();
+    token = data.session?.access_token || null;
+  }
+
+  const response = await fetchWithTimeout(
+    `${supabaseUrl}/functions/v1/${functionName}`,
+    {
+      method: 'POST',
+      headers: {
+        apikey: supabaseAnonKey,
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        'content-type': 'application/json',
+        ...(options.headers ?? {}),
+      },
+      signal: options.signal,
+      body: JSON.stringify(body),
     },
-    body: JSON.stringify(body),
-  }, 180000); // 3-minute timeout for edge functions (supports up to 150s Claude timeout + buffer)
+    options.timeoutMs ?? 180000,
+  );
 
   const raw = await response.text();
   const payload = parseJsonPayload(raw);

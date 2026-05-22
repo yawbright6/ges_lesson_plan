@@ -2,24 +2,34 @@ import { getExplicitCurriculumYearWeeks } from '@/lib/curriculum';
 import { getWeekEntries } from '@/lib/schemeWeek';
 import { englishExemplarsByIndicator } from '@/data/curriculum/englishExemplars';
 import { primaryEnglishExemplarsByIndicator } from '@/data/curriculum/primaryEnglishExemplars';
+import { primaryEnglishMetadataByIndicator } from '@/data/curriculum/primaryEnglishMetadata';
 import { mathematicsExemplarsByIndicator } from '@/data/curriculum/mathematicsExemplars';
+import { primaryMathematicsMetadataByIndicator } from '@/data/curriculum/primaryMathematicsMetadata';
 import { primaryMathematicsExemplarsByIndicator } from '@/data/curriculum/primaryMathematicsExemplars';
 import { scienceExemplarsByIndicator } from '@/data/curriculum/scienceExemplars';
+import { primaryScienceMetadataByIndicator } from '@/data/curriculum/primaryScienceMetadata';
 import { primaryScienceExemplarsByIndicator } from '@/data/curriculum/primaryScienceExemplars';
 import { primaryHistoryExemplarsByIndicator } from '@/data/curriculum/primaryHistoryExemplars';
+import { primaryHistoryMetadataByIndicator } from '@/data/curriculum/primaryHistoryMetadata';
 import { socialStudiesExemplarsByIndicator } from '@/data/curriculum/socialStudiesExemplars';
 import { computingExemplarsByIndicator } from '@/data/curriculum/computingExemplars';
 import { primaryComputingExemplarsByIndicator } from '@/data/curriculum/primaryComputingExemplars';
+import { primaryComputingMetadataByIndicator } from '@/data/curriculum/primaryComputingMetadata';
 import { careerTechnologyExemplarsByIndicator } from '@/data/curriculum/careerTechnologyExemplars';
 import { rmeExemplarsByIndicator } from '@/data/curriculum/rmeExemplars';
 import { primaryRmeExemplarsByIndicator } from '@/data/curriculum/primaryRmeExemplars';
+import { primaryRmeMetadataByIndicator } from '@/data/curriculum/primaryRmeMetadata';
 import { creativeArtsDesignExemplarsByIndicator } from '@/data/curriculum/creativeArtsDesignExemplars';
 import { primaryCreativeArtsExemplarsByIndicator } from '@/data/curriculum/primaryCreativeArtsExemplars';
+import { primaryCreativeArtsMetadataByIndicator } from '@/data/curriculum/primaryCreativeArtsMetadata';
 import { ghanaianLanguageExemplarsByIndicator } from '@/data/curriculum/ghanaianLanguageExemplars';
 import { primaryGhanaianLanguageExemplarsByIndicator } from '@/data/curriculum/primaryGhanaianLanguageExemplars';
+import { primaryGhanaianLanguageMetadataByIndicator } from '@/data/curriculum/primaryGhanaianLanguageMetadata';
 import { frenchLanguageExemplarsByIndicator } from '@/data/curriculum/frenchLanguageExemplars';
 import { primaryFrenchExemplarsByIndicator } from '@/data/curriculum/primaryFrenchExemplars';
+import { primaryFrenchMetadataByIndicator } from '@/data/curriculum/primaryFrenchMetadata';
 import { primaryPhysicalEducationExemplarsByIndicator } from '@/data/curriculum/primaryPhysicalEducationExemplars';
+import { primaryPhysicalEducationMetadataByIndicator } from '@/data/curriculum/primaryPhysicalEducationMetadata';
 import type { ClassLevel } from '@/types/lessonPlan';
 import type { SchemeOfWork, SchemeWeek, SchemeWeekEntry } from '@/types/scheme';
 
@@ -34,6 +44,19 @@ export type CurriculumEntryOption = SchemeWeekEntry & {
   id: string;
   sourceWeek: number;
   sourceTerm: string;
+};
+
+type ExemplarSourceRecord = {
+  indicator: string;
+  exemplars: string[];
+  sourcePage?: number;
+};
+
+type PrimaryCurriculumMetadataRecord = {
+  strand: string;
+  subStrand: string;
+  contentStandardCode: string;
+  contentStandard: string;
 };
 
 export type BuilderSelection = {
@@ -266,9 +289,12 @@ function buildWeek(weekNumber: number, entries: SchemeWeekEntry[]): SchemeWeek {
     topic: topics.join(' | '),
     strand: primary?.strand,
     subStrand: primary?.subStrand,
+    contentStandardCode: primary?.contentStandardCode,
     contentStandard: primary?.contentStandard,
+    indicatorCode: primary?.indicatorCode,
     indicator: primary?.indicator,
     resources,
+    sourcePage: primary?.sourcePage,
     entries: entries.length ? entries : [],
   };
 }
@@ -390,13 +416,13 @@ function getSourceSupplementalEntries(
   classLevel: ClassLevel,
   pacingWeeks: Array<SchemeWeek & { sourceTerm?: string }>
 ): CurriculumEntryOption[] {
-  if (isEnglishSubject(subject)) {
+  if (isEnglishSubject(subject) && !isPrimaryClassLevel(classLevel)) {
     return getEnglishSupplementalEntries(subject, classLevel, pacingWeeks);
   }
-  if (isGhanaianLanguageSubject(subject)) {
+  if (isGhanaianLanguageSubject(subject) && !isPrimaryClassLevel(classLevel)) {
     return getGhanaianLanguageSupplementalEntries(subject, classLevel, pacingWeeks);
   }
-  if (isFrenchLanguageSubject(subject)) {
+  if (isFrenchLanguageSubject(subject) && !isPrimaryClassLevel(classLevel)) {
     return getFrenchLanguageSupplementalEntries(subject, classLevel, pacingWeeks);
   }
 
@@ -411,18 +437,30 @@ function getSourceSupplementalEntries(
         indicator: record.indicator,
         pacingWeeks,
       });
-      const standardCode = getContentStandardCodeFromIndicatorCode(code);
+      const metadata = getPrimaryCurriculumMetadata(subject, code);
+      const standardCode = metadata?.contentStandardCode ?? getContentStandardCodeFromIndicatorCode(code);
+      const indicator = cleanCurriculumText(cleanIndicatorText(record.indicator));
+      const exemplars = uniqueStrings(record.exemplars.map(cleanCurriculumText).filter(Boolean));
+      const matchedContentStandard = placement.match?.entry.contentStandard;
+      const contentStandard =
+        metadata?.contentStandard
+          ? `${standardCode} ${metadata.contentStandard}`
+          : matchedContentStandard && normalizeCurriculumCodeSpacing(matchedContentStandard).includes(standardCode)
+          ? matchedContentStandard
+          : `${standardCode} Curriculum content standard${metadata?.subStrand ? ` (${metadata.subStrand})` : ''}.`;
 
       return {
         id: `source-exemplar|${slugify(subject)}|${code}`,
-        strand: placement.match?.entry.strand ?? getFallbackStrandFromCode(code),
-        subStrand: placement.match?.entry.subStrand ?? getFallbackSubStrandFromCode(code),
-        contentStandard:
-          placement.match?.entry.contentStandard ?? `${standardCode} Curriculum content standard.`,
-        indicator: `${code} ${cleanIndicatorText(record.indicator)}`,
-        topic: cleanIndicatorText(record.indicator),
+        indicatorCode: code,
+        contentStandardCode: standardCode,
+        strand: metadata?.strand ?? placement.match?.entry.strand ?? getFallbackStrandFromCode(code),
+        subStrand: metadata?.subStrand ?? placement.match?.entry.subStrand ?? getFallbackSubStrandFromCode(code),
+        contentStandard,
+        indicator: `${code} ${indicator}`,
+        topic: indicator,
         resources: getSubjectResources(subject),
-        exemplars: record.exemplars,
+        exemplars,
+        sourcePage: record.sourcePage,
         sourceWeek: placement.week,
         sourceTerm: placement.term,
       };
@@ -591,6 +629,23 @@ function getSuggestedSourcePlacement(input: {
       term: scored[0].week.sourceTerm || 'Term 1',
       week: scored[0].week.week,
       match: { entry: scored[0].entry },
+    };
+  }
+
+  const indicatorTokens = tokenizeForMatch(input.indicator);
+  const tokenMatches = candidates
+    .map((candidate) => ({
+      ...candidate,
+      score: countTokenOverlap(indicatorTokens, tokenizeForMatch(candidate.text)),
+    }))
+    .filter((candidate) => candidate.score >= 2)
+    .sort((left, right) => right.score - left.score || left.week.week - right.week.week);
+
+  if (tokenMatches.length) {
+    return {
+      term: tokenMatches[0].week.sourceTerm || 'Term 1',
+      week: tokenMatches[0].week.week,
+      match: { entry: tokenMatches[0].entry },
     };
   }
 
@@ -776,6 +831,23 @@ function cleanIndicatorText(indicator: string): string {
     .trim();
 }
 
+function cleanCurriculumText(value: string): string {
+  return value
+    .replace(/â€™/g, "'")
+    .replace(/â€œ|â€/g, '"')
+    .replace(/â€“|â€”/g, '-')
+    .replace(/Â©/g, '')
+    .replace(/\b\d+\s*©?\s*NaCCA,?\s+Ministry of Education\s+\d{4}\b/gi, '')
+    .replace(/\bNaCCA,?\s+Ministry of Education\s+\d{4}\b/gi, '')
+    .replace(/\bSUB-STRAND\s+\d+:[^"]*$/gi, '')
+    .replace(/\bSUBJECT SPECIFIC\s+(?:PRACTICES|CONTENT)[^"]*$/gi, '')
+    .replace(/\bCONTENT STANDARD\s*:?\s*$/gi, '')
+    .replace(/\bCONT['’]?D\b/gi, '')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .replace(/^\.+\s*/, '');
+}
+
 function hasAny(value: string, needles: string[]): boolean {
   return needles.some((needle) => value.includes(needle));
 }
@@ -785,7 +857,12 @@ function getMappedExemplars(subject: string, entry: SchemeWeekEntry): string[] {
   const source = getExemplarSource(subject);
   if (!source) return [];
 
-  const directMatches = uniqueStrings(codes.flatMap((code) => source[code]?.exemplars ?? []));
+  const directMatches = uniqueStrings(
+    codes
+      .flatMap((code) => source[code]?.exemplars ?? [])
+      .map(cleanCurriculumText)
+      .filter(Boolean)
+  );
   if (directMatches.length) return directMatches.slice(0, 6);
 
   if (isEnglishSubject(subject)) {
@@ -824,7 +901,7 @@ function getBestEnglishExemplarsForEntry(entry: SchemeWeekEntry): string[] {
 
 function getExemplarSource(
   subject: string
-): Record<string, { indicator: string; exemplars: string[] }> | null {
+): Record<string, ExemplarSourceRecord> | null {
   const normalized = normalizeText(subject);
   if (normalized.includes('english')) {
     return { ...primaryEnglishExemplarsByIndicator, ...englishExemplarsByIndicator };
@@ -863,6 +940,51 @@ function getExemplarSource(
   return null;
 }
 
+function getPrimaryCurriculumMetadata(
+  subject: string,
+  code: string
+): PrimaryCurriculumMetadataRecord | undefined {
+  const normalized = normalizeText(subject);
+  if (!(code.startsWith('B1.') || code.startsWith('B2.') || code.startsWith('B3.') || code.startsWith('B4.') || code.startsWith('B5.') || code.startsWith('B6.'))) {
+    return undefined;
+  }
+  if (normalized.includes('mathematics') || normalized.includes('math')) {
+    return primaryMathematicsMetadataByIndicator[code];
+  }
+  if (normalized.includes('science')) {
+    return primaryScienceMetadataByIndicator[code];
+  }
+  if (normalized.includes('history')) {
+    return primaryHistoryMetadataByIndicator[code];
+  }
+  if (normalized === 'rme' || normalized.includes('religious and moral')) {
+    return primaryRmeMetadataByIndicator[code];
+  }
+  if (normalized.includes('creative arts')) {
+    return primaryCreativeArtsMetadataByIndicator[code];
+  }
+  if (normalized.includes('computing')) {
+    return primaryComputingMetadataByIndicator[code];
+  }
+  if (normalized.includes('english')) {
+    return primaryEnglishMetadataByIndicator[code];
+  }
+  if (normalized.includes('ghanaian language')) {
+    return primaryGhanaianLanguageMetadataByIndicator[code];
+  }
+  if (normalized.includes('french')) {
+    return primaryFrenchMetadataByIndicator[code];
+  }
+  if (
+    normalized.includes('physical education') ||
+    normalized === 'pe' ||
+    normalized.includes('p e')
+  ) {
+    return primaryPhysicalEducationMetadataByIndicator[code];
+  }
+  return undefined;
+}
+
 function isEnglishSubject(subject: string): boolean {
   return normalizeText(subject).includes('english');
 }
@@ -873,12 +995,12 @@ function extractIndicatorCodes(value?: string): string[] {
   const expanded = [...directCodes];
 
   for (const code of directCodes) {
-    const rangeMatch = text.match(new RegExp(`${escapeRegExp(code)}-(?:(\\d+)\\.)?(\\d+)`));
+    const rangeMatch = text.match(new RegExp(`${escapeRegExp(code)}-(?:\\d+\\.)*(\\d+)`));
     if (!rangeMatch) continue;
 
     const parts = code.split('.');
     const firstIndicator = Number(parts[4]);
-    const lastIndicator = Number(rangeMatch[2]);
+    const lastIndicator = Number(rangeMatch[1]);
     if (!Number.isFinite(firstIndicator) || !Number.isFinite(lastIndicator)) continue;
     if (lastIndicator < firstIndicator || lastIndicator - firstIndicator > 20) continue;
 
@@ -907,6 +1029,11 @@ function codeMatchesClassLevel(code: string, classLevel: ClassLevel): boolean {
   const numericLevel = classLevel.replace(/\D+/g, '');
   if (!numericLevel) return false;
   return code.startsWith(`B${numericLevel}`) || code.startsWith(`B${numericLevel}/`);
+}
+
+function isPrimaryClassLevel(classLevel: ClassLevel): boolean {
+  const numericLevel = Number(classLevel.replace(/\D+/g, ''));
+  return Number.isInteger(numericLevel) && numericLevel >= 1 && numericLevel <= 6;
 }
 
 function getFallbackStrandFromCode(code: string): string {

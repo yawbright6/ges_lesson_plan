@@ -3,7 +3,11 @@ import type { ServiceClient } from './types.ts';
 export async function loadSettings(service: ServiceClient) {
   const { data, error } = await service.from('admin_app_settings').select('key,value,updated_at').order('key');
   if (error) return [];
-  return data ?? [];
+  return (data ?? []).map((item) =>
+    item.key === 'gemini_api_key'
+      ? { ...item, value: { configured: Boolean(item.value?.value) } }
+      : item,
+  );
 }
 
 export async function updateSettings(service: ServiceClient, settings: Record<string, unknown>) {
@@ -13,9 +17,14 @@ export async function updateSettings(service: ServiceClient, settings: Record<st
     'feature_credit_costs',
     'generated_file_retention',
     'credit_purchasing',
+    'translation_provider',
+    'visual_generation',
+    'gemini_api_key',
   ]);
   const rows = Object.entries(settings)
     .filter(([key]) => allowedKeys.has(key))
+    .filter(([, value]) => value && typeof value === 'object')
+    .filter(([key, value]) => key !== 'gemini_api_key' || typeof (value as Record<string, unknown>).value === 'string')
     .map(([key, value]) => ({
       key,
       value,
@@ -30,5 +39,9 @@ export async function updateSettings(service: ServiceClient, settings: Record<st
     .select('key,value,updated_at')
     .order('key');
   if (error) throw new Error(error.message);
-  return data ?? [];
+  return (data ?? []).map((item) =>
+    item.key === 'gemini_api_key'
+      ? { ...item, value: { configured: Boolean(item.value?.value) } }
+      : item,
+  );
 }

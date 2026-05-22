@@ -31,7 +31,7 @@ export default function RootLayout() {
               <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
               <meta property="og:type" content="website" />
               <meta property="og:site_name" content={APP_NAME} />
-              <meta property="og:title" content={`${APP_NAME} — ${APP_TAGLINE}`} />
+              <meta property="og:title" content={`${APP_NAME} - ${APP_TAGLINE}`} />
               <meta property="og:description" content={APP_DESCRIPTION} />
               <meta property="og:url" content={APP_URL} />
               <meta property="og:image" content={OG_IMAGE} />
@@ -76,6 +76,10 @@ export default function RootLayout() {
               options={{ title: 'Teaching Notes' }}
             />
             <Stack.Screen
+              name="tools/test-item-compiler"
+              options={{ title: 'Test Item Compiler' }}
+            />
+            <Stack.Screen
               name="teaching-note/[id]"
               options={{ headerShown: false }}
             />
@@ -85,6 +89,10 @@ export default function RootLayout() {
             />
             <Stack.Screen
               name="lesson/week"
+              options={{ headerShown: false }}
+            />
+            <Stack.Screen
+              name="test-paper/[id]"
               options={{ headerShown: false }}
             />
             <Stack.Screen
@@ -100,3 +108,4 @@ export default function RootLayout() {
     </GestureHandlerRootView>
   );
 }
+

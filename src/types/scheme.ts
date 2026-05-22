@@ -3,11 +3,14 @@ import type { ClassLevel } from './lessonPlan';
 export interface SchemeWeekEntry {
   strand?: string;
   subStrand?: string;
+  contentStandardCode?: string;
   contentStandard?: string;
+  indicatorCode?: string;
   indicator?: string;
   topic?: string;
   resources?: string[];
   exemplars?: string[];
+  sourcePage?: number;
 }
 
 /** A single week row in a Scheme of Learning / Scheme of Work. */

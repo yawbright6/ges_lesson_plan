@@ -1,5 +1,5 @@
 import { corsHeaders } from '../_shared/claude.ts';
-import { createServiceClient, logEdgeError } from '../_shared/supabase.ts';
+import { createServiceClient } from '../_shared/supabase.ts';
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -30,7 +30,7 @@ Deno.serve(async (req) => {
 
     const reference = event?.data?.reference;
     if (typeof reference !== 'string' || !reference.trim()) {
-      return json({ received: true, credited: false, error: 'Missing transaction reference' }, 200);
+      return json({ error: 'Missing transaction reference' }, 400);
     }
 
     const service = createServiceClient();
@@ -41,39 +41,15 @@ Deno.serve(async (req) => {
       .single();
 
     if (purchaseError || !purchase) {
-      await logEdgeError({
-        userId: null,
-        source: 'edge',
-        action: 'paystack_webhook_missing_purchase',
-        message: purchaseError?.message ?? 'Purchase not found for Paystack webhook',
-        metadata: { reference },
-        severity: 'warning',
-      });
-      return json({ received: true, credited: false, error: 'Purchase not found' }, 200);
+      return json({ error: 'Purchase not found' }, 404);
     }
 
     if (Number(event.data?.amount) !== Number(purchase.amount_subunit)) {
-      await logEdgeError({
-        userId: null,
-        source: 'edge',
-        action: 'paystack_webhook_amount_mismatch',
-        message: 'Webhook amount mismatch',
-        metadata: { reference, received: event.data?.amount, expected: purchase.amount_subunit },
-        severity: 'error',
-      });
-      return json({ received: true, credited: false, error: 'Webhook amount mismatch' }, 200);
+      return json({ error: 'Webhook amount mismatch' }, 400);
     }
 
     if (event.data?.currency !== purchase.currency) {
-      await logEdgeError({
-        userId: null,
-        source: 'edge',
-        action: 'paystack_webhook_currency_mismatch',
-        message: 'Webhook currency mismatch',
-        metadata: { reference, received: event.data?.currency, expected: purchase.currency },
-        severity: 'error',
-      });
-      return json({ received: true, credited: false, error: 'Webhook currency mismatch' }, 200);
+      return json({ error: 'Webhook currency mismatch' }, 400);
     }
 
     const { data: finalized, error: finalizeError } = await service.rpc(
@@ -85,15 +61,13 @@ Deno.serve(async (req) => {
     );
 
     if (finalizeError) {
-      await logEdgeError({
-        userId: null,
-        source: 'edge',
-        action: 'paystack_webhook_finalize_failed',
-        message: finalizeError.message,
-        metadata: { reference },
-        severity: 'error',
-      });
-      return json({ error: 'Purchase finalization failed' }, 500);
+      // ✅ Return 200 even on error to prevent Paystack retries
+      return json({
+        received: true,
+        credited: false,
+        error: finalizeError.message,
+        status: 'finalization_failed'
+      }, 200);
     }
 
     const result = Array.isArray(finalized) ? finalized[0] : finalized;
@@ -103,15 +77,13 @@ Deno.serve(async (req) => {
       balance: Number(result?.balance ?? 0),
     }, 200);
   } catch (err) {
-    await logEdgeError({
-      userId: null,
-      source: 'edge',
-      action: 'paystack_webhook_processing_failed',
-      message: (err as Error).message,
-      metadata: {},
-      severity: 'error',
-    });
-    return json({ error: 'Webhook processing failed' }, 500);
+    // ✅ Return 200 even on error to prevent Paystack retries
+    return json({
+      received: true,
+      credited: false,
+      error: (err as Error).message,
+      status: 'webhook_processing_failed'
+    }, 200);
   }
 });
 
@@ -136,3 +108,4 @@ function json(payload: unknown, status: number) {
     headers: { ...corsHeaders, 'content-type': 'application/json' },
   });
 }
+

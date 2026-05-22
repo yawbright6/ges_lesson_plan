@@ -1,5 +1,6 @@
 import { Alert, Platform } from 'react-native';
 import { Share } from 'react-native';
+import * as FileSystem from 'expo-file-system';
 import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
 import {
@@ -12,6 +13,8 @@ import {
 import type { LessonPlan } from '@/types/lessonPlan';
 import type { SchemeOfWork } from '@/types/scheme';
 import type { TeachingNoteVisual, TeachingNotes } from '@/types/teachingNotes';
+import type { CompiledTestCompilation, CompiledTestPaper } from '@/types/testItemCompiler';
+import { buildTestItemsHeading, buildTestItemsWeekLine } from './testItemCompiler';
 
 export async function exportLessonPlanPdf(plan: LessonPlan) {
   const html = pageHtml(buildLessonPlanContent(plan), 'lesson');
@@ -72,6 +75,30 @@ export async function exportTeachingNotesPdf(notes: TeachingNotes) {
   await exportHtmlAsPdf(html, fileName);
 }
 
+export async function exportCompiledTestItemsPdf(compilation: CompiledTestCompilation) {
+  const html = pageHtml(buildCompiledTestItemsContent(compilation), 'test');
+  const fileName = `${slugify(compilation.subject)}-${compilation.classLevel}-${slugify(compilation.termTitle ?? 'term')}-test-items.pdf`;
+  await exportHtmlAsPdf(html, fileName);
+}
+
+export async function exportCompiledTestItemsWord(compilation: CompiledTestCompilation) {
+  const html = pageHtml(buildCompiledTestItemsContent(compilation), 'test');
+  const fileName = `${slugify(compilation.subject)}-${compilation.classLevel}-${slugify(compilation.termTitle ?? 'term')}-test-items.doc`;
+  await exportHtmlAsWord(html, fileName);
+}
+
+export async function exportRewrittenTestPaperPdf(paper: CompiledTestPaper) {
+  const html = pageHtml(buildCompiledTestPaperContent(paper), 'test');
+  const fileName = `${slugify(paper.subject)}-${paper.classLevel}-${slugify(paper.termTitle ?? 'term')}-test-paper.pdf`;
+  await exportHtmlAsPdf(html, fileName);
+}
+
+export async function exportRewrittenTestPaperWord(paper: CompiledTestPaper) {
+  const html = pageHtml(buildCompiledTestPaperContent(paper), 'test');
+  const fileName = `${slugify(paper.subject)}-${paper.classLevel}-${slugify(paper.termTitle ?? 'term')}-test-paper.doc`;
+  await exportHtmlAsWord(html, fileName);
+}
+
 async function exportHtmlAsPdf(html: string, fileName: string) {
   if (Platform.OS === 'web') {
     const popup = window.open('', '_blank');
@@ -100,6 +127,35 @@ async function exportHtmlAsPdf(html: string, fileName: string) {
   }
 
   await Print.printAsync({ uri });
+}
+
+async function exportHtmlAsWord(html: string, fileName: string) {
+  if (Platform.OS === 'web') {
+    const blob = new Blob([html], { type: 'application/msword;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement('a');
+    anchor.href = url;
+    anchor.download = fileName;
+    document.body.appendChild(anchor);
+    anchor.click();
+    anchor.remove();
+    URL.revokeObjectURL(url);
+    return;
+  }
+
+  const uri = `${FileSystem.cacheDirectory}${fileName}`;
+  await FileSystem.writeAsStringAsync(uri, html, { encoding: FileSystem.EncodingType.UTF8 });
+  const canShare = await Sharing.isAvailableAsync();
+  if (canShare) {
+    await Sharing.shareAsync(uri, {
+      mimeType: 'application/msword',
+      dialogTitle: fileName,
+      UTI: 'com.microsoft.word.doc',
+    });
+    return;
+  }
+
+  Alert.alert('Word export ready', `The Word-compatible file was created: ${fileName}`);
 }
 
 async function shareText(message: string) {
@@ -142,6 +198,10 @@ function buildLessonPlanContent(plan: LessonPlan) {
                     .join('')}</div>`
                 : ''
             }
+            ${(plan.visualAids ?? [])
+              .filter((visualAid) => visualAid.phase === phase.phase)
+              .map(buildVisualAidHtml)
+              .join('')}
           </td>
           <td class="resource-cell">${(phase.resources ?? []).map((item) => `<div>${escapeHtml(item)}</div>`).join('')}</td>
         </tr>
@@ -198,7 +258,6 @@ function buildLessonPlanContent(plan: LessonPlan) {
       ${rows}
     </table>
 
-    ${buildVisualAidHtml(plan)}
     ${buildLocalLanguageHtml(plan)}
     ${buildTeacherDetailsHtml(plan)}
   `;
@@ -265,6 +324,7 @@ function buildTeachingNotesContent(notes: TeachingNotes) {
       <h2>${escapeHtml(`${notes.subject} - ${notes.classLevel} - Week ${notes.week}${notes.lessonNumber ? ` - Lesson ${notes.lessonNumber}` : ''}${notes.versionNumber ? ` - Version ${notes.versionNumber}` : ''}`)}</h2>
     </section>
     ${notes.overview ? notesSection('Overview', `<p>${escapeHtml(notes.overview)}</p>`) : ''}
+    ${notes.contentBlocks?.length ? notesSection('Lesson Note', notes.contentBlocks.map(buildTeachingNoteBlockHtml).join('')) : ''}
     ${notesListSection('Teacher Preparation', notes.preparation)}
     ${notes.visuals?.length ? notesSection('Content Diagrams and Examples', notes.visuals.map(buildVisualHtml).join('')) : ''}
     ${notesSection('Teaching Guide', notes.phaseGuidance.map((phase) => `
@@ -281,6 +341,155 @@ function buildTeachingNotesContent(notes: TeachingNotes) {
     ${notesListSection('Board Summary', notes.boardSummary)}
     ${notesListSection('Homework / Follow-up', notes.homework ?? [])}
   `;
+}
+
+function buildCompiledTestItemsContent(compilation: CompiledTestCompilation) {
+  const groups = groupCompiledItems(compilation.items);
+  const title = buildTestItemsHeading(compilation);
+  const weekLine = buildTestItemsWeekLine(compilation.items);
+  let questionNumber = 1;
+
+  return `
+    <section class="test-title">
+      <h1>${escapeHtml(title)}</h1>
+      ${weekLine ? `<h2>${escapeHtml(weekLine)}</h2>` : ''}
+    </section>
+    ${groups
+      .map(
+        (group) => `
+          <section class="test-section">
+            <h3>${escapeHtml(group.title)}</h3>
+            ${group.topic ? `<p class="test-meta">${escapeHtml(group.topic)}</p>` : ''}
+            <ol start="${questionNumber}" class="test-list">
+              ${group.items
+                .map((item) => {
+                  questionNumber += 1;
+                  return `<li><span>${escapeHtml(item.question)}</span></li>`;
+                })
+                .join('')}
+            </ol>
+          </section>
+        `,
+      )
+      .join('')}
+  `;
+}
+
+function buildCompiledTestPaperContent(paper: CompiledTestPaper) {
+  const instructions = normalizeTestPaperInstructions(paper.instructions ?? []);
+  return `
+    <section class="test-title">
+      <h1>${escapeHtml(paper.title)}</h1>
+      <h2>${escapeHtml(`${paper.subject} - ${paper.classLevel}${paper.termTitle ? ` - ${paper.termTitle}` : ''} - ${paper.totalMarks} marks`)}</h2>
+    </section>
+    ${instructions.length ? notesSection('Instructions', listHtml(instructions)) : ''}
+    ${paper.sections
+      .map(
+        (section) => `
+          <section class="test-section">
+            <h3>${escapeHtml(section.title)}</h3>
+            <ol class="test-list">
+              ${section.questions
+                .map((question) => {
+                  const marks = question.marks || 1;
+                  return `<li>${buildTestQuestionHtml(question)}<strong>[${marks} mark${marks === 1 ? '' : 's'}]</strong></li>`;
+                })
+                .join('')}
+            </ol>
+          </section>
+        `,
+      )
+      .join('')}
+    ${paper.answerKey?.length ? `<div class="answer-key-page">${notesSection('Answer Key', buildAnswerKeyHtml(paper))}</div>` : ''}
+  `;
+}
+
+function buildAnswerKeyHtml(paper: CompiledTestPaper) {
+  return `<ol class="answer-key">${paper.answerKey
+    .map(
+      (item) => `<li>
+        ${escapeHtml(stripLeadingQuestionNumber(item.answer))}
+        ${item.markingGuide?.length ? listHtml(item.markingGuide) : ''}
+        <span class="test-meta">${item.marks} mark${item.marks === 1 ? '' : 's'}</span>
+      </li>`,
+    )
+    .join('')}</ol>`;
+}
+
+function buildTestQuestionHtml(question: CompiledTestPaper['sections'][number]['questions'][number]) {
+  const parsed = parseMultipleChoiceText(question.text);
+  if (!parsed || (question.mode && question.mode !== 'multiple_choice' && !hasOptionMarkers(question.text))) {
+    return `<span>${escapeHtml(question.text)}</span>`;
+  }
+
+  return `<span>${escapeHtml(parsed.stem)}</span>
+    <div class="mcq-options">
+      ${orderMultipleChoiceOptions(parsed.options).map((option) => `<div class="mcq-option"><strong>${escapeHtml(option.label)}.</strong> ${escapeHtml(option.text)}</div>`).join('')}
+    </div>`;
+}
+
+function parseMultipleChoiceText(text: string) {
+  const normalized = text.replace(/\s+/g, ' ').trim();
+  const optionRegex = /(?:^|\s)([A-D])[\.\)]\s+/g;
+  const matches = [...normalized.matchAll(optionRegex)];
+  if (matches.length < 2) return null;
+
+  const firstIndex = matches[0].index ?? -1;
+  if (firstIndex < 0) return null;
+  const stem = normalized.slice(0, firstIndex).trim();
+  const options = matches.map((match, index) => {
+    const start = (match.index ?? 0) + match[0].length;
+    const end = index + 1 < matches.length ? matches[index + 1].index ?? normalized.length : normalized.length;
+    return {
+      label: match[1],
+      text: normalized.slice(start, end).trim(),
+    };
+  }).filter((option) => option.text);
+
+  return stem && options.length >= 2 ? { stem, options } : null;
+}
+
+function hasOptionMarkers(text: string) {
+  return /(?:^|\s)[A-D][\.\)]\s+/.test(text);
+}
+
+function orderMultipleChoiceOptions(options: Array<{ label: string; text: string }>) {
+  const byLabel = new Map(options.map((option) => [option.label, option]));
+  const preferred = ['A', 'C', 'B', 'D']
+    .map((label) => byLabel.get(label))
+    .filter(Boolean) as Array<{ label: string; text: string }>;
+  return preferred.length === options.length ? preferred : options;
+}
+
+function normalizeTestPaperInstructions(instructions: string[]) {
+  return instructions
+    .map((instruction) => instruction.trim())
+    .filter((instruction) => !/silent\s+electronic\s+calculators?\s+should\s+be\s+used/i.test(instruction))
+    .map((instruction) =>
+      /all\s+workings\s+must\s+be\s+shown\s+clearly/i.test(instruction)
+        ? 'All workings in Section B must be shown clearly.'
+        : instruction,
+    );
+}
+
+function stripLeadingQuestionNumber(value: string) {
+  return value.replace(/^\s*(?:question\s*)?\d+[\.\)]\s*/i, '').trim();
+}
+
+function groupCompiledItems(items: CompiledTestCompilation['items']) {
+  const groups = new Map<string, { title: string; topic: string; items: typeof items }>();
+  for (const item of items) {
+    const key = `${item.week}:${item.lessonNumber ?? ''}`;
+    const title = `Week ${item.week}${item.lessonNumber ? ` - Lesson ${item.lessonNumber}` : ''}`;
+    const topic = [item.topic, item.strand, item.indicator].filter(Boolean).join(' | ');
+    const existing = groups.get(key);
+    if (existing) {
+      existing.items.push(item);
+    } else {
+      groups.set(key, { title, topic, items: [item] });
+    }
+  }
+  return [...groups.values()];
 }
 
 function notesSection(title: string, content: string) {
@@ -316,7 +525,81 @@ function buildVisualHtml(visual: TeachingNoteVisual) {
   `;
 }
 
-function pageHtml(content: string, documentType: 'lesson' | 'scheme' | 'notes') {
+function buildTeachingNoteBlockHtml(block: NonNullable<TeachingNotes['contentBlocks']>[number]) {
+  if (block.type === 'generated_visual') {
+    return buildVisualHtml({
+      id: block.id,
+      kind: block.visualKind ?? 'generated_image',
+      source: 'generated',
+      title: block.title ?? 'Generated diagram',
+      caption: block.caption,
+      prompt: block.prompt,
+      imageUrl: block.imageUrl,
+      storagePath: block.storagePath,
+    });
+  }
+  if (block.type === 'comparison_table') {
+    const rows = block.rows ?? [];
+    return `<div class="note-block structured-block">
+      ${block.title ? `<h4>${escapeHtml(block.title)}</h4>` : ''}
+      ${block.text ? `<p>${escapeHtml(block.text)}</p>` : ''}
+      ${rows.length ? buildRowsTableHtml(rows) : ''}
+      ${block.caption ? `<p class="caption">${escapeHtml(block.caption)}</p>` : ''}
+    </div>`;
+  }
+  if (block.type === 'bar_chart') {
+    return `<div class="note-block structured-block">
+      ${block.title ? `<h4>${escapeHtml(block.title)}</h4>` : ''}
+      ${block.text ? `<p>${escapeHtml(block.text)}</p>` : ''}
+      ${buildBarChartHtml(block.data ?? [])}
+      ${block.caption ? `<p class="caption">${escapeHtml(block.caption)}</p>` : ''}
+    </div>`;
+  }
+  if (block.type === 'process_steps') {
+    return `<div class="note-block structured-block">
+      ${block.title ? `<h4>${escapeHtml(block.title)}</h4>` : ''}
+      ${block.text ? `<p>${escapeHtml(block.text)}</p>` : ''}
+      ${block.steps?.length ? `<ol>${block.steps.map((step) => `<li>${escapeHtml(step)}</li>`).join('')}</ol>` : ''}
+      ${block.caption ? `<p class="caption">${escapeHtml(block.caption)}</p>` : ''}
+    </div>`;
+  }
+  if (block.type === 'labelled_diagram') {
+    return `<div class="note-block structured-block">
+      ${block.title ? `<h4>${escapeHtml(block.title)}</h4>` : ''}
+      ${block.text ? `<p>${escapeHtml(block.text)}</p>` : ''}
+      ${block.labels?.length ? `<table class="visual-table">${block.labels.map((label) => `<tr><td><strong>${escapeHtml(label.label)}</strong></td><td>${escapeHtml(label.description ?? '')}</td></tr>`).join('')}</table>` : ''}
+      ${block.caption ? `<p class="caption">${escapeHtml(block.caption)}</p>` : ''}
+    </div>`;
+  }
+  if (block.type === 'heading') return `<h4>${escapeHtml(block.text || block.title || '')}</h4>`;
+  if (block.items?.length) {
+    return `<div class="note-block">${block.title ? `<h4>${escapeHtml(block.title)}</h4>` : ''}${listHtml(block.items)}</div>`;
+  }
+  return block.text
+    ? `<div class="note-block">${block.title ? `<h4>${escapeHtml(block.title)}</h4>` : ''}<p>${escapeHtml(block.text)}</p></div>`
+    : '';
+}
+
+function buildRowsTableHtml(rows: string[][]) {
+  return `<table class="visual-table">${rows
+    .map((row, rowIndex) => `<tr class="${rowIndex === 0 ? 'head' : ''}">${row
+      .map((cell) => `<td>${escapeHtml(cell)}</td>`)
+      .join('')}</tr>`)
+    .join('')}</table>`;
+}
+
+function buildBarChartHtml(data: Array<{ label: string; value: number }>) {
+  if (!data.length) return '';
+  const maxValue = Math.max(...data.map((item) => Number(item.value) || 0), 1);
+  return `<div class="bar-chart">${data
+    .map((item) => {
+      const width = Math.max(8, Math.round(((Number(item.value) || 0) / maxValue) * 100));
+      return `<div class="bar-row"><span class="bar-label">${escapeHtml(item.label)}</span><span class="bar-track"><span class="bar-fill" style="width:${width}%"></span></span><span class="bar-value">${Number(item.value) || 0}</span></div>`;
+    })
+    .join('')}</div>`;
+}
+
+function pageHtml(content: string, documentType: 'lesson' | 'scheme' | 'notes' | 'test') {
   const lessonStyles =
     documentType === 'lesson'
       ? `
@@ -336,7 +619,7 @@ function pageHtml(content: string, documentType: 'lesson' | 'scheme' | 'notes') 
         .phase-cell span { font-size: 11px; }
         .phase-cell small { font-size: 10px; }
         .activity-cell { font-size: 16px; }
-        .activity-cell div { margin-bottom: 1px; line-height: 1.24; }
+        .activity-cell div { margin-bottom: 6px; line-height: 1.24; }
         .resource-cell { font-size: 13px; line-height: 1.2; }
         .assessment { margin-top: 5px; padding-top: 5px; border-top-color: #e2e2dc; }
         .assessment strong { font-size: 11px; }
@@ -403,10 +686,35 @@ function pageHtml(content: string, documentType: 'lesson' | 'scheme' | 'notes') 
         .teacher-details { border: 1px solid #d8d8d2; border-radius: 6px; padding: 8px; margin-top: 8px; font-size: 12px; line-height: 1.45; }
         ${lessonStyles}
         ${documentType === 'notes' ? notesStyles() : ''}
+        ${documentType === 'test' ? testStyles() : ''}
       </style>
     </head>
     <body>${content}</body>
   </html>`;
+}
+
+function testStyles() {
+  return `
+    body { padding: 22px; }
+    .test-title { text-align: center; margin-bottom: 16px; }
+    .test-title h1 { font-size: 20px; color: #0F4C3A; }
+    .test-title h2 { font-size: 15px; color: #555; }
+    .test-section { border: 1px solid #d8d8d2; border-radius: 6px; padding: 10px; margin-bottom: 10px; }
+    .notes-section { border: 1px solid #d8d8d2; border-radius: 6px; padding: 10px; margin-bottom: 10px; }
+    .test-section h3 { color: #0F4C3A; font-size: 15px; margin-bottom: 4px; }
+    .notes-section h3 { color: #0F4C3A; font-size: 14px; margin-bottom: 6px; }
+    .notes-section li { font-size: 12px; line-height: 1.45; margin-bottom: 4px; }
+    .test-meta { color: #666; font-size: 12px; line-height: 1.35; margin: 2px 0 8px; }
+    .test-list { margin: 0; padding-left: 20px; }
+    .test-list li { font-size: 15px; line-height: 1.5; margin-bottom: 8px; }
+    .test-list strong { color: #0F4C3A; margin-left: 6px; white-space: nowrap; }
+    .mcq-options { display: grid; grid-template-columns: 1fr 1fr; column-gap: 28px; row-gap: 7px; margin-top: 8px; margin-bottom: 4px; }
+    .mcq-option { display: block; padding-left: 4px; line-height: 1.45; }
+    .mcq-option strong { margin-left: 0; margin-right: 6px; color: #0F4C3A; }
+    .answer-key { margin: 0; padding-left: 20px; }
+    .answer-key li { font-size: 12px; line-height: 1.45; margin-bottom: 8px; }
+    .answer-key-page { break-before: page; page-break-before: always; }
+  `;
 }
 
 function notesStyles() {
@@ -429,6 +737,13 @@ function notesStyles() {
     .visual-table { margin-top: 6px; }
     .visual-table td { font-size: 11px; }
     .visual-table .head td { background: #edf3f0; font-weight: 700; }
+    .structured-block { background: #F4F1EA; border: 1px solid #d8d8d2; border-radius: 6px; padding: 8px; margin-top: 8px; break-inside: avoid; page-break-inside: avoid; }
+    .bar-chart { margin-top: 6px; }
+    .bar-row { display: flex; align-items: center; gap: 6px; margin-top: 5px; }
+    .bar-label { width: 100px; font-size: 11px; }
+    .bar-track { flex: 1; height: 10px; background: #fff; border-radius: 4px; overflow: hidden; }
+    .bar-fill { display: block; height: 10px; background: #0F4C3A; }
+    .bar-value { width: 28px; text-align: right; color: #666; font-size: 11px; }
     .caption { margin-top: 6px; }
     .attribution { color: #666; font-size: 10px; }
   `;
@@ -477,8 +792,7 @@ function buildTeacherDetailsHtml(plan: LessonPlan) {
   return rows.length ? `<section class="teacher-details">${rows.join('')}</section>` : '';
 }
 
-function buildVisualAidHtml(plan: LessonPlan) {
-  const visualAid = plan.visualAids?.[0];
+function buildVisualAidHtml(visualAid: NonNullable<LessonPlan['visualAids']>[number]) {
   if (!visualAid?.title) return '';
 
   return `<section class="visual-aid">
@@ -492,6 +806,14 @@ function buildVisualAidHtml(plan: LessonPlan) {
 }
 
 function buildVisualFigureHtml(visualAid: NonNullable<LessonPlan['visualAids']>[number]) {
+  if (visualAid.imageUrl) {
+    return `<div class="visual-figure"><img class="visual-image" src="${escapeHtml(visualAid.imageUrl)}" alt="${escapeHtml(visualAid.title)}" /></div>`;
+  }
+
+  if (visualAid.status === 'failed') {
+    return `<div class="visual-error">${escapeHtml(visualAid.error || 'Diagram could not be generated.')}</div>`;
+  }
+
   if (visualAid.type === 'bar_chart' && visualAid.data?.length) {
     const maxValue = Math.max(...visualAid.data.map((item) => item.value), 1);
     return `<div class="visual-figure">${visualAid.data

@@ -142,7 +142,7 @@ export const scienceB8Terms: ExplicitCurriculumTerm[] = [
         strand: 'Cycles',
         subStrand: 'Animal Production',
         contentStandard:
-          'B8/JHS2.2.4.1-2.4.2 Recognise the different types of feed for animals and understand the importance of feed and water.',
+          'B8/JHS2.2.4.1 Recognise the different types of feed for animals, and B8/JHS2.2.4.2 understand the importance of feed and water.',
         indicator:
           'B8/JHS2.2.4.1.1 and B8/JHS2.2.4.2.1 Compare animal feeds and explain the importance of water and feed to growth.',
         topic: 'Animal feed and the importance of water for growth',
@@ -271,7 +271,7 @@ export const scienceB8Terms: ExplicitCurriculumTerm[] = [
         strand: 'Forces and Energy',
         subStrand: 'Electricity and Electronics',
         contentStandard:
-          'B8/JHS2.4.2.1-2.4.2.2 Demonstrate knowledge of electricity transmission and capacitor functions in circuits.',
+          'B8/JHS2.4.2.1 demonstrate knowledge of electricity transmission, and B8/JHS2.4.2.2 demonstrate understanding of capacitor functions in circuits.',
         indicator:
           'B8/JHS2.4.2.1.1 and B8/JHS2.4.2.2.1 Explain electricity transmission and capacitor behaviour in DC circuits.',
         topic: 'Electricity transmission and capacitors in circuits',
@@ -672,7 +672,7 @@ export const scienceB9Terms: ExplicitCurriculumTerm[] = [
         strand: 'Forces and Energy',
         subStrand: 'Energy',
         contentStandard:
-          'B9/JHS3.4.1.2-4.1.3 Explore applications of light energy in life.',
+          'B9/JHS3.4.1.2 demonstrate understanding in calculations involving energy and light applications, and B9/JHS3.4.1.3 explore applications of light energy in life.',
         indicator:
           'B9/JHS3.4.1.2.2-1.2.4 and B9/JHS3.4.1.3.1 Describe image formation in cameras, shadows, eclipses and refraction.',
         topic: 'Light energy: cameras, shadows, eclipses and refraction',
@@ -757,7 +757,7 @@ export const scienceB9Terms: ExplicitCurriculumTerm[] = [
         strand: 'Humans and the Environment',
         subStrand: 'Waste Management',
         contentStandard:
-          'B9/JHS3.5.1.1-5.1.2 Demonstrate understanding of scientific and innovative waste management practices.',
+          'B9/JHS3.5.1.1 and B9/JHS3.5.1.2 demonstrate understanding of scientific and innovative waste management practices.',
         indicator:
           'B9/JHS3.5.1.1.1 and B9/JHS3.5.1.2.1 Investigate scientific methods of waste management and describe innovative approaches.',
         topic: 'Scientific and innovative waste management',

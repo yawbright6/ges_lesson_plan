@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { router, useFocusEffect } from 'expo-router';
 import { useCallback, useState } from 'react';
-import { Modal, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Modal, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { colors, radii, shadows, spacing, typography } from '@/theme/colors';
 
@@ -33,6 +33,13 @@ const tools = [
     icon: 'reader-outline' as const,
     route: '/tools/teaching-notes',
     tone: 'accent' as const,
+  },
+  {
+    title: 'Test Item Compiler',
+    description: 'Compile assessment prompts into question banks and test papers.',
+    icon: 'list-circle-outline' as const,
+    route: '/tools/test-item-compiler',
+    tone: 'primary' as const,
   },
 ];
 
@@ -81,7 +88,11 @@ export default function ToolsLauncherScreen() {
                 <Ionicons name="close" size={22} color={colors.text} />
               </Pressable>
             </View>
-            <View style={styles.toolList}>
+            <ScrollView
+              style={styles.toolList}
+              contentContainerStyle={styles.toolListContent}
+              showsVerticalScrollIndicator={false}
+            >
               {tools.map((tool) => (
                 <Pressable
                   key={tool.title}
@@ -111,7 +122,7 @@ export default function ToolsLauncherScreen() {
                   </View>
                 </Pressable>
               ))}
-            </View>
+            </ScrollView>
           </Pressable>
         </Pressable>
       </Modal>
@@ -127,6 +138,7 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
   },
   sheet: {
+    maxHeight: '92%',
     backgroundColor: colors.bgElevated,
     borderTopLeftRadius: radii.xl,
     borderTopRightRadius: radii.xl,
@@ -166,16 +178,17 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surfaceMuted,
   },
   pressed: { opacity: 0.78 },
-  toolList: { gap: spacing[3] },
+  toolList: { maxHeight: 520 },
+  toolListContent: { gap: spacing[3], paddingBottom: spacing[2] },
   toolRow: {
-    minHeight: 84,
+    minHeight: 74,
     borderWidth: 1,
     borderColor: colors.border,
     borderRadius: radii.lg,
-    padding: spacing[5],
+    padding: spacing[4],
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing[5],
+    gap: spacing[4],
     backgroundColor: colors.bgElevated,
   },
   toolRowPressed: {

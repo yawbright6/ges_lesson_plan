@@ -61,15 +61,10 @@ export function validateGhanaPhoneNumber(phone: string): { valid: boolean; norma
     return { valid: false, error: 'Phone number must be a Ghana number (233XXXXXXXXX)' };
   }
 
-  // Ghana mobile prefixes after country code: 20-29, 50-59, 70-79, 90-99
+  // Ghana mobile prefixes: 020-029, 050-059, 070-079, 090-099
   const prefix = formatted.substring(3, 5);
-  const prefixNumber = Number(prefix);
-  const hasValidPrefix =
-    (prefixNumber >= 20 && prefixNumber <= 29) ||
-    (prefixNumber >= 50 && prefixNumber <= 59) ||
-    (prefixNumber >= 70 && prefixNumber <= 79) ||
-    (prefixNumber >= 90 && prefixNumber <= 99);
-  if (!hasValidPrefix) {
+  const validPrefixes = ['02', '05', '07', '09'];
+  if (!validPrefixes.includes(prefix)) {
     return { valid: false, error: 'Invalid Ghana mobile number prefix' };
   }
 

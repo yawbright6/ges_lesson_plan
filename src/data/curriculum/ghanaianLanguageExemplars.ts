@@ -20,7 +20,7 @@ export const ghanaianLanguageExemplarsByIndicator: Record<string, GhanaianLangua
     sourcePage: 24,
   },
   "B7.1.1.1.2": {
-    indicator: "Discuss the significance of the processes in naming a",
+    indicator: "Discuss the significance of the processes in naming a child.",
     exemplars: [
       "Read a one hundred and fifty words passage on naming ceremony in working towards group goals. their culture.",
       "Discuss the significance of the processes involved in naming a child as raised in the passage. E.g. • Welcomes the child into the family and community. • The child gets an identity.",
@@ -30,7 +30,7 @@ export const ghanaianLanguageExemplarsByIndicator: Record<string, GhanaianLangua
     sourcePage: 28,
   },
   "B7.1.1.1.3": {
-    indicator: "Compare and contrast the naming processes in their",
+    indicator: "Compare and contrast the naming processes in their culture to other Ghanaian cultures.",
     exemplars: [
       "Discuss the naming process of one other culture of Ghana and compare",
       "Write about commonalities and differences among the cultures.",
@@ -38,7 +38,7 @@ export const ghanaianLanguageExemplarsByIndicator: Record<string, GhanaianLangua
     sourcePage: 29,
   },
   "B7.1.1.1.4": {
-    indicator: "Compare and contrast the traditional naming process to",
+    indicator: "Compare and contrast the traditional naming process to the contemporary naming process.",
     exemplars: [
       "Discuss the contemporary naming processes and compare it with the",
       "Show the similarities and differences. • Similarities: e.g. • It is organised • Family members are involved. • Presentation of gifts, etc. • Differences: e.g. • Organised in the family house but now organised at other places, e.g. church, in front of houses, event places, etc. • Items used are different from the contemporary process. • Baby named eight days after birth (but these days it is not always the case), etc. B7.1.1.1 Demonstrate",
@@ -54,7 +54,7 @@ export const ghanaianLanguageExemplarsByIndicator: Record<string, GhanaianLangua
     sourcePage: 29,
   },
   "B7.1.2.1.1": {
-    indicator: "State the names of the days of the week and relate their",
+    indicator: "State the names of the days of the week and relate their names to the days.",
     exemplars: [
       "State the names of the days of the week and important occasion (e.g. ideas, organisation, voice, word choice and the names to the days festival) months of the year in the Ghanaian language of study. sentence fluency in communication and order of birth",
       "Relate the names of the days of the week or months of the year to human names. Monday Female Male Akan: • Adwoa • Kodwo/Kwadwo Dangme/Ga: • Ajo • Kojo Ewe: • Adzo • Kɔdzo/Kudzo Gonja: • Atani • N/A NB: The day naming system is not applicable to all cultures of Ghana. It is language specific. 4 | © NaCCA, Ministry of Education Ghanaian Language _ CCP Curriculum.indd 4 17/11/2020 7:59 PM",
@@ -62,7 +62,7 @@ export const ghanaianLanguageExemplarsByIndicator: Record<string, GhanaianLangua
     sourcePage: 30,
   },
   "B7.1.2.1.2": {
-    indicator: "State the order of birth (i.e. first, second, and so on.) and",
+    indicator: "State the order of birth (i.e. first, second, and so on.) and relate the names accordingly.",
     exemplars: [
       "State the order of birth of their culture. implications and issues when listening the names to the days and order • E.g. first born, second born, and so on.",
       "Relate the names to the order of birth. • E.g.: First born Female Male • Piesie (Akan) Piesie (Akan) • Gogo (Ewe-Peki) Foli (Ewe-Peki) • Dede (Dangme) Tɛte (Dangme) • Ayele (Ga) Ayite (Ga) Second born NB: The order of birth names is not applicable to all cultures of Ghana. It is language specific",
@@ -70,7 +70,7 @@ export const ghanaianLanguageExemplarsByIndicator: Record<string, GhanaianLangua
     sourcePage: 31,
   },
   "B7.1.2.1.3": {
-    indicator: "Compare and contrast the day names and order of birth",
+    indicator: "Compare and contrast the day names and order of birth names in their culture to other cultures in Ghana.",
     exemplars: [
       "Compare the day names and order of birth names in their culture with working towards group goals those of other cultures in Ghana.",
       "Discuss the similarities and differences. • Similarities: • E.g.: Both are done in order, etc. • Differences: • E.g.: Same names for both sexes in some cultures but not same in other cultures, etc. © NaCCA, Ministry of Education | 5 Ghanaian Language _ CCP Curriculum.indd 5 17/11/2020 7:59 PM",
@@ -78,7 +78,7 @@ export const ghanaianLanguageExemplarsByIndicator: Record<string, GhanaianLangua
     sourcePage: 31,
   },
   "B7.1.3.1.1": {
-    indicator: "Describe the clan system and state some clans in their",
+    indicator: "Describe the clan system and state some clans in their ethnic community.",
     exemplars: [
       "Explain what a clan is. relevant detail, using correct construction and structure of speech.",
       "State some clans you know. E.g.: • Akan: Aduana, Agona, etc. • Dangme: Dangmebiawɛ, Piɛngua, Kabubiawɛ, Jebiam, etc. • Ewe (Aŋlɔ): Bateawo, Adzɔviawo, etc. • Ga: Lante Dzan We, Klɔnaa We, Frimpɔŋ We, etc. • Gonja: Nsuwa, Ngbanyabia, etc. • Dagaare: Emoala/Ewaala, Kusiele, etc.",
@@ -86,7 +86,7 @@ export const ghanaianLanguageExemplarsByIndicator: Record<string, GhanaianLangua
     sourcePage: 32,
   },
   "B7.1.3.1.2": {
-    indicator: "Discuss the features of the clan system in relation to",
+    indicator: "Discuss the features of the clan system in relation to their community.",
     exemplars: [
       "Discuss the features of their clan system. working towards group goals. • E.g. symbols, taboos, totems, names, etc.",
       "Relate their clan system to another clan system.",
@@ -96,7 +96,7 @@ export const ghanaianLanguageExemplarsByIndicator: Record<string, GhanaianLangua
     sourcePage: 32,
   },
   "B7.1.4.1.1": {
-    indicator: "Discuss how chiefs and queenmothers are selected in",
+    indicator: "Discuss how chiefs and queenmothers are selected in their ethnic community.",
     exemplars: [
       "Read a passage of about three to four paragraphs on how chiefs and working towards group goals. queenmothers are queenmothers are selected in their community. selected, enstooled/ enskinned and compare",
       "Identify the traditional leaders mentioned in the passage. E.g. chiefs, sub- their duties and chiefs, and so on. responsibilities",
@@ -105,7 +105,7 @@ export const ghanaianLanguageExemplarsByIndicator: Record<string, GhanaianLangua
     sourcePage: 33,
   },
   "B7.1.4.1.2": {
-    indicator: "Discuss the processes involved in enstooling/enskinning",
+    indicator: "Discuss the processes involved in enstooling/enskinning chiefs and queenmothers.",
     exemplars: [
       "Discuss the qualities of a person who qualifies to be a chief or a working towards group goals. queenmother among your people.",
       "Create a profile of the qualities of a chief or queenmother.",
@@ -114,7 +114,7 @@ export const ghanaianLanguageExemplarsByIndicator: Record<string, GhanaianLangua
     sourcePage: 33,
   },
   "B7.1.4.1.3": {
-    indicator: "Discuss the duties and responsibilities of chiefs and",
+    indicator: "Discuss the duties and responsibilities of chiefs and queenmothers among their people.",
     exemplars: [
       "Identify the duties of a chief and queenmother in their community.",
       "Evaluate the duties of a chief and queenmother among your people. © NaCCA, Ministry of Education || 77 Ghanaian Language _ CCP Curriculum.indd 7 17/11/2020 7:59 PM",
@@ -122,7 +122,7 @@ export const ghanaianLanguageExemplarsByIndicator: Record<string, GhanaianLangua
     sourcePage: 33,
   },
   "B7.1.4.1.4": {
-    indicator: "Discuss and compare modern trends affecting the",
+    indicator: "Discuss and compare modern trends affecting the enstoolment/enskinement of chiefs and queenmothers.",
     exemplars: [
       "Discuss some modern trends affecting the enstoolment/enskinement",
       "Explain how the trends mentioned affect the chieftaincy institution. responsibilities",
@@ -131,7 +131,7 @@ export const ghanaianLanguageExemplarsByIndicator: Record<string, GhanaianLangua
     sourcePage: 34,
   },
   "B7.2.1.1.1": {
-    indicator: "Use appropriate register in everyday communication",
+    indicator: "Use appropriate register in everyday communication (informal and formal) with diverse partners on grade-level topics/ texts/issues.",
     exemplars: [
       "Identify formal situations. E.g. interactions between strangers on varied sentence fluency in communication. themes, announcements, standard for work, school and public gathering",
       "Use appropriate language to participate in formal interactions. e.g. no slang/jargon, no contracted forms.",
@@ -141,7 +141,7 @@ export const ghanaianLanguageExemplarsByIndicator: Record<string, GhanaianLangua
     sourcePage: 35,
   },
   "B7.2.1.1.2": {
-    indicator: "Ask questions that elicit elaboration and respond to",
+    indicator: "Ask questions that elicit elaboration and respond to others’ questions in a conversation.",
     exemplars: [
       "Identify words that can help give elaborate responses to questions in",
       "Engage in conversation using these words to elicit elaboration. E.g. Ama: Do you think babies should talk? Dɛre: Yes Ama: Why do you think so? © NaCCA, Ministry of Education || 99 Ghanaian Language _ CCP Curriculum.indd 9 17/11/2020 7:59 PM",
@@ -149,7 +149,7 @@ export const ghanaianLanguageExemplarsByIndicator: Record<string, GhanaianLangua
     sourcePage: 35,
   },
   "B7.2.1.1.3": {
-    indicator: "Use appropriate language orally to describe experiences",
+    indicator: "Use appropriate language orally to describe experiences about oneself and others.",
     exemplars: [
       "Use appropriate language: tense structures, variety of sentences, ideas, organisation, voice, word choice and figurative expressions, etc. sentence fluency in communication.",
       "Use appropriate vocabulary: nouns, adjectives, adverbs, etc. to talk about one’s experiences and those of others in specific situations e.g. at the hospital, shopping in a market/supermarket, at a bus terminal/station, etc.",
@@ -157,7 +157,7 @@ export const ghanaianLanguageExemplarsByIndicator: Record<string, GhanaianLangua
     sourcePage: 36,
   },
   "B7.2.1.1.4": {
-    indicator: "Listen to and give accurate directions to familiar places",
+    indicator: "Listen to and give accurate directions to familiar places.",
     exemplars: [
       "Use appropriate language (e.g. opposite, adjacent, a few metres away,",
       "Direct people using a range of these vocabulary and expressions relevant detail, using correct construction appropriately to given locations. and structure of speech.",
@@ -165,7 +165,7 @@ export const ghanaianLanguageExemplarsByIndicator: Record<string, GhanaianLangua
     sourcePage: 36,
   },
   "B7.2.1.1.5": {
-    indicator: "Use techniques (voice modulation and eye contact) for effective oral communication",
+    indicator: "Use techniques (voice modulation and eye contact) for effective oral communication.",
     exemplars: [
       "Converse using appropriate voice (pace, volume, tone)",
       "Maintain eye contact (look at the person speaking, maintain appropriate posture and facial expression in conversation.",
@@ -190,7 +190,7 @@ export const ghanaianLanguageExemplarsByIndicator: Record<string, GhanaianLangua
     sourcePage: 38,
   },
   "B7.2.3.1.3": {
-    indicator: "Identify and produce one to four syllable words of the",
+    indicator: "Identify and produce one to four syllable words of the language of study.",
     exemplars: [
       "Read one syllable words. context appropriately. • E.g.: Akan: Kɔ, ba, tu, etc. Dagaare: Kɔ, ba, tu, etc. Dangme: Kɔ, ba, tu, etc. Ewe: Kɔ, ba, tu, etc. Ga: Kɔ, ba, tu, etc. Gonja: Kɔ, ba, tu, etc. 12 | © NaCCA, Ministry of Education Ghanaian Language _ CCP Curriculum.indd 12 17/11/2020 7:59 PM",
       "Read two to three syllable words.",
@@ -209,7 +209,7 @@ export const ghanaianLanguageExemplarsByIndicator: Record<string, GhanaianLangua
     sourcePage: 40,
   },
   "B7.2.5.1.1": {
-    indicator: "Identify and produce words in the home and school",
+    indicator: "Identify and produce words in the home and school environments and use them to form meaningful sentences.",
     exemplars: [
       "Identify vocabulary items in relation to the home. context appropriately. using them in sentences • E.g. dining, cooking, bathing, etc.",
       "Identify vocabulary items in relation to the school. • E.g. classroom, headteacher’s office, school compound, etc.",
@@ -218,7 +218,7 @@ export const ghanaianLanguageExemplarsByIndicator: Record<string, GhanaianLangua
     sourcePage: 40,
   },
   "B7.2.6.1.1": {
-    indicator: "Describe daily activities using appropriate register,",
+    indicator: "Describe daily activities using appropriate register, structure and gestures for the contest being presented.",
     exemplars: [
       "Outline some activities that you do on a daily basis. Share a narrative or extended answer while speaking to a group.",
       "Narrate with gestures what you do in the morning before school, at school and after school.",
@@ -229,7 +229,7 @@ export const ghanaianLanguageExemplarsByIndicator: Record<string, GhanaianLangua
     sourcePage: 41,
   },
   "B7.3.1.1.1": {
-    indicator: "Read and understand main ideas and supporting points",
+    indicator: "Read and understand main ideas and supporting points in a range of texts on familiar and unfamiliar topics.",
     exemplars: [
       "Skim a given passage of about one hundred and fifty words and state the structure sentences correctly for narrative, main ideas. persuasive, imaginative and expository purposes.",
       "Identify the supporting ideas in texts on themes from other subject areas. (E.g. Social Studies, Science, Religious and Moral Education, Physical Education, ICT, etc.)",
@@ -239,7 +239,7 @@ export const ghanaianLanguageExemplarsByIndicator: Record<string, GhanaianLangua
     sourcePage: 42,
   },
   "B7.3.1.1.2": {
-    indicator: "Read to understand and summarise the main ideas in a",
+    indicator: "Read to understand and summarise the main ideas in a given grade level passage.",
     exemplars: [
       "Identify and write main ideas in passages read from a range of subject language used when presenting to make it areas. appropriate to the audience.",
       "List the ideas identified in the order in which they occur in a passage.",
@@ -266,7 +266,7 @@ export const ghanaianLanguageExemplarsByIndicator: Record<string, GhanaianLangua
     sourcePage: 44,
   },
   "B7.4.1.1.2": {
-    indicator: "Discuss the types of sentence structure (simple,",
+    indicator: "Discuss the types of sentence structure (simple, compound and complex).",
     exemplars: [
       "Identify the components of a simple sentence in their language and give with relevant detail, using construction and examples. structure of speech.",
       "Identify the components of a compound sentence in their language and give examples.",
@@ -275,7 +275,7 @@ export const ghanaianLanguageExemplarsByIndicator: Record<string, GhanaianLangua
     sourcePage: 44,
   },
   "B7.4.1.1.3": {
-    indicator: "Classify sentences according to functions (declarative,",
+    indicator: "Classify sentences according to functions (declarative, imperative and interrogative).",
     exemplars: [
       "Identify the functions of a sentence. with relevant detail, using construction and structure of speech.",
       "Construct some sentences in relation to their functions. • E.g.i. To ask a question, etc. 18 | © NaCCA, Ministry of Education Ghanaian Language _ CCP Curriculum.indd 18 17/11/2020 7:59 PM",
@@ -283,7 +283,7 @@ export const ghanaianLanguageExemplarsByIndicator: Record<string, GhanaianLangua
     sourcePage: 44,
   },
   "B7.4.2.1.1": {
-    indicator: "Categorise nouns under common, proper and collective",
+    indicator: "Categorise nouns under common, proper and collective and use them correctly in speech and in texts.",
     exemplars: [
       "Identify nouns in a passages. with relevant detail, using construction and (common, proper, structure of speech collective), pronouns and",
       "Classify the nouns identified into common, proper and collective nouns. adjectives in sentences",
@@ -293,7 +293,7 @@ export const ghanaianLanguageExemplarsByIndicator: Record<string, GhanaianLangua
     sourcePage: 45,
   },
   "B7.4.2.1.2": {
-    indicator: "Categorise pronouns according to their types and",
+    indicator: "Categorise pronouns according to their types and construct sentences with them.",
     exemplars: [
       "Identify pronouns in a passage. structure sentences correctly for narrative, persuasive, imaginative and expository",
       "Classify the pronouns into their types. purposes",
@@ -303,7 +303,7 @@ export const ghanaianLanguageExemplarsByIndicator: Record<string, GhanaianLangua
     sourcePage: 45,
   },
   "B7.4.2.1.3": {
-    indicator: "Categorise adjectives into their types and construct",
+    indicator: "Categorise adjectives into their types and construct simple sentences with them.",
     exemplars: [
       "Identify adjectives from passages. structure sentences correctly for narrative, persuasive, imaginative and expository",
       "Classify the adjectives into their types. purposes",
@@ -328,7 +328,7 @@ export const ghanaianLanguageExemplarsByIndicator: Record<string, GhanaianLangua
     sourcePage: 46,
   },
   "B7.4.3.1.3": {
-    indicator: "Identify and classify conjunctions and use them",
+    indicator: "Identify and classify conjunctions and use them appropriately in a range of texts.",
     exemplars: [
       "Identify and use conjunctions appropriately and correctly in simple and with relevant detail, using construction and compound sentences in speaking and writing. structure of speech.",
       "Categorise the conjunctions into types and use them to construct simple and compound sentences. 20 | © NaCCA, Ministry of Education Ghanaian Language _ CCP Curriculum.indd 20 17/11/2020 7:59 PM",
@@ -336,14 +336,14 @@ export const ghanaianLanguageExemplarsByIndicator: Record<string, GhanaianLangua
     sourcePage: 46,
   },
   "B7.4.3.1.4": {
-    indicator: "Explore the use of postpositions/prepositions",
+    indicator: "Explore the use of postpositions/prepositions appropriately and correctly in a range of texts.",
     exemplars: [
       "Identify and use postpositions/prepositions appropriately in simple and with relevant detail, using construction and compound sentences in speaking and writing. structure of speech. © NaCCA, Ministry of Education | 21 Ghanaian Language _ CCP Curriculum.indd 21 17/11/2020 7:59 PM",
     ],
     sourcePage: 47,
   },
   "B7.4.4.1.1": {
-    indicator: "Use vocabulary appropriately and correctly in writing",
+    indicator: "Use vocabulary appropriately and correctly in writing.",
     exemplars: [
       "Identify and write vocabulary related to home and school.",
       "Use the vocabulary of identified items to construct appropriate and correct sentences.",
@@ -359,7 +359,7 @@ export const ghanaianLanguageExemplarsByIndicator: Record<string, GhanaianLangua
     sourcePage: 48,
   },
   "B7.4.4.1.3": {
-    indicator: "Identify and use punctuations appropriately and",
+    indicator: "Identify and use punctuations appropriately and correctly in writing.",
     exemplars: [
       "Use punctuation marks appropriately in about a fifty-word paragraph. context appropriately. 22 | © NaCCA, Ministry of Education Ghanaian Language _ CCP Curriculum.indd 22 17/11/2020 7:59 PM",
     ],
@@ -376,7 +376,7 @@ export const ghanaianLanguageExemplarsByIndicator: Record<string, GhanaianLangua
     sourcePage: 49,
   },
   "B7.5.1.1.2": {
-    indicator: "Develop a three-paragraph essay using the features of a",
+    indicator: "Develop a three-paragraph essay using the features of a given text type.",
     exemplars: [
       "Discuss the features of narrative, descriptive, creative/free writing. structure sentences correctly for narrative, persuasive, imaginative and expository",
       "Write a three-paragraph essay on a topic on the text types above. purposes © NaCCA, Ministry of Education || 2233 Ghanaian Language _ CCP Curriculum.indd 23 17/11/2020 7:59 PM",
@@ -394,7 +394,7 @@ export const ghanaianLanguageExemplarsByIndicator: Record<string, GhanaianLangua
     sourcePage: 50,
   },
   "B7.6.1.1.2": {
-    indicator: "Discuss the components of oral literature (folktales and",
+    indicator: "Discuss the components of oral literature (folktales and songs-lullabies and play songs).",
     exemplars: [
       "Explain what oral literature is. language used when presenting to make it appropriate to the audience.",
       "Describe the structure of a folktale and a song.",
@@ -404,7 +404,7 @@ export const ghanaianLanguageExemplarsByIndicator: Record<string, GhanaianLangua
     sourcePage: 50,
   },
   "B7.6.1.1.3": {
-    indicator: "Discuss the components of written literature (prose,",
+    indicator: "Discuss the components of written literature (prose, drama and poetry).",
     exemplars: [
       "Discuss the structure of the various genres of written literature. language used when presenting to make it appropriate to the audience.",
       "Discuss how characters are created in a range of prose, poetry and drama texts.",
@@ -413,7 +413,7 @@ export const ghanaianLanguageExemplarsByIndicator: Record<string, GhanaianLangua
     sourcePage: 50,
   },
   "B8.1.1.1.1": {
-    indicator: "Identify the processes involved in performing puberty",
+    indicator: "Identify the processes involved in performing puberty rites in your culture.",
     exemplars: [
       "Explain what puberty rites are.",
       "Talk about the items needed for the performance of puberty rites among",
@@ -425,7 +425,7 @@ export const ghanaianLanguageExemplarsByIndicator: Record<string, GhanaianLangua
     sourcePage: 52,
   },
   "B8.1.1.1.2": {
-    indicator: "Compare and contrast the processes involved in",
+    indicator: "Compare and contrast the processes involved in performing puberty rites in their culture to other cultures of Ghana.",
     exemplars: [
       "Discuss the similarities in the performance of puberty rites among their implications and issues when listening. people and those of other Ghanaian cultures.",
       "Discuss the differences in the performance of puberty rites among their culture. people and those of other Ghanaian cultures.",
@@ -434,7 +434,7 @@ export const ghanaianLanguageExemplarsByIndicator: Record<string, GhanaianLangua
     sourcePage: 52,
   },
   "B8.1.1.1.3": {
-    indicator: "Discuss the changes that has occurred in puberty rites",
+    indicator: "Discuss the changes that has occurred in puberty rites performance over time.",
     exemplars: [
       "Assess the current ways puberty rites are performed among his/her",
       "Compare the contemporary ways to the traditional ways by which your traditions, values and attitudes of society. cultures of Ghana people were performing puberty rites. E.g. i. It is now done by the church. ii. Duration for the rites has changed. iii. Done for all ages.",
@@ -443,7 +443,7 @@ export const ghanaianLanguageExemplarsByIndicator: Record<string, GhanaianLangua
     sourcePage: 53,
   },
   "B8.1.2.1.1": {
-    indicator: "Discuss the sources of family names in your language",
+    indicator: "Discuss the sources of family names in your language and use them appropriately.",
     exemplars: [
       "Read a text on names and their sources.",
       "Mention family names and their sources. E.g. clan, grand and great-grand",
@@ -462,7 +462,7 @@ export const ghanaianLanguageExemplarsByIndicator: Record<string, GhanaianLangua
     sourcePage: 54,
   },
   "B8.1.2.1.3": {
-    indicator: "State and discuss the effects of the modern trends of",
+    indicator: "State and discuss the effects of the modern trends of naming on family names and kinship terms.",
     exemplars: [
       "Identify and talk about modern ways of naming babies among your",
       "Explain how the modern ways of naming affect the family names among your people. E.g. i. loss of identity. ii. belittling the indigenous culture. B8.1.2.1 Recognise",
@@ -498,7 +498,7 @@ export const ghanaianLanguageExemplarsByIndicator: Record<string, GhanaianLangua
     sourcePage: 58,
   },
   "B8.1.4.1.1": {
-    indicator: "Examine some behaviours that can lead to the",
+    indicator: "Examine some behaviours that can lead to the destoolment/deskinment of chiefs and queenmothers.",
     exemplars: [
       "Read and discuss a text on destoolment/deskinment in their traditional",
       "Examine and write behaviours that lead to the destoolment/deskinment cultural identity. of a chief or queenmother among their people. • E.g. i. Misuse of property of the people. ii. Disrespect for kingmakers and subjects. iii. Neglect/abuse of tradition.",
@@ -506,7 +506,7 @@ export const ghanaianLanguageExemplarsByIndicator: Record<string, GhanaianLangua
     sourcePage: 59,
   },
   "B8.1.4.1.2": {
-    indicator: "Discuss the processes involved in the destoolment/",
+    indicator: "Discuss the processes involved in the destoolment/ deskinment of a chief or a queenmother.",
     exemplars: [
       "Examine and write the process of destooling/deskining a chief and",
       "Write the advantages and disadvantages of destoolment/deskinment.",
@@ -515,7 +515,7 @@ export const ghanaianLanguageExemplarsByIndicator: Record<string, GhanaianLangua
     sourcePage: 59,
   },
   "B8.1.4.1.3": {
-    indicator: "Compare and contrast the destoolment/deskinment",
+    indicator: "Compare and contrast the destoolment/deskinment processes among their people and other cultures of Ghana.",
     exemplars: [
       "Discuss and write the similarities and differences of the destoolment/",
       "Write the similarities and differences. recognition and appreciation of others’ cultures. 34 | © NaCCA, Ministry of Education Ghanaian Language _ CCP Curriculum.indd 34 17/11/2020 7:59 PM",
@@ -523,7 +523,7 @@ export const ghanaianLanguageExemplarsByIndicator: Record<string, GhanaianLangua
     sourcePage: 60,
   },
   "B8.2.1.1.1": {
-    indicator: "Develop and modify their language in narrating some Communication and knowledge of selected daily activities. collaboration (CC) presentational skills in",
+    indicator: "Develop and modify their language in narrating some selected daily activities.",
     exemplars: [
       "Narrate what you do at home every Saturday. explain ideas. Share a narrative or conversation, speaking extended answer while speaking to clearly and explaining",
       "Describe what you saw on your last visit to a market. a group. ideas",
@@ -534,7 +534,7 @@ export const ghanaianLanguageExemplarsByIndicator: Record<string, GhanaianLangua
     sourcePage: 61,
   },
   "B8.2.2.1.1": {
-    indicator: ". Listen to a level-appropriate dialogue attentively and",
+    indicator: "Listen to a level-appropriate dialogue attentively and identify key information.",
     exemplars: [
       "Listen to and note important issues in a dialogue e.g. message, mood,",
       "Listen and compare the issues noted in the dialogue with peers.",
@@ -542,7 +542,7 @@ export const ghanaianLanguageExemplarsByIndicator: Record<string, GhanaianLangua
     sourcePage: 61,
   },
   "B8.2.2.1.2": {
-    indicator: ". Listen to and discuss the ideas and share opinions from",
+    indicator: "Listen to and discuss the ideas and share opinions from a level-appropriate text.",
     exemplars: [
       "Listen and write down key information from texts/talk shows/news.",
       "Discuss the key information from texts and add opinions. © NaCCA, Ministry of Education || 3355 Ghanaian Language _ CCP Curriculum.indd 35 17/11/2020 7:59 PM",
@@ -550,7 +550,7 @@ export const ghanaianLanguageExemplarsByIndicator: Record<string, GhanaianLangua
     sourcePage: 61,
   },
   "B8.2.4.1.1": {
-    indicator: "Establish the meaning of words when the tone on the",
+    indicator: "Establish the meaning of words when the tone on the syllables in a word changes.",
     exemplars: [
       "Pronounce words with high tone.",
       "Pronounce words with mid-tone (where applicable).",
@@ -561,7 +561,7 @@ export const ghanaianLanguageExemplarsByIndicator: Record<string, GhanaianLangua
     sourcePage: 62,
   },
   "B8.2.6.1.1": {
-    indicator: "Develop and modify their language in narrating some Communication and collaboration Demonstrate knowledge selected daily activities. (CC) of presentational skills in",
+    indicator: "Develop and modify their language in narrating some selected daily activities.",
     exemplars: [
       "Narrate what you do at home every Saturday.",
       "Describe what you saw on your last visit to a market. clearly and explaining speaking to a group. ideas",
@@ -572,7 +572,7 @@ export const ghanaianLanguageExemplarsByIndicator: Record<string, GhanaianLangua
     sourcePage: 62,
   },
   "B8.3.1.1.1": {
-    indicator: "Understand the main ideas and supporting points in a",
+    indicator: "Understand the main ideas and supporting points in a range of extended texts on familiar and unfamiliar topics.",
     exemplars: [
       "Read a three-paragraph passage from different subject areas (Science,",
     ],
@@ -586,14 +586,14 @@ export const ghanaianLanguageExemplarsByIndicator: Record<string, GhanaianLangua
     sourcePage: 63,
   },
   "B8.3.2.1.1": {
-    indicator: "Establish the meaning of words, phrases and sentences",
+    indicator: "Establish the meaning of words, phrases and sentences in their various languages.",
     exemplars: [
       "Translate given words, phrases and sentences from source language to structure sentences correctly for narrative, target language. persuasive, imaginative and expository purposes. © NaCCA, Ministry of Education || 3377 Ghanaian Language _ CCP Curriculum.indd 37 17/11/2020 7:59 PM",
     ],
     sourcePage: 63,
   },
   "B8.4.2.1.1": {
-    indicator: "Explore the use of nouns and pronouns in an increasing",
+    indicator: "Explore the use of nouns and pronouns in an increasing range of texts and classify them.",
     exemplars: [
       "Write down different types of nouns and pronouns in their language. relevant detail, using correct construction and structure of speech.",
       "Classify nouns under the various types (abstract, concrete, countable and uncountable).",
@@ -603,7 +603,7 @@ export const ghanaianLanguageExemplarsByIndicator: Record<string, GhanaianLangua
     sourcePage: 64,
   },
   "B8.4.2.1.2": {
-    indicator: "Determine and categorise adjectives under size, colour,",
+    indicator: "Determine and categorise adjectives under size, colour, shape, quantity, etc. in their language.",
     exemplars: [
       "Determine the role of an adjective in a variety of texts. relevant detail, using correct construction and structure of speech.",
       "Identify and classify adjectives in a given text. 38 | © NaCCA, Ministry of Education Ghanaian Language _ CCP Curriculum.indd 38 17/11/2020 7:59 PM",
@@ -611,7 +611,7 @@ export const ghanaianLanguageExemplarsByIndicator: Record<string, GhanaianLangua
     sourcePage: 64,
   },
   "B8.4.3.1.1": {
-    indicator: "Recognise and use the tense and aspectual (habitual,",
+    indicator: "Recognise and use the tense and aspectual (habitual, progressive, future) forms of verbs in sentences.",
     exemplars: [
       "Identify the types of tense and aspectual forms in their language. relevant detail, using correct construction and structure of speech.",
       "Form sentences with the various types of tense and aspectual forms.",
@@ -628,14 +628,14 @@ export const ghanaianLanguageExemplarsByIndicator: Record<string, GhanaianLangua
     sourcePage: 65,
   },
   "B8.4.3.1.3": {
-    indicator: "Identify and use conjunctions in an increasing range of",
+    indicator: "Identify and use conjunctions in an increasing range of texts appropriately and correctly.",
     exemplars: [
       "Use appropriate conjunctions to link simple and compound sentences in relevant detail, using correct construction texts. and structure of speech. © NaCCA, Ministry of Education || 3399 Ghanaian Language _ CCP Curriculum.indd 39 17/11/2020 7:59 PM",
     ],
     sourcePage: 65,
   },
   "B8.5.1.1.1": {
-    indicator: "Develop coherent essays using the features of given text",
+    indicator: "Develop coherent essays using the features of given text types.",
     exemplars: [
       "Discuss the features of persuasive/argumentative writing, informative/",
       "Write a composition on a topic on the text types above. purposes. argumentative writing, informative/ academic/ expository andletter writing). 40 | © NaCCA, Ministry of Education Ghanaian Language _ CCP Curriculum.indd 40 17/11/2020 7:59 PM",
@@ -643,7 +643,7 @@ export const ghanaianLanguageExemplarsByIndicator: Record<string, GhanaianLangua
     sourcePage: 66,
   },
   "B8.6.1.1.1": {
-    indicator: "Discuss the features of proverbs and idioms",
+    indicator: "Discuss the features of proverbs and idioms.",
     exemplars: [
       "Describe the features of proverbs and idioms and give examples of each. proverbs and idioms.",
       "Identify and interpret proverbs and idioms in your language. working towards group goals.",
@@ -653,7 +653,7 @@ export const ghanaianLanguageExemplarsByIndicator: Record<string, GhanaianLangua
     sourcePage: 67,
   },
   "B8.6.1.2.1": {
-    indicator: "Discuss how writers use language to create effect in",
+    indicator: "Discuss how writers use language to create effect in prose, poetry and drama.",
     exemplars: [
       "Discuss how writers use language to create character in prose, poetry",
       "Explore ways in which writers use a wide range of literary devices traditions, values and attitudes of society. (simile, metaphor, repetition, idioms and proverbs) in a range of prose, poetry and drama texts.",
@@ -664,7 +664,7 @@ export const ghanaianLanguageExemplarsByIndicator: Record<string, GhanaianLangua
     sourcePage: 67,
   },
   "B9.1.1.1.1": {
-    indicator: "Discuss the processes involved in performing marriage",
+    indicator: "Discuss the processes involved in performing marriage rites in their culture.",
     exemplars: [
       "Explain what marriage is.",
       "Read and discuss a text on marriage. sentence fluency in communication.",
@@ -676,7 +676,7 @@ export const ghanaianLanguageExemplarsByIndicator: Record<string, GhanaianLangua
     sourcePage: 70,
   },
   "B9.1.1.1.2": {
-    indicator: "Compare and contrast the marriage rites in their",
+    indicator: "Compare and contrast the marriage rites in their culture to other cultures in Ghana.",
     exemplars: [
       "Present marriage rites among their people.",
       "Relate the marriage rites of their culture to those of other Ghanaian sentence fluency in communication. cultures.",
@@ -684,7 +684,7 @@ export const ghanaianLanguageExemplarsByIndicator: Record<string, GhanaianLangua
     sourcePage: 70,
   },
   "B9.1.1.1.3": {
-    indicator: "Compare and contrast the traditional marriage rites to",
+    indicator: "Compare and contrast the traditional marriage rites to the contemporary marriage rites and dramatise both.",
     exemplars: [
       "Explain some of the contemporary marriage rites in their culture.",
       "Compare and contrast the traditional to the contemporary marriage cultures of Ghana sentence fluency in communication. rites.",
@@ -693,7 +693,7 @@ export const ghanaianLanguageExemplarsByIndicator: Record<string, GhanaianLangua
     sourcePage: 70,
   },
   "B9.1.2.1.1": {
-    indicator: "Identify and discuss circumstances that result in naming",
+    indicator: "Identify and discuss circumstances that result in naming children in their community.",
     exemplars: [
       "Explain circumstances that lead to circumstantial names.",
       "Write some of the names and relate them to the circumstances. sentence fluency in communication. names",
@@ -727,7 +727,7 @@ export const ghanaianLanguageExemplarsByIndicator: Record<string, GhanaianLangua
     sourcePage: 73,
   },
   "B9.1.4.1.1": {
-    indicator: "Explore the traditional governing structure of their",
+    indicator: "Explore the traditional governing structure of their community and discuss the duties of the functionaries.",
     exemplars: [
       "Read and discuss a text on traditional governance.",
       "Identify the traditional governing structure of their community. sentence fluency in communication. priest, traditional",
@@ -737,7 +737,7 @@ export const ghanaianLanguageExemplarsByIndicator: Record<string, GhanaianLangua
     sourcePage: 73,
   },
   "B9.2.1.1.1": {
-    indicator: "Use appropriate register in everyday communication",
+    indicator: "Use appropriate register in everyday communication (informal and formal) with diverse partners on grade-level topics/ texts/issues.",
     exemplars: [
       "Identify some slang words and jargons accepted locally and implications and issues when listening. internationally.",
       "Use everyday, informal topics and situations that are more appropriate for the use of slang and jargon e.g. going out with friends, talking about music, hobbies, sport, and so on.",
@@ -746,7 +746,7 @@ export const ghanaianLanguageExemplarsByIndicator: Record<string, GhanaianLangua
     sourcePage: 74,
   },
   "B9.2.1.1.2": {
-    indicator: "Ask questions that link the ideas of several speakers and",
+    indicator: "Ask questions that link the ideas of several speakers and respond to others’ questions in a discussion.",
     exemplars: [
       "Use open ended questions to enable speaker link ideas of other speakers",
       "Listen attentively to view points on topics/issues in a conversation and respond appropriately.",
@@ -755,7 +755,7 @@ export const ghanaianLanguageExemplarsByIndicator: Record<string, GhanaianLangua
     sourcePage: 74,
   },
   "B9.2.1.1.3": {
-    indicator: "Use appropriate language orally to discuss grade-level",
+    indicator: "Use appropriate language orally to discuss grade-level national issues fluently.",
     exemplars: [
       "Identify grade-level national issues (the youth in agriculture, sanitation,",
       "Discuss grade-level national issues in detail using appropriate register.",
@@ -763,7 +763,7 @@ export const ghanaianLanguageExemplarsByIndicator: Record<string, GhanaianLangua
     sourcePage: 75,
   },
   "B9.2.1.1.4": {
-    indicator: "Express opinions and advice on a range of everyday",
+    indicator: "Express opinions and advice on a range of everyday issues and situations clearly.",
     exemplars: [
       "Identify a range of everyday issues e.g. road/domestic accidents, domestic",
       "Engage in conversations on these issues giving your opinion and advice.",
@@ -771,7 +771,7 @@ export const ghanaianLanguageExemplarsByIndicator: Record<string, GhanaianLangua
     sourcePage: 75,
   },
   "B9.2.1.1.5": {
-    indicator: "Demonstrate appropriate turn taking and use",
+    indicator: "Demonstrate appropriate turn taking and use techniques for effective argument (debate).",
     exemplars: [
       "Identify interesting topics/issues appropriate for argument and debate",
       "Observe and use the skills of turn taking in arguments and debates. © NaCCA, Ministry of Education | 49 Ghanaian Language _ CCP Curriculum.indd 49 17/11/2020 7:59 PM",
@@ -779,7 +779,7 @@ export const ghanaianLanguageExemplarsByIndicator: Record<string, GhanaianLangua
     sourcePage: 75,
   },
   "B9.2.2.1.1": {
-    indicator: "Listen to a more natural level-appropriate interactions",
+    indicator: "Listen to a more natural level-appropriate interactions with multiple speakers for example, TV shows, dramas, films, etc.",
     exemplars: [
       "Discuss and write key information e.g. message, theme, tone, mood in",
       "Listen to and compare information written from texts/speeches.",
@@ -787,7 +787,7 @@ export const ghanaianLanguageExemplarsByIndicator: Record<string, GhanaianLangua
     sourcePage: 76,
   },
   "B9.2.2.1.2": {
-    indicator: "Initiate and participate in meaningful and collaborative",
+    indicator: "Initiate and participate in meaningful and collaborative discussions on texts and related materials building on others’ ideas and expressing their own clearly and persuasively.",
     exemplars: [
       "Listen to and identify key issues in level appropriate texts/speeches/ implications and issues when listening. dialogues e.g. argumentative texts, news, presentations.",
       "Initiate discussions on ideas and share opinions on level appropriate texts/ speeches/dialogues",
@@ -796,7 +796,7 @@ export const ghanaianLanguageExemplarsByIndicator: Record<string, GhanaianLangua
     sourcePage: 76,
   },
   "B9.2.4.1.1": {
-    indicator: "Apply the idea of tones correctly when speaking and",
+    indicator: "Apply the idea of tones correctly when speaking and reading in contexts.",
     exemplars: [
       "Engage in a conversation on a given topic using the basic tones correctly.",
       "Read sentences using the correct tones.",
@@ -821,7 +821,7 @@ export const ghanaianLanguageExemplarsByIndicator: Record<string, GhanaianLangua
     sourcePage: 77,
   },
   "B9.3.1.1.1": {
-    indicator: "Locate the main and subsidiary points in a range of texts",
+    indicator: "Locate the main and subsidiary points in a range of texts and rewrite logically with accuracy in their own words.",
     exemplars: [
       "Read and understand a passage of between 200-250 words from implications and issues when listening. summarise the passage. different subject areas silently.",
       "Identify the main ideas in the passage. expressions, cues and gestures.",
@@ -839,7 +839,7 @@ export const ghanaianLanguageExemplarsByIndicator: Record<string, GhanaianLangua
     sourcePage: 78,
   },
   "B9.3.2.1.1": {
-    indicator: "Decode the meaning of texts and translate from source",
+    indicator: "Decode the meaning of texts and translate from source to target language.",
     exemplars: [
       "Translate texts of about one hundred words from source to a target structure sentences correctly for narrative, language. language. persuasive, imaginative and expository purposes.",
       "Read and discuss the translated text. STRAND 4: B9.4 LANGUAGE AND USAGE SUB-STRAND 2: B9.4.2 INTEGRATING GRAMMAR IN WRITTEN LANGUAGE (NOUNS, ADJECTIVES) CONTENT STANDARD INDICATORS AND EXEMPLARS",
@@ -847,7 +847,7 @@ export const ghanaianLanguageExemplarsByIndicator: Record<string, GhanaianLangua
     sourcePage: 79,
   },
   "B9.4.2.1.1": {
-    indicator: "Discuss nouns under singular and plural forms in an",
+    indicator: "Discuss nouns under singular and plural forms in an increasing and abstract range of texts.",
     exemplars: [
       "Identify and classify nouns in a passage according to their singular and implications and issues when listening. passages. plural forms.",
       "Construct simple and compound sentences with the singular and plural nouns in speech and in writing. B9.4.2.2 Demonstrate",
@@ -880,7 +880,7 @@ export const ghanaianLanguageExemplarsByIndicator: Record<string, GhanaianLangua
     sourcePage: 80,
   },
   "B9.5.1.1.1": {
-    indicator: "Plan and structure a range of extended texts using",
+    indicator: "Plan and structure a range of extended texts using paragraphs to show progression from one idea to the next and linking paragraphs using cohesive language.",
     exemplars: [
       "Write a coherent essay on any of the text types (e.g. narrative, implications and issues when listening. use the knowledge to descriptive, creative, academic, and argumentative and letter writing) on a",
       "Identify and write the topic and supporting sentences in the paragraphs. 54 | © NaCCA, Ministry of Education Ghanaian Language _ CCP Curriculum.indd 54 17/11/2020 7:59 PM",
@@ -888,7 +888,7 @@ export const ghanaianLanguageExemplarsByIndicator: Record<string, GhanaianLangua
     sourcePage: 80,
   },
   "B9.6.1.1.1": {
-    indicator: "Explore drum language/appellations and war songs Cultural identity and Global understanding of drum respectively. Citizenship(CG) language, appellations",
+    indicator: "Explore drum language/appellations and war songs respectively.",
     exemplars: [
       "Describe the features of drum language/appellation. belongingness to one’s culture.",
       "Discuss drum language/appellation. globalisation on traditions, languages and",
@@ -900,7 +900,7 @@ export const ghanaianLanguageExemplarsByIndicator: Record<string, GhanaianLangua
     sourcePage: 81,
   },
   "B9.6.1.2.1": {
-    indicator: "Discuss how writers use language to create effect in an",
+    indicator: "Discuss how writers use language to create effect in an increasing range of prose, poetry and drama.",
     exemplars: [
       "Discuss characterisation in relation to prose, poetry and drama texts and implications and issues when listening. in a prose, poetry and give examples from texts. drama texts.",
       "Explore ways that writers use a wide range of literary devices (personification, alliteration, assonance) in a range of prose, poetry and drama texts.",

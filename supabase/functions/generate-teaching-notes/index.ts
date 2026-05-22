@@ -2,7 +2,7 @@ import { callClaudeJson, corsHeaders } from '../_shared/claude.ts';
 import {
   buildTeachingNotesPrompt,
   normalizeTeachingNotesResponse,
-  teachingNotesSystemPrompt,
+  getTeachingNotesSystemPrompt,
   type TeachingNotesGenerationBody,
 } from '../_shared/generation.ts';
 import { consumeCreditsForRequest, getFeatureCreditCost, refundCredits } from '../_shared/credits.ts';
@@ -49,10 +49,9 @@ Deno.serve(async (req) => {
     );
 
     const rawNotes = await callClaudeJson<Record<string, unknown>>({
-      system: teachingNotesSystemPrompt,
+      system: getTeachingNotesSystemPrompt(false), // DISABLED: Visual generation disabled for testing
       user: buildTeachingNotesPrompt(body),
       maxTokens: 12000,
-      timeoutMs: 150000, // Teaching notes generation is more complex, needs 150s timeout
     });
     const normalized = normalizeTeachingNotesResponse(rawNotes, body);
 

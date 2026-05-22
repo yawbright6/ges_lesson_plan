@@ -8,7 +8,8 @@ export type AdminSection =
   | 'phone-signups'
   | 'logs'
   | 'faqs'
-  | 'settings';
+  | 'settings'
+  | 'shared-lessons';
 
 export type PromotionType = 'none' | 'bonus' | 'percent_discount' | 'fixed_discount' | 'custom';
 
@@ -29,11 +30,19 @@ export type AppSettingsDraft = {
   schemeCost: string;
   parsingCost: string;
   teachingNotesCost: string;
+  testItemRewriteCost: string;
   retentionDays: string;
   purchasingEnabled: boolean;
   paystackMode: string;
   parserBackend: string;
   translationProvider: string;
+  visualGenerationEnabled: boolean;
+  visualAutoGenerate: boolean;
+  visualProvider: string;
+  visualModel: string;
+  visualMaxPerLesson: string;
+  visualCreditCost: string;
+  geminiApiKey: string;
 };
 
 export type PackageDraft = {

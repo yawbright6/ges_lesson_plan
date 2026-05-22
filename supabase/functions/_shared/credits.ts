@@ -4,7 +4,9 @@ export type CreditKind =
   | 'lesson_generation'
   | 'scheme_generation'
   | 'scheme_parsing'
-  | 'teaching_notes_generation';
+  | 'teaching_notes_generation'
+  | 'visual_generation'
+  | 'test_item_rewrite';
 
 export async function getFeatureCreditCost(kind: CreditKind, fallback = 1) {
   const service = createServiceClient();

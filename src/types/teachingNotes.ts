@@ -25,6 +25,7 @@ export interface TeachingNoteVisual {
   labels?: Array<{ label: string; description?: string }>;
   rows?: string[][];
   steps?: string[];
+  data?: Array<{ label: string; value: number }>;
 }
 
 export interface TeachingNotePhaseGuide {
@@ -40,8 +41,10 @@ export type TeachingNoteContentBlockType =
   | 'worked_example'
   | 'practice_questions'
   | 'comparison_table'
+  | 'bar_chart'
   | 'process_steps'
   | 'labelled_diagram'
+  | 'generated_visual'
   | 'image_grid'
   | 'teacher_tip';
 
@@ -61,8 +64,15 @@ export interface TeachingNoteContentBlock {
   items?: string[];
   rows?: string[][];
   steps?: string[];
+  data?: Array<{ label: string; value: number }>;
   labels?: Array<{ label: string; description?: string }>;
   imageItems?: TeachingNoteImageGridItem[];
+  visualKind?: TeachingNoteVisualKind;
+  prompt?: string;
+  imageUrl?: string;
+  storagePath?: string;
+  status?: 'pending' | 'generated' | 'failed';
+  error?: string;
   caption?: string;
   teacherOnly?: boolean;
 }
@@ -88,6 +98,7 @@ export interface TeachingNotes {
   boardSummary: string[];
   homework?: string[];
   contentBlocks?: TeachingNoteContentBlock[];
+  /** @deprecated Legacy appendix visuals — new notes use inline contentBlocks only. */
   visuals?: TeachingNoteVisual[];
   sourceLessonPlan?: Pick<
     LessonPlan,

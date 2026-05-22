@@ -38,11 +38,17 @@ export type LessonVisualAidType =
   | 'comparison_table';
 
 export interface LessonVisualAid {
+  id?: string;
   type: LessonVisualAidType;
   title: string;
   purpose?: string;
   phase?: 1 | 2 | 3;
   activityLink?: string;
+  prompt?: string;
+  imageUrl?: string;
+  storagePath?: string;
+  status?: 'pending' | 'generated' | 'failed';
+  error?: string;
   labels?: string[];
   steps?: string[];
   data?: { label: string; value: number }[];
@@ -157,3 +163,26 @@ export interface LessonPlanPromptInput {
   /** Optional id of a stored Scheme of Learning to ground generation */
   schemeOfLearningId?: string;
 }
+
+/**
+ * Snapshot of a lesson plan shared with admin for feedback.
+ * Contains the full lesson data at time of share + optional messages.
+ */
+export interface LessonShare {
+  id: string;
+  lesson_id: string;  // reference to original lesson
+  teacher_id: string;
+  lesson_data: SavedLessonWork;  // snapshot of the lesson
+  teacher_message?: string;  // optional: "Please review my assessment strategy"
+  admin_feedback?: string;  // optional: "Great work! Consider adding..."
+  shared_at: string;  // ISO timestamp
+  feedback_updated_at?: string;  // ISO timestamp of when admin last updated feedback
+  created_at: string;
+  updated_at: string;
+}
+
+export type AdminLessonShare = LessonShare & {
+  teacher_email?: string;
+  teacher_name?: string;
+  school_name?: string;
+};

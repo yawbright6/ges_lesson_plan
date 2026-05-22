@@ -771,9 +771,10 @@ export const computingB8Terms: ExplicitCurriculumTerm[] = [
         week: 12,
         strand: 'Computational Thinking',
         subStrand: 'Project and Consolidation',
-        contentStandard: 'B8 computational thinking strands are applied in a practical project.',
+        contentStandard:
+          'B8.4.2.1, B8.4.3.1 and B8.4.4.1 strengthen computational thinking through algorithm, robotics and artificial intelligence project work.',
         indicator:
-          'Apply robotics, AI and algorithm concepts in a simple project presentation.',
+          'B8.4.2.1.1-1.2, B8.4.3.1.1 and B8.4.4.1.1 Apply algorithm, robotics and artificial intelligence concepts in a simple project presentation.',
         topic: 'Computational thinking project and review',
         resources: resources.coding,
       },

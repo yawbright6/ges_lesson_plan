@@ -1,11 +1,12 @@
 import { useEffect, useState } from 'react';
 import { Alert, Platform, StyleSheet, View } from 'react-native';
-import { router, useLocalSearchParams } from 'expo-router';
+import { useLocalSearchParams } from 'expo-router';
 import { Button } from '@/components/Button';
 import { PreviewActionButton, PreviewActions, PreviewHeader } from '@/components/PreviewChrome';
 import { SchemeTable } from '@/components/SchemeTable';
 import { useToast } from '@/components/ToastProvider';
 import { exportSchemePdf, shareScheme } from '@/lib/export';
+import { goBackOrReplace } from '@/lib/navigation';
 import { deleteScheme, getSchemeById } from '@/lib/schemeStore';
 import { colors } from '@/theme/colors';
 import type { SchemeOfWork } from '@/types/scheme';
@@ -36,12 +37,12 @@ export default function SchemeDetailScreen() {
     <View style={styles.container}>
       <PreviewHeader
         title="Scheme"
-        onBack={() => router.back()}
+        onBack={() => goBackOrReplace()}
         onShare={() => shareScheme(scheme)}
       />
       <SchemeTable scheme={scheme} />
       <PreviewActions>
-        <PreviewActionButton title="Save as PDF" onPress={() => exportSchemePdf(scheme)} />
+        <PreviewActionButton title="PDF" icon="document-text-outline" onPress={() => exportSchemePdf(scheme)} />
         <PreviewActionButton
           title="Delete"
           variant="danger"
@@ -53,7 +54,7 @@ export default function SchemeDetailScreen() {
             if (!confirmed || !scheme.id) return;
             await deleteScheme(scheme.id);
             showToast({ message: 'Scheme deleted.' });
-            router.back();
+            goBackOrReplace();
           }}
         />
       </PreviewActions>

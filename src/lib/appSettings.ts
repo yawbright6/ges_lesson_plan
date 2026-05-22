@@ -11,19 +11,36 @@ export type RuntimeAppSettings = {
     scheme_generation: number;
     scheme_parsing: number;
     teaching_notes_generation: number;
+    test_item_rewrite: number;
   };
   generatedFileRetention: { days: number };
   creditPurchasing: { enabled: boolean };
   translationProvider: { provider: string };
+  visualGeneration: {
+    enabled: boolean;
+    autoGenerate: boolean;
+    provider: string;
+    model: string;
+    maxVisualsPerLesson: number;
+    creditCostPerVisual: number;
+  };
 };
 
 export const defaultRuntimeSettings: RuntimeAppSettings = {
   starterCredits: { credits: 5, active: true },
   referralReward: { credits: 5, monthlyLimit: 5, active: true },
-  featureCreditCosts: { lesson_generation: 1, scheme_generation: 1, scheme_parsing: 1, teaching_notes_generation: 1 },
+  featureCreditCosts: { lesson_generation: 1, scheme_generation: 1, scheme_parsing: 1, teaching_notes_generation: 1, test_item_rewrite: 1 },
   generatedFileRetention: { days: 15 },
   creditPurchasing: { enabled: false },
   translationProvider: { provider: 'anthropic' },
+  visualGeneration: {
+    enabled: false,
+    autoGenerate: false,
+    provider: 'gemini',
+    model: 'gemini-3.1-flash-image-preview',
+    maxVisualsPerLesson: 2,
+    creditCostPerVisual: 1,
+  },
 };
 
 const SETTINGS_CACHE_KEY = 'generated:runtime-settings';
@@ -48,7 +65,18 @@ export function invalidateRuntimeAppSettings() {
 
 async function loadRuntimeAppSettingsUncached(): Promise<RuntimeAppSettings> {
   const { data, error } = await withTimeout(
-    supabase.from('admin_app_settings').select('key,value'),
+    supabase
+      .from('admin_app_settings')
+      .select('key,value')
+      .in('key', [
+        'starter_credits',
+        'referral_reward',
+        'feature_credit_costs',
+        'generated_file_retention',
+        'credit_purchasing',
+        'translation_provider',
+        'visual_generation',
+      ]),
     10000,
     'Runtime settings took too long to load.',
     'CONFIG_LOAD_FAILED',
@@ -76,6 +104,7 @@ async function loadRuntimeAppSettingsUncached(): Promise<RuntimeAppSettings> {
       scheme_generation: numberValue(byKey.get('feature_credit_costs')?.scheme_generation, 1),
       scheme_parsing: numberValue(byKey.get('feature_credit_costs')?.scheme_parsing, 1),
       teaching_notes_generation: numberValue(byKey.get('feature_credit_costs')?.teaching_notes_generation, 1),
+      test_item_rewrite: numberValue(byKey.get('feature_credit_costs')?.test_item_rewrite, 1),
     },
     generatedFileRetention: {
       days: numberValue(byKey.get('generated_file_retention')?.days, 15),
@@ -85,6 +114,20 @@ async function loadRuntimeAppSettingsUncached(): Promise<RuntimeAppSettings> {
     },
     translationProvider: {
       provider: stringValue(byKey.get('translation_provider')?.provider, defaultRuntimeSettings.translationProvider.provider),
+    },
+    visualGeneration: {
+      enabled: booleanValue(byKey.get('visual_generation')?.enabled, defaultRuntimeSettings.visualGeneration.enabled),
+      autoGenerate: booleanValue(byKey.get('visual_generation')?.auto_generate, defaultRuntimeSettings.visualGeneration.autoGenerate),
+      provider: stringValue(byKey.get('visual_generation')?.provider, defaultRuntimeSettings.visualGeneration.provider),
+      model: stringValue(byKey.get('visual_generation')?.model, defaultRuntimeSettings.visualGeneration.model),
+      maxVisualsPerLesson: numberValue(
+        byKey.get('visual_generation')?.max_visuals_per_lesson,
+        defaultRuntimeSettings.visualGeneration.maxVisualsPerLesson,
+      ),
+      creditCostPerVisual: numberValue(
+        byKey.get('visual_generation')?.credit_cost_per_visual,
+        defaultRuntimeSettings.visualGeneration.creditCostPerVisual,
+      ),
     },
   };
 }

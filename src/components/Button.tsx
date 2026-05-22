@@ -1,4 +1,4 @@
-import { ActivityIndicator, Pressable, StyleSheet, Text, View, ViewStyle } from 'react-native';
+import { ActivityIndicator, Pressable, StyleProp, StyleSheet, Text, TextStyle, View, ViewStyle } from 'react-native';
 import type { ComponentProps } from 'react';
 import { Ionicons } from '@expo/vector-icons';
 import { colors, radii, shadows, spacing, typography } from '@/theme/colors';
@@ -11,7 +11,8 @@ interface Props {
   variant?: 'primary' | 'secondary' | 'ghost' | 'danger' | 'accent';
   disabled?: boolean;
   loading?: boolean;
-  style?: ViewStyle;
+  style?: StyleProp<ViewStyle>;
+  textStyle?: TextStyle;
   size?: 'small' | 'medium' | 'large';
   icon?: IconName;
   iconPosition?: 'left' | 'right';
@@ -25,6 +26,7 @@ export function Button({
   disabled,
   loading,
   style,
+  textStyle,
   size = 'medium',
   icon,
   iconPosition = 'left',
@@ -67,7 +69,7 @@ export function Button({
           {icon && iconPosition === 'left' ? (
             <Ionicons name={icon} size={sizeIcon[size]} color={iconColor} />
           ) : null}
-          <Text style={[styles.text, sizeTextStyle, textVariantStyle]}>{title}</Text>
+          <Text style={[styles.text, sizeTextStyle, textVariantStyle, textStyle]}>{title}</Text>
           {icon && iconPosition === 'right' ? (
             <Ionicons name={icon} size={sizeIcon[size]} color={iconColor} />
           ) : null}

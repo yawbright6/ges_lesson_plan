@@ -42,6 +42,7 @@ export interface LessonGenerationBody {
   schoolDistrict?: string;
   classSize?: string;
   schemeContext?: SchemeContext;
+  visualGenerationEnabled?: boolean;
 }
 
 export interface LessonSupportTranslationBody {
@@ -60,7 +61,36 @@ export interface SchemeGenerationBody {
 
 export interface TeachingNotesGenerationBody {
   lessonPlan: Record<string, unknown>;
+  visualGenerationEnabled?: boolean;
 }
+
+export interface TestItemRewriteBody {
+  title: string;
+  subject: string;
+  classLevel: string;
+  termTitle?: string;
+  items: Array<{
+    id?: string;
+    week?: number;
+    lessonNumber?: string;
+    topic?: string;
+    strand?: string;
+    subStrand?: string;
+    indicator?: string;
+    question?: string;
+    marks?: number;
+  }>;
+  options?: {
+    modes?: Array<{
+      mode?: string;
+      enabled?: boolean;
+      questionCount?: number;
+    }>;
+    totalMarks?: number;
+  };
+}
+
+const TEACHING_NOTE_GENERATED_BLOCK_TYPES = new Set(['generated_visual', 'image_grid']);
 
 export const lessonPlanSystemPrompt = `You are an expert curriculum designer for the Ghanaian Basic and Senior High
 School standards-based curriculum (NaCCA / GES). You write lesson plans that match
@@ -118,6 +148,8 @@ Always respond with a single JSON object only, no markdown or commentary, with t
       "purpose": string,
       "phase": 1 | 2 | 3,
       "activityLink": string,
+      "prompt": string,
+      "status": "pending",
       "labels": string[],
       "steps": string[],
       "data": [{ "label": string, "value": number }],
@@ -168,10 +200,25 @@ Rules:
 - Use culturally relevant Ghanaian examples.
 - Make activities age-appropriate.
 - Phase 2 must include exactly 3 assessment questions.
-- Include at most one visual aid when it genuinely supports a classroom activity. If no visual is useful, return "visualAids": [].
-- Visual aids must be compact and renderable from structured data only; do not return image URLs, markdown, SVG, or base64.
-- For labelled_diagram use labels; for flowchart/timeline use steps; for bar_chart use data; for comparison_table use rows.
+- Include at most two visual aids when they genuinely support a classroom activity. If no visual is useful, return "visualAids": [].
+- Prefer at least one structured visual aid (bar_chart, flowchart, timeline, comparison_table, or labelled_diagram) when the topic benefits from a chart, process, table, or labelled explanation.
+- MANDATORY: Every visualAid MUST have a phase (1, 2, or 3). Set phase to the lesson phase where the visual is most helpful. If not set, the visual will appear as a separate section instead of inline.
+- MANDATORY: Set activityLink to the specific activity text that this visual supports (copy a phrase from the activities array).
+- Visual aids render inline within the phase activities only when phase is correctly set.
+- Use labelled_diagram with labels; flowchart/timeline with steps; bar_chart with data [{ label, value }]; comparison_table with rows.
+- For visual aids that would benefit from a generated image, include a clear Gemini-ready prompt and set status to "pending". Do not include imageUrl, markdown, SVG, or base64.
+- Keep prompts simple, classroom-friendly, culturally appropriate, and labelled where useful. Avoid copyrighted characters, brand names, and unnecessary people.
 - Return JSON only.`;
+
+export const lessonPlanNoGeminiVisualRules = `
+- AI image generation is turned OFF. Do not include prompt, status, imageUrl, or pending image placeholders on any visualAid.
+- Still include structured visualAids (bar_chart, flowchart, timeline, comparison_table, labelled_diagram) when they support the lesson.
+- Use only data the app can render as charts, tables, steps, or labels.`;
+
+export function getLessonPlanSystemPrompt(visualGenerationEnabled = true) {
+  if (visualGenerationEnabled) return lessonPlanSystemPrompt;
+  return `${lessonPlanSystemPrompt}\n${lessonPlanNoGeminiVisualRules}`;
+}
 
 export const lessonPlanTranslationSystemPrompt = `You translate Ghanaian lesson plans into Ghanaian local languages.
 Return a single JSON object only, no markdown or commentary, with this shape:
@@ -288,20 +335,24 @@ Always respond with a single JSON object only, no markdown or commentary, with t
   "classroomManagement": string[],
   "boardSummary": string[],
   "homework": string[],
-  "visuals": [
+  "contentBlocks": [
     {
       "id": string,
-      "kind": "diagram" | "chart" | "process" | "table" | "board_sketch" | "curated_image" | "generated_image",
-      "source": "structured" | "curated" | "generated",
+      "type": "heading" | "paragraph" | "bullet_list" | "worked_example" | "practice_questions" | "comparison_table" | "bar_chart" | "process_steps" | "labelled_diagram" | "generated_visual" | "image_grid" | "teacher_tip",
       "title": string,
-      "caption": string,
-      "altText": string,
-      "prompt": string,
+      "text": string,
+      "items": string[],
       "labels": [{ "label": string, "description": string }],
       "rows": string[][],
-      "steps": string[]
+      "steps": string[],
+      "data": [{ "label": string, "value": number }],
+      "visualKind": "diagram" | "chart" | "process" | "table" | "board_sketch" | "generated_image",
+      "prompt": string,
+      "caption": string,
+      "status": "pending"
     }
-  ]
+  ],
+  "visuals": []
   }
   
   Rules:
@@ -319,16 +370,194 @@ Always respond with a single JSON object only, no markdown or commentary, with t
     * boardSummary = concise learner copy notes for the board.
   - Include worked examples where the subject needs them, especially Mathematics.
   - For Mathematics, include definitions, place-value tables, worked examples, comparison/ordering steps, and practice items.
-  - Visuals are optional supporting aids, not the main content. If a visual is not clearly necessary for this exact lesson, return "visuals": [].
-  - Include visuals only when they directly match the subject and topic. Never include examples from another subject.
-  - Use structured diagrams/charts/tables for science diagrams, maths place-value tables, processes, comparison charts, board summaries, and labelled explanations.
-  - Use curated_image only when the subject/topic explicitly needs a known real-world image, object, person, place, or tool.
-  - Do not invent unrelated image examples. Every visual must be directly named by, or strongly implied by, the lesson topic and activities.
-  - Use generated_image only as a placeholder prompt for a custom content illustration; do not include imageUrl.
+  - All diagrams and illustrations must appear only inside contentBlocks, placed exactly where they support the nearby explanation, worked example, or activity.
+  - Do not use a separate top-level visuals array. Always return "visuals": [].
+  - Include structured visual blocks when they help learners understand the topic (tables, steps, labels, bar charts). Prefer at least one structured block when the subject benefits from a chart, comparison, process, or labelled explanation.
+  - Include visual blocks only when they directly match the subject and topic. Never include examples from another subject.
+  - Use bar_chart with data [{ label, value }] for numeric comparisons; comparison_table with rows for side-by-side facts; process_steps with steps for sequences; labelled_diagram with labels for parts or vocabulary.
+  - Use generated_visual with visualKind "generated_image" only when a custom illustration is needed; include prompt, status: "pending", and do not include imageUrl.
+  - Each generated_visual block must include id, title, visualKind, prompt, caption, status: "pending", and brief text explaining why it supports the nearby content.
+  - Include at most two generated_visual blocks per note.
   - Do not include examples, tools, brands, objects, platforms, organisms, places, diagrams, charts, or images unless they are directly required by the lesson topic, strand, sub-strand, content standard, indicator, or planned activities.
-  - Keep the JSON complete: overview 3-5 sentences; preparation 4-6 items; each phaseGuidance.teacherNotes 6-9 rich content items; every other text array 4-8 items; visuals 0-2 items.
+  - Keep the JSON complete: overview 3-5 sentences; preparation 4-6 items; each phaseGuidance.teacherNotes 6-9 rich content items; every other text array 4-8 items.
   - Do not wrap the response in markdown fences.
   - Return JSON only.`;
+
+export const teachingNotesNoGeminiVisualRules = `
+  - AI image generation (Gemini) is turned OFF for this school.
+  - Do not include generated_visual or image_grid blocks. Do not include prompt, status, imageUrl, or image placeholders.
+  - Still include structured blocks (bar_chart, comparison_table, process_steps, labelled_diagram) when they support the lesson.
+  - Do not mention missing images, diagrams to generate later, or illustration prompts.`;
+
+export function getTeachingNotesSystemPrompt(visualGenerationEnabled = true) {
+  if (visualGenerationEnabled) return teachingNotesSystemPrompt;
+  return `${teachingNotesSystemPrompt}\n${teachingNotesNoGeminiVisualRules}`;
+}
+
+export const testItemRewriteSystemPrompt = `You are an expert Ghanaian assessment setter.
+Rewrite extracted lesson assessment prompts into a polished classroom test paper.
+
+Always respond with a single JSON object only, no markdown or commentary, with this shape:
+{
+  "title": string,
+  "subject": string,
+  "classLevel": string,
+  "termTitle": string,
+  "instructions": string[],
+  "sections": [
+    {
+      "id": string,
+      "title": string,
+      "questions": [
+        {
+          "id": string,
+          "text": string,
+          "marks": number,
+          "mode": "multiple_choice" | "fill_in_blank" | "essay",
+          "sourceItemIds": string[]
+        }
+      ]
+    }
+  ],
+  "answerKey": [
+    {
+      "questionId": string,
+      "answer": string,
+      "markingGuide": string[],
+      "marks": number
+    }
+  ],
+  "totalMarks": number
+}
+
+Rules:
+- Use only the selected source items. Do not introduce new curriculum coverage.
+- Preserve Ghanaian classroom context and Ghanaian English spelling.
+- Keep curriculum alignment with the source week, topic, strand, sub-strand, and indicator metadata.
+- Group sections by week and lesson unless the source items clearly need a simpler combined section.
+- Respect requested test modes. If a mode has a questionCount, create exactly that many questions for that mode.
+- If a mode is selected without a questionCount, choose a sensible number based on the source items and total marks.
+- If totalMarks is provided, distribute marks across all questions so the final totalMarks equals the requested value.
+- Multiple choice questions must include options A-D in the question text and the answer key must give the correct option and answer.
+- Format multiple choice options as separate lines in the question text using A., B., C., and D.
+- Fill-in questions should be short completion items with clear expected answers.
+- Essay type questions should use explain, discuss, describe, compare, justify, or evaluate prompts.
+- Do not include any instruction about silent electronic calculators.
+- If workings are needed, use exactly this instruction: "All workings in Section B must be shown clearly."
+- Improve clarity and test-paper wording, but keep the same skill or knowledge demand as the source prompt.
+- Keep marks modest and appropriate. If the source mark is provided, use it unless the rewrite truly requires a small adjustment.
+- Provide a concise answer or expected response for every question.
+- Provide markingGuide items that a teacher can use quickly while marking.
+- Return JSON only.`;
+
+export function buildTestItemRewritePrompt(body: TestItemRewriteBody): string {
+  const items = Array.isArray(body.items) ? body.items : [];
+  return (
+    `Create a formal classroom test paper from these extracted lesson assessment items.\n` +
+    `- Title: ${body.title}\n` +
+    `- Subject: ${body.subject}\n` +
+    `- Class Level: ${body.classLevel}\n` +
+    (body.termTitle ? `- Term: ${body.termTitle}\n` : '') +
+    (body.options?.totalMarks ? `- Required total marks: ${body.options.totalMarks}\n` : '- Total marks: AI may decide\n') +
+    `- Requested test modes: ${formatTestModeOptions(body.options?.modes)}\n` +
+    `- Source items JSON:\n${JSON.stringify(items)}\n\n` +
+    `Return the JSON object only.`
+  );
+}
+
+export function normalizeTestItemRewriteResponse(
+  payload: Record<string, unknown>,
+  body: TestItemRewriteBody,
+) {
+  const sections = Array.isArray(payload?.sections) ? payload.sections : [];
+  const normalizedSections = sections
+    .filter((section) => section && typeof section === 'object')
+    .map((section, sectionIndex) => {
+      const sectionRecord = section as Record<string, unknown>;
+      const questions = Array.isArray(sectionRecord.questions) ? sectionRecord.questions : [];
+      return {
+        id: cleanText(sectionRecord.id) || `section-${sectionIndex + 1}`,
+        title: cleanText(sectionRecord.title) || `Section ${sectionIndex + 1}`,
+        questions: questions
+          .filter((question) => question && typeof question === 'object')
+          .map((question, questionIndex) => {
+            const questionRecord = question as Record<string, unknown>;
+            const marks = Math.max(1, Math.round(Number(questionRecord.marks) || 1));
+            return {
+              id: cleanText(questionRecord.id) || `${sectionIndex + 1}.${questionIndex + 1}`,
+              text: cleanText(questionRecord.text),
+              marks,
+              mode: cleanText(questionRecord.mode),
+              sourceItemIds: cleanStringList(questionRecord.sourceItemIds, 20),
+            };
+          })
+          .filter((question) => question.text)
+          .slice(0, 80),
+      };
+    })
+    .filter((section) => section.questions.length)
+    .slice(0, 20);
+
+  const answerKeyValue = Array.isArray(payload?.answerKey) ? payload.answerKey : [];
+  const answerKey = answerKeyValue
+    .filter((item) => item && typeof item === 'object')
+    .map((item) => {
+      const record = item as Record<string, unknown>;
+      return {
+        questionId: cleanText(record.questionId),
+        answer: cleanText(record.answer),
+        markingGuide: cleanStringList(record.markingGuide, 8),
+        marks: Math.max(1, Math.round(Number(record.marks) || 1)),
+      };
+    })
+    .filter((item) => item.questionId && item.answer)
+    .slice(0, 80);
+
+  const totalMarks =
+    Math.round(Number(payload?.totalMarks)) ||
+    normalizedSections.reduce(
+      (sum, section) => sum + section.questions.reduce((sectionSum, question) => sectionSum + question.marks, 0),
+      0,
+    );
+
+  return {
+    id: `test-paper-${slugify(body.subject)}-${slugify(body.classLevel)}-${Date.now()}`,
+    title: cleanText(payload?.title) || body.title || `${body.subject} ${body.classLevel} Test Paper`,
+    subject: cleanText(payload?.subject) || body.subject,
+    classLevel: cleanText(payload?.classLevel) || body.classLevel,
+    termTitle: cleanText(payload?.termTitle) || cleanText(body.termTitle),
+    instructions: normalizeTestPaperInstructions(cleanStringList(payload?.instructions, 8)).length
+      ? normalizeTestPaperInstructions(cleanStringList(payload?.instructions, 8))
+      : ['Answer all questions.', 'Write clearly and show working where necessary.'],
+    sections: normalizedSections,
+    answerKey,
+    totalMarks,
+    createdAt: new Date().toISOString(),
+  };
+}
+
+function normalizeTestPaperInstructions(instructions: string[]) {
+  return instructions
+    .map((instruction) => cleanText(instruction))
+    .filter(Boolean)
+    .filter((instruction) => !/silent\s+electronic\s+calculators?\s+should\s+be\s+used/i.test(instruction))
+    .map((instruction) =>
+      /all\s+workings\s+must\s+be\s+shown\s+clearly/i.test(instruction)
+        ? 'All workings in Section B must be shown clearly.'
+        : instruction,
+    );
+}
+
+function formatTestModeOptions(modes?: NonNullable<TestItemRewriteBody['options']>['modes']) {
+  const enabled = Array.isArray(modes) ? modes.filter((mode) => mode?.enabled !== false && cleanText(mode?.mode)) : [];
+  if (!enabled.length) return 'AI may choose the best mix of multiple_choice, fill_in_blank, and essay questions.';
+  return enabled
+    .map((mode) => {
+      const count = Number(mode.questionCount);
+      return `${cleanText(mode.mode)}${Number.isFinite(count) && count > 0 ? ` (${Math.round(count)} questions)` : ' (AI decides count)'}`;
+    })
+    .join(', ');
+}
 
 export function buildLessonPrompt(body: LessonGenerationBody): string {
   const sessionBlock =
@@ -387,9 +616,13 @@ export function buildSchemePrompt(body: SchemeGenerationBody): string {
 }
 
 export function buildTeachingNotesPrompt(body: TeachingNotesGenerationBody): string {
+  const visualsOff = body.visualGenerationEnabled === false;
   return (
     `Generate a textbook-style learner teaching note for this saved lesson plan.\n` +
     `The output should contain the actual lesson content to teach, including clear explanations and worked examples where useful.\n` +
+    (visualsOff
+      ? `AI image generation is disabled. Use structured chart/table/diagram blocks only (no generated_visual or image_grid).\n`
+      : '') +
     `Lesson plan JSON:\n${JSON.stringify(body.lessonPlan)}\n\n` +
     `Return one complete JSON object only. Do not use markdown fences.`
   );
@@ -443,7 +676,7 @@ export function normalizeLessonPlanResponse(
     references:
       cleanText(payload?.references) ||
       (selectedWeek?.topic ? `Scheme topic: ${selectedWeek.topic}` : ''),
-    visualAids: normalizeVisualAids(payload?.visualAids),
+    visualAids: normalizeVisualAids(payload?.visualAids, body.visualGenerationEnabled !== false),
     teacherName: cleanText(body?.teacherName),
     schoolName: cleanText(body?.schoolName),
     schoolDistrict: cleanText(body?.schoolDistrict),
@@ -535,18 +768,19 @@ function normalizeTranslatedPhases(value: unknown, fallback: unknown) {
     .slice(0, 3);
 }
 
-function normalizeVisualAids(value: unknown) {
+function normalizeVisualAids(value: unknown, includeGeneratedImages = true) {
   if (!Array.isArray(value)) return [];
   const allowedTypes = new Set(['labelled_diagram', 'bar_chart', 'flowchart', 'timeline', 'comparison_table']);
 
   return value
-    .slice(0, 1)
+    .slice(0, 2)
     .map((item) => {
       const visual = item as Record<string, unknown>;
       const type = cleanText(visual?.type);
       const title = cleanText(visual?.title);
       if (!allowedTypes.has(type) || !title) return null;
       const phase = Number(visual?.phase);
+      const prompt = includeGeneratedImages ? cleanText(visual?.prompt) : '';
 
       return {
         type,
@@ -559,6 +793,12 @@ function normalizeVisualAids(value: unknown) {
         data: cleanChartData(visual?.data),
         rows: cleanVisualRows(visual?.rows),
         caption: cleanText(visual?.caption),
+        id: cleanText(visual?.id) || `visual-${slugify(title)}-${Date.now()}`,
+        prompt,
+        imageUrl: includeGeneratedImages ? cleanText(visual?.imageUrl) : '',
+        storagePath: includeGeneratedImages ? cleanText(visual?.storagePath) : '',
+        status: includeGeneratedImages && prompt ? cleanText(visual?.status) || 'pending' : undefined,
+        error: cleanText(visual?.error),
       };
     })
     .filter(Boolean);
@@ -662,8 +902,14 @@ export function normalizeTeachingNotesResponse(
     classroomManagement: arrayOfText(payload?.classroomManagement),
     boardSummary: arrayOfText(payload?.boardSummary),
     homework: arrayOfText(payload?.homework),
-    contentBlocks: normalizeTeachingNoteBlocks(payload?.contentBlocks),
-    visuals: Array.isArray(payload?.visuals) ? payload.visuals : [],
+    contentBlocks: filterTeachingNoteGeneratedBlocks(
+      normalizeTeachingNoteBlocks(
+        payload?.contentBlocks,
+        body.visualGenerationEnabled === false ? [] : payload?.visuals,
+      ),
+      body.visualGenerationEnabled !== false,
+    ),
+    visuals: [],
     sourceLessonPlan: {
       id: cleanText(lessonPlan.id),
       subject: cleanText(lessonPlan.subject),
@@ -682,50 +928,140 @@ function arrayOfText(value: unknown) {
   return Array.isArray(value) ? value.map((item) => cleanText(item)).filter(Boolean) : [];
 }
 
-function normalizeTeachingNoteBlocks(value: unknown) {
-  if (!Array.isArray(value)) return [];
-  return value
-    .filter((item) => item && typeof item === 'object')
-    .map((item, index) => {
-      const block = item as Record<string, unknown>;
-      return {
-        id: cleanText(block.id) || `block-${index + 1}`,
-        type: cleanText(block.type) || 'paragraph',
-        title: cleanText(block.title),
-        text: cleanText(block.text),
-        items: arrayOfText(block.items),
-        rows: Array.isArray(block.rows)
-          ? block.rows
-              .filter((row) => Array.isArray(row))
-              .map((row) => (row as unknown[]).map((cell) => cleanText(cell)))
-              .filter((row) => row.some(Boolean))
-          : [],
-        steps: arrayOfText(block.steps),
-        labels: Array.isArray(block.labels)
-          ? block.labels
-              .filter((label) => label && typeof label === 'object')
-              .map((label) => ({
-                label: cleanText((label as Record<string, unknown>).label),
-                description: cleanText((label as Record<string, unknown>).description),
-              }))
-              .filter((label) => label.label)
-          : [],
-        imageItems: Array.isArray(block.imageItems)
-          ? block.imageItems
-              .filter((image) => image && typeof image === 'object')
-              .map((image) => ({
-                label: cleanText((image as Record<string, unknown>).label),
-                description: cleanText((image as Record<string, unknown>).description),
-                imageUrl: cleanText((image as Record<string, unknown>).imageUrl),
-                imagePrompt: cleanText((image as Record<string, unknown>).imagePrompt),
-                attribution: cleanText((image as Record<string, unknown>).attribution),
-              }))
-              .filter((image) => image.label)
-          : [],
-        caption: cleanText(block.caption),
-        teacherOnly: block.teacherOnly === true,
-      };
-    });
+function filterTeachingNoteGeneratedBlocks<T extends { type?: string; prompt?: string; imageUrl?: string; status?: string }>(
+  blocks: T[],
+  includeGeneratedVisuals: boolean,
+) {
+  if (includeGeneratedVisuals) return blocks;
+  return blocks.filter((block) => !TEACHING_NOTE_GENERATED_BLOCK_TYPES.has(cleanText(block.type)));
+}
+
+function normalizeTeachingNoteBlocks(value: unknown, legacyVisuals: unknown = []) {
+  const blocks = Array.isArray(value)
+    ? value
+        .filter((item) => item && typeof item === 'object')
+        .map((item, index) => normalizeTeachingNoteBlock(item as Record<string, unknown>, index))
+    : [];
+  const blockIds = new Set(blocks.map((block) => block.id));
+
+  if (Array.isArray(legacyVisuals)) {
+    for (const item of legacyVisuals) {
+      if (!item || typeof item !== 'object') continue;
+      const legacyBlock = legacyVisualToContentBlock(item as Record<string, unknown>);
+      if (!legacyBlock || blockIds.has(legacyBlock.id)) continue;
+      blocks.push(legacyBlock);
+      blockIds.add(legacyBlock.id);
+    }
+  }
+
+  return blocks;
+}
+
+function normalizeTeachingNoteBlock(block: Record<string, unknown>, index: number) {
+  return {
+    id: cleanText(block.id) || `block-${index + 1}`,
+    type: cleanText(block.type) || 'paragraph',
+    title: cleanText(block.title),
+    text: cleanText(block.text),
+    items: arrayOfText(block.items),
+    rows: Array.isArray(block.rows)
+      ? block.rows
+          .filter((row) => Array.isArray(row))
+          .map((row) => (row as unknown[]).map((cell) => cleanText(cell)))
+          .filter((row) => row.some(Boolean))
+      : [],
+    steps: arrayOfText(block.steps),
+    data: cleanChartData(block.data),
+    labels: Array.isArray(block.labels)
+      ? block.labels
+          .filter((label) => label && typeof label === 'object')
+          .map((label) => ({
+            label: cleanText((label as Record<string, unknown>).label),
+            description: cleanText((label as Record<string, unknown>).description),
+          }))
+          .filter((label) => label.label)
+      : [],
+    imageItems: Array.isArray(block.imageItems)
+      ? block.imageItems
+          .filter((image) => image && typeof image === 'object')
+          .map((image) => ({
+            label: cleanText((image as Record<string, unknown>).label),
+            description: cleanText((image as Record<string, unknown>).description),
+            imageUrl: cleanText((image as Record<string, unknown>).imageUrl),
+            imagePrompt: cleanText((image as Record<string, unknown>).imagePrompt),
+            attribution: cleanText((image as Record<string, unknown>).attribution),
+          }))
+          .filter((image) => image.label)
+      : [],
+    caption: cleanText(block.caption),
+    visualKind: cleanText(block.visualKind),
+    prompt: cleanText(block.prompt),
+    imageUrl: cleanText(block.imageUrl),
+    storagePath: cleanText(block.storagePath),
+    status: cleanText(block.status) || (cleanText(block.prompt) ? 'pending' : ''),
+    error: cleanText(block.error),
+    teacherOnly: block.teacherOnly === true,
+  };
+}
+
+function legacyVisualToContentBlock(visual: Record<string, unknown>) {
+  const id = cleanText(visual.id);
+  const title = cleanText(visual.title);
+  if (!id || !title) return null;
+
+  const prompt = cleanText(visual.prompt);
+  const imageUrl = cleanText(visual.imageUrl);
+  const source = cleanText(visual.source);
+  const kind = cleanText(visual.kind);
+  const steps = arrayOfText(visual.steps);
+  const rows = Array.isArray(visual.rows)
+    ? visual.rows
+        .filter((row) => Array.isArray(row))
+        .map((row) => (row as unknown[]).map((cell) => cleanText(cell)))
+        .filter((row) => row.some(Boolean))
+    : [];
+  const labels = Array.isArray(visual.labels)
+    ? visual.labels
+        .filter((label) => label && typeof label === 'object')
+        .map((label) => ({
+          label: cleanText((label as Record<string, unknown>).label),
+          description: cleanText((label as Record<string, unknown>).description),
+        }))
+        .filter((label) => label.label)
+    : [];
+
+  if (source === 'generated' || prompt || imageUrl || kind === 'generated_image') {
+    return {
+      id,
+      type: 'generated_visual',
+      title,
+      visualKind: kind || 'generated_image',
+      prompt,
+      caption: cleanText(visual.caption),
+      imageUrl,
+      storagePath: cleanText(visual.storagePath),
+      status: imageUrl ? 'generated' : prompt ? 'pending' : '',
+      labels,
+      rows,
+      steps,
+      data: cleanChartData(visual.data),
+    };
+  }
+
+  const chartData = cleanChartData(visual.data);
+  if (chartData.length) {
+    return { id, type: 'bar_chart', title, data: chartData, caption: cleanText(visual.caption) };
+  }
+
+  if (steps.length) {
+    return { id, type: 'process_steps', title, steps, caption: cleanText(visual.caption) };
+  }
+
+  if (rows.length) {
+    return { id, type: 'comparison_table', title, rows, caption: cleanText(visual.caption) };
+  }
+
+  return { id, type: 'labelled_diagram', title, labels, caption: cleanText(visual.caption) };
 }
 
 function formatWeekBlock(label: string, week?: SchemeWeek) {
@@ -763,7 +1099,13 @@ function formatLessonFocusGuidance(guidance?: SchemeContext['lessonFocusGuidance
   Weekly lesson focus sequence:
 ${allFocuses.map((focus, index) => `  ${index + 1}. ${focus}`).join('\n')}
 Use the current lesson focus as the boundary for this lesson's main activities, examples, performance indicator and assessment.
-Do not blend every weekly indicator or exemplar into every lesson. Later focus-sequence items may be mentioned only as a brief preview, not taught as main content.
+Do not blend every weekly indicator or exemplar into every lesson. If the current focus contains "Teach now",
+"Review only", or "Do not teach yet" instructions, obey those boundaries strictly:
+- build the starter, new learning activities, performance indicator, assessment and visual aids from "Teach now";
+- mention "Review only" material only briefly as prior knowledge;
+- do not teach "Do not teach yet" material as main content, worked examples, assessment items, or visual aids.
+If the assigned indicator is broad, do not unpack every concept in it at once; unpack only the parts needed for the current "Teach now" exemplars.
+Later focus-sequence items may be mentioned only as a one-sentence preview, not taught as main content.
 `;
 }
 

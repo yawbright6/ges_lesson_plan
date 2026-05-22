@@ -304,6 +304,8 @@ export function UsageSection(props: {
     'scheme_generation',
     'scheme_parsing',
     'teaching_notes_generation',
+    'test_item_rewrite',
+    'visual_generation',
   ]);
   return (
     <Panel 
@@ -668,6 +670,12 @@ export function SettingsSection(props: {
               onChangeText={(value) => props.setAppSettings({ teachingNotesCost: cleanWholeNumber(value) })}
               keyboardType="number-pad"
             />
+            <Field
+              label="Test item rewrite"
+              value={props.appSettings.testItemRewriteCost}
+              onChangeText={(value) => props.setAppSettings({ testItemRewriteCost: cleanWholeNumber(value) })}
+              keyboardType="number-pad"
+            />
           </View>
           <View style={styles.settingsBox}>
             <Text style={styles.sectionLabel}>Retention & Runtime</Text>
@@ -691,6 +699,62 @@ export function SettingsSection(props: {
             <Field label="Parser backend" value={props.appSettings.parserBackend} editable={false} />
             <Field label="Translation provider" value={props.appSettings.translationProvider} editable={false} />
             <Text style={styles.meta}>Lesson translation currently uses Anthropic. Gemini switching can be wired into this setting later.</Text>
+          </View>
+          <View style={styles.settingsBox}>
+            <Text style={styles.sectionLabel}>Inline Visual Generation</Text>
+            <View style={styles.switchRow}>
+              <View style={{ flex: 1, paddingRight: 10 }}>
+                <Text style={styles.rowTitle}>Enable Gemini diagrams</Text>
+                <Text style={styles.meta}>Allows generated visuals to be inserted inline in lesson plans and teaching notes.</Text>
+              </View>
+              <Switch
+                value={props.appSettings.visualGenerationEnabled}
+                onValueChange={(value) => props.setAppSettings({ visualGenerationEnabled: value })}
+              />
+            </View>
+            <View style={styles.switchRow}>
+              <View style={{ flex: 1, paddingRight: 10 }}>
+                <Text style={styles.rowTitle}>Auto-generate visuals</Text>
+                <Text style={styles.meta}>When on, visual placeholders are generated automatically after text generation.</Text>
+              </View>
+              <Switch
+                value={props.appSettings.visualAutoGenerate}
+                onValueChange={(value) => props.setAppSettings({ visualAutoGenerate: value })}
+              />
+            </View>
+            <Field
+              label="Visual provider"
+              value={props.appSettings.visualProvider}
+              onChangeText={(value) => props.setAppSettings({ visualProvider: value })}
+              autoCapitalize="none"
+            />
+            <Field
+              label="Gemini image model"
+              value={props.appSettings.visualModel}
+              onChangeText={(value) => props.setAppSettings({ visualModel: value })}
+              autoCapitalize="none"
+            />
+            <Field
+              label="Max visuals per lesson"
+              value={props.appSettings.visualMaxPerLesson}
+              onChangeText={(value) => props.setAppSettings({ visualMaxPerLesson: cleanWholeNumber(value) })}
+              keyboardType="number-pad"
+            />
+            <Field
+              label="Credit cost per visual"
+              value={props.appSettings.visualCreditCost}
+              onChangeText={(value) => props.setAppSettings({ visualCreditCost: cleanWholeNumber(value) })}
+              keyboardType="number-pad"
+            />
+            <Field
+              label="Gemini API key"
+              value={props.appSettings.geminiApiKey}
+              onChangeText={(value) => props.setAppSettings({ geminiApiKey: value })}
+              autoCapitalize="none"
+              secureTextEntry
+              placeholder="Paste a new key to save or leave blank to keep existing"
+            />
+            <Text style={styles.meta}>The key is saved for Supabase functions and is not returned to the regular app runtime.</Text>
           </View>
         </View>
         <View style={styles.editActionPanel}>

@@ -1,5 +1,8 @@
+import { loadRuntimeAppSettingsOrDefault } from './appSettings';
 import { invokeEdgeFunction, EdgeFunctionError } from './edgeFunctions';
 import { fetchWithTimeout } from './http';
+import { getErrorMessage } from './appError';
+import { stripGeneratedTeachingNoteVisuals } from './teachingNoteContent';
 import { buildFallbackLessonPlan } from './fallbackLessonPlan';
 import { getExplicitCurriculumYearWeeks, getExplicitSchemeOfWork } from './curriculum';
 import { buildSchemeContext, findMatchingScheme } from './schemeStore';
@@ -7,6 +10,11 @@ import { buildExemplarLessonGuidance } from './exemplarLessonGuidance';
 import type { LessonPlan, LessonPlanPromptInput } from '@/types/lessonPlan';
 import type { SchemeGenerationInput, SchemeOfWork } from '@/types/scheme';
 import type { TeachingNotes } from '@/types/teachingNotes';
+import type { CompiledTestPaper, TestItemRewriteRequest } from '@/types/testItemCompiler';
+
+type AiRequestOptions = {
+  signal?: AbortSignal;
+};
 
 export interface ParsedUploadedSchemeResult {
   scheme: SchemeOfWork;
@@ -69,15 +77,21 @@ const useLocalAi = explicitUseLocalAi || (bypassAuth && !forceCloudAi);
 const localAiBaseUrl =
   (process.env.EXPO_PUBLIC_LOCAL_AI_URL ?? 'http://localhost:8787').replace(/\/$/, '');
 
-async function invokeEdgeFunctionJson<T>(functionName: string, body: object): Promise<T> {
+async function invokeEdgeFunctionJson<T>(
+  functionName: string,
+  body: object,
+  options: AiRequestOptions = {},
+): Promise<T> {
   return invokeEdgeFunction<T>(functionName, body, {
     authErrorMessage: 'Cloud AI unavailable: no signed-in Supabase session.',
+    signal: options.signal,
   });
 }
 
 export async function generateLessonPlan(
   input: LessonPlanPromptInput,
-  selectedScheme?: SchemeOfWork | null
+  selectedScheme?: SchemeOfWork | null,
+  options: AiRequestOptions = {},
 ): Promise<LessonPlan> {
   const matchedScheme = selectedScheme
     ? null
@@ -103,8 +117,11 @@ export async function generateLessonPlan(
     sessionsPerWeek: input.sessionsPerWeek,
   });
 
+  const settings = await loadRuntimeAppSettingsOrDefault();
+  const visualGenerationEnabled = settings.visualGeneration.enabled;
   const requestBody = {
     ...input,
+    visualGenerationEnabled,
     schemeContext: {
       ...schemeContext,
       lessonFocusGuidance,
@@ -113,18 +130,20 @@ export async function generateLessonPlan(
 
   if (useLocalAi) {
     try {
-      return await postLocal<LessonPlan>('/generate-lesson-plan', requestBody);
+      const data = await postLocal<LessonPlan>('/generate-lesson-plan', requestBody, options);
+      return validateLessonPlan(visualGenerationEnabled ? data : stripLessonPlanGeminiVisuals(data));
     } catch {
       return buildFallbackLessonPlan(input, groundingScheme);
     }
   }
 
-  const data = await invokeEdgeFunctionJson<LessonPlan>('generate-lesson-plan', requestBody);
-  return validateLessonPlan(data);
+  const data = await invokeEdgeFunctionJson<LessonPlan>('generate-lesson-plan', requestBody, options);
+  return validateLessonPlan(visualGenerationEnabled ? data : stripLessonPlanGeminiVisuals(data));
 }
 
 export async function generateSchemeOfWork(
-  input: SchemeGenerationInput
+  input: SchemeGenerationInput,
+  options: AiRequestOptions = {},
 ): Promise<SchemeOfWork> {
   const explicitScheme = getExplicitSchemeOfWork(input);
   if (explicitScheme) {
@@ -132,20 +151,23 @@ export async function generateSchemeOfWork(
   }
 
   if (useLocalAi) {
-    return postLocal<SchemeOfWork>('/generate-scheme', input);
+    return postLocal<SchemeOfWork>('/generate-scheme', input, options);
   }
 
-  return invokeEdgeFunctionJson<SchemeOfWork>('generate-scheme', input);
+  return invokeEdgeFunctionJson<SchemeOfWork>('generate-scheme', input, options);
 }
 
-export async function parseUploadedScheme(input: {
-  subject: string;
-  classLevel: string;
-  term: string;
-  fileName: string;
-  fileBase64: string;
-  numberOfWeeks?: number;
-}): Promise<ParsedUploadedSchemeResult> {
+export async function parseUploadedScheme(
+  input: {
+    subject: string;
+    classLevel: string;
+    term: string;
+    fileName: string;
+    fileBase64: string;
+    numberOfWeeks?: number;
+  },
+  options: AiRequestOptions = {},
+): Promise<ParsedUploadedSchemeResult> {
   const curriculumHint = getExplicitSchemeOfWork({
     subject: input.subject,
     classLevel: input.classLevel as SchemeGenerationInput['classLevel'],
@@ -168,25 +190,72 @@ export async function parseUploadedScheme(input: {
       localAiBaseUrl,
       '/parse-scheme-upload',
       requestBody,
+      options,
     );
   }
 
-  return invokeEdgeFunctionJson<ParsedUploadedSchemeResult>('parse-uploaded-scheme', requestBody);
+  return invokeEdgeFunctionJson<ParsedUploadedSchemeResult>('parse-uploaded-scheme', requestBody, options);
 }
 
-export async function generateTeachingNotes(plan: LessonPlan): Promise<TeachingNotes> {
-  const requestBody = { lessonPlan: plan };
+export async function generateTeachingNotes(
+  plan: LessonPlan,
+  options: AiRequestOptions = {},
+): Promise<TeachingNotes> {
+  const settings = await loadRuntimeAppSettingsOrDefault();
+  const visualGenerationEnabled = settings.visualGeneration.enabled;
+  const requestBody = { lessonPlan: plan, visualGenerationEnabled };
 
   if (useLocalAi) {
     try {
-      return await postLocal<TeachingNotes>('/generate-teaching-notes', requestBody);
+      const data = await postLocal<TeachingNotes>('/generate-teaching-notes', requestBody, options);
+      return validateTeachingNotes(
+        visualGenerationEnabled ? data : stripGeneratedTeachingNoteVisuals(data),
+      );
     } catch {
       return buildFallbackTeachingNotes(plan);
     }
   }
 
-  const data = await invokeEdgeFunctionJson<TeachingNotes>('generate-teaching-notes', requestBody);
-  return validateTeachingNotes(data);
+  const data = await invokeEdgeFunctionJson<TeachingNotes>('generate-teaching-notes', requestBody, options);
+  return validateTeachingNotes(
+    visualGenerationEnabled ? data : stripGeneratedTeachingNoteVisuals(data),
+  );
+}
+
+export async function rewriteTestItems(
+  input: TestItemRewriteRequest,
+  options: AiRequestOptions = {},
+): Promise<CompiledTestPaper> {
+  if (useLocalAi) {
+    try {
+      const data = await postLocal<CompiledTestPaper>('/rewrite-test-items', input, options);
+      return validateCompiledTestPaper(data);
+    } catch {
+      return buildFallbackTestPaper(input);
+    }
+  }
+
+  const data = await invokeEdgeFunctionJson<CompiledTestPaper>('rewrite-test-items', input, options);
+  return validateCompiledTestPaper(data);
+}
+
+function stripLessonPlanGeminiVisuals(plan: LessonPlan): LessonPlan {
+  const visualAids = (plan.visualAids ?? [])
+    .map((aid) => ({
+      ...aid,
+      prompt: undefined,
+      status: undefined,
+      imageUrl: undefined,
+      storagePath: undefined,
+      error: undefined,
+    }))
+    .filter(
+      (aid) =>
+        Boolean(aid.title) &&
+        (aid.labels?.length || aid.steps?.length || aid.data?.length || aid.rows?.length),
+    );
+
+  return { ...plan, visualAids };
 }
 
 export async function translateLessonPlan(
@@ -204,14 +273,24 @@ export async function translateLessonPlan(
   return validateLessonPlan(data);
 }
 
-async function postLocal<T>(path: string, body: unknown): Promise<T> {
-  return postJson<T>(localAiBaseUrl, path, body);
+async function postLocal<T>(
+  path: string,
+  body: unknown,
+  options: AiRequestOptions = {},
+): Promise<T> {
+  return postJson<T>(localAiBaseUrl, path, body, options);
 }
 
-async function postJson<T>(baseUrl: string, path: string, body: unknown): Promise<T> {
+async function postJson<T>(
+  baseUrl: string,
+  path: string,
+  body: unknown,
+  options: AiRequestOptions = {},
+): Promise<T> {
   const response = await fetchWithTimeout(`${baseUrl}${path}`, {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
+    signal: options.signal,
     body: JSON.stringify(body),
   }, 180000); // 3-minute timeout for local/edge AI requests
 
@@ -263,6 +342,54 @@ function validateTeachingNotes(notes: TeachingNotes): TeachingNotes {
   }
 
   return notes;
+}
+
+function validateCompiledTestPaper(paper: CompiledTestPaper): CompiledTestPaper {
+  if (!paper || typeof paper !== 'object') {
+    throw new Error('Test item rewrite returned an invalid response.');
+  }
+
+  if (!paper.title || !Array.isArray(paper.sections) || !paper.sections.length) {
+    throw new Error('Test item rewrite returned an incomplete test paper. Please try again.');
+  }
+
+  return paper;
+}
+
+function buildFallbackTestPaper(input: TestItemRewriteRequest): CompiledTestPaper {
+  const selectedModes = input.options?.modes?.filter((mode) => mode.enabled).map((mode) => mode.mode) ?? [];
+  const fallbackMode = selectedModes[0] ?? 'essay';
+  const questions = input.items.map((item, index) => ({
+    id: String(index + 1),
+    text: item.question,
+    marks: 1,
+    sourceItemIds: [item.id],
+    mode: fallbackMode,
+  }));
+
+  return {
+    id: `test-paper-${Date.now()}`,
+    title: input.title,
+    subject: input.subject,
+    classLevel: input.classLevel,
+    termTitle: input.termTitle,
+    instructions: ['Answer all questions.', 'Teacher should review this fallback paper before use.'],
+    sections: [
+      {
+        id: 'section-1',
+        title: 'Test Items',
+        questions,
+      },
+    ],
+    answerKey: questions.map((question) => ({
+      questionId: question.id,
+      answer: 'Teacher to supply expected answer.',
+      markingGuide: ['Award marks for a correct, curriculum-aligned response.'],
+      marks: question.marks,
+    })),
+    totalMarks: questions.reduce((sum, question) => sum + question.marks, 0),
+    createdAt: new Date().toISOString(),
+  };
 }
 
 function buildFallbackTeachingNotes(plan: LessonPlan): TeachingNotes {
@@ -336,8 +463,4 @@ function buildFallbackTeachingNotes(plan: LessonPlan): TeachingNotes {
     ],
     visuals: [],
   };
-}
-
-function getErrorMessage(err: unknown): string {
-  return err instanceof Error ? err.message : String(err || 'Something went wrong. Please try again.');
 }

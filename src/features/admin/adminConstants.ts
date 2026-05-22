@@ -13,6 +13,7 @@ export const adminSections: {
   { id: 'usage', label: 'Usage', icon: 'chart-timeline-variant' },
   { id: 'referrals', label: 'Referrals', icon: 'share-variant-outline' },
   { id: 'phone-signups', label: 'Phone Signups', icon: 'cellphone' },
+  { id: 'shared-lessons', label: 'Shared Lessons', icon: 'share-outline' },
   { id: 'logs', label: 'Error Logs', icon: 'alert-circle-outline' },
   { id: 'faqs', label: 'FAQs', icon: 'frequently-asked-questions' },
   { id: 'settings', label: 'Settings', icon: 'cog-outline' },
@@ -35,6 +36,8 @@ export const creditKindOptions = [
   { label: 'Scheme generation', value: 'scheme_generation' },
   { label: 'Scheme parsing', value: 'scheme_parsing' },
   { label: 'Teaching notes generation', value: 'teaching_notes_generation' },
+  { label: 'Test item rewrite', value: 'test_item_rewrite' },
+  { label: 'Visual generation', value: 'visual_generation' },
   { label: 'Starter', value: 'starter' },
 ];
 
@@ -44,6 +47,8 @@ export const usageKindOptions = [
   { label: 'Scheme generation', value: 'scheme_generation' },
   { label: 'Custom scheme analysis', value: 'scheme_parsing' },
   { label: 'Teaching notes generation', value: 'teaching_notes_generation' },
+  { label: 'Test item rewrite', value: 'test_item_rewrite' },
+  { label: 'Visual generation', value: 'visual_generation' },
 ];
 
 export const referralStatusOptions = [

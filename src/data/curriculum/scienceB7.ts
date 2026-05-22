@@ -398,7 +398,7 @@ export const scienceB7Terms: ExplicitCurriculumTerm[] = [
         strand: 'Forces and Energy',
         subStrand: 'Force and Motion',
         contentStandard:
-          'B7/JHS1.4.4.1 Examine the concept of motion, Newton\'s first law of motion, magnetic force in relation to motion and understand their applications to life.',
+          'B7/JHS1.4.4.1 Examine the concept of motion, Newton\'s first law of motion, magnetic force in relation to motion and understand their applications to life, and B7/JHS1.4.4.2 recognise some simple machines and show understanding of their efficiency in doing work.',
         indicator:
           'B7/JHS1.4.4.1.4 and B7/JHS1.4.4.2.1 Demonstrate the behaviour of magnets and identify simple machines.',
         topic: 'Magnets and simple machines',

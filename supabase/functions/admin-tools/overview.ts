@@ -7,6 +7,7 @@ const GENERATION_KINDS = new Set([
   'scheme_generation',
   'scheme_parsing',
   'teaching_notes_generation',
+  'test_item_rewrite',
 ]);
 
 export async function loadOverviewMetrics(service: ServiceClient, adminUserId: string): Promise<OverviewMetrics> {

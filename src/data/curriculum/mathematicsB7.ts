@@ -421,7 +421,7 @@ export const mathematicsB7Terms: ExplicitCurriculumTerm[] = [
         contentStandard:
           'B7.4.2.1 Identify the sample space for a probability experiment involving single events and express probabilities to solve problems.',
         indicator:
-          'B7.4.2.1.2-1.3 Classify outcomes and calculate probabilities as fractions, decimals, percentages or ratios.',
+          'B7.4.2.1.2 Classify outcomes as impossible, possible or certain.',
         topic: 'Single-event probability',
         resources: resources.data,
       },
@@ -432,7 +432,7 @@ export const mathematicsB7Terms: ExplicitCurriculumTerm[] = [
         contentStandard:
           'B7.4.2.1 Identify the sample space for a probability experiment involving single events and express probabilities to solve problems.',
         indicator:
-          'B7.4.2.1.3-1.4 Use sample spaces and probability values to solve contextual problems.',
+          'B7.4.2.1.3 Calculate probabilities and express them as fractions, decimals, percentages or ratios.',
         topic: 'Sample space and probability problem solving',
         resources: resources.data,
       },

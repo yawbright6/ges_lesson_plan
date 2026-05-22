@@ -1,4 +1,4 @@
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Image, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { colors } from '@/theme/colors';
 import type { LessonPlan, LessonPhase, LessonVisualAid, LocalLanguageSupport } from '@/types/lessonPlan';
 
@@ -138,11 +138,15 @@ function LessonPlanContent({ plan }: Props) {
           <Text style={[styles.phaseHeaderCell, { flex: 0.45 }, styles.lastCell]}>Resources</Text>
         </View>
         {plan.phases.map((phase, idx) => (
-          <PhaseRow key={phase.phase} phase={phase} alt={idx % 2 === 1} />
+          <PhaseRow
+            key={phase.phase}
+            phase={phase}
+            alt={idx % 2 === 1}
+            visualAids={[]} // DISABLED: Visual generation disabled for testing
+          />
         ))}
       </View>
 
-      {plan.visualAids?.length ? <VisualAidBlock visualAid={plan.visualAids[0]} /> : null}
       {plan.localLanguageSupport ? <LocalLanguageBlock support={plan.localLanguageSupport} /> : null}
 
       {hasTeacherDetails(plan) ? (
@@ -225,6 +229,18 @@ function VisualAidBlock({ visualAid }: { visualAid: LessonVisualAid }) {
 }
 
 function VisualAidFigure({ visualAid }: { visualAid: LessonVisualAid }) {
+  if (visualAid.imageUrl) {
+    return (
+      <View style={styles.generatedImageBox}>
+        <Image source={{ uri: visualAid.imageUrl }} style={styles.generatedImage} resizeMode="contain" />
+      </View>
+    );
+  }
+
+  if (visualAid.status === 'failed') {
+    return <Text style={styles.visualError}>{visualAid.error || 'Diagram could not be generated.'}</Text>;
+  }
+
   if (visualAid.type === 'bar_chart' && visualAid.data?.length) {
     const maxValue = Math.max(...visualAid.data.map((item) => item.value), 1);
     return (
@@ -298,7 +314,7 @@ function InlineCellText({ label, value }: { label: string; value?: string | numb
   );
 }
 
-function PhaseRow({ phase, alt }: { phase: LessonPhase; alt: boolean }) {
+function PhaseRow({ phase, alt, visualAids }: { phase: LessonPhase; alt: boolean; visualAids: LessonVisualAid[] }) {
   return (
     <View style={[styles.infoRow, alt && styles.infoRowAlt]}>
       {/* Phase / Duration column */}
@@ -324,6 +340,9 @@ function PhaseRow({ phase, alt }: { phase: LessonPhase; alt: boolean }) {
             ))}
           </View>
         ) : null}
+        {visualAids.map((visualAid, index) => (
+          <VisualAidBlock key={visualAid.id ?? `${visualAid.title}-${index}`} visualAid={visualAid} />
+        ))}
       </View>
 
       {/* Resources column */}
@@ -445,6 +464,16 @@ const styles = StyleSheet.create({
   visualPurpose: { fontSize: 12, color: colors.text, lineHeight: 17, marginTop: 3 },
   visualActivity: { fontSize: 11, color: colors.textMuted, lineHeight: 16, marginTop: 2 },
   visualCaption: { fontSize: 11, color: colors.textMuted, lineHeight: 16, marginTop: 5 },
+  generatedImageBox: {
+    marginTop: 8,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 6,
+    backgroundColor: '#fff',
+    overflow: 'hidden',
+  },
+  generatedImage: { width: '100%', height: 180 },
+  visualError: { fontSize: 11, color: colors.danger, lineHeight: 16, marginTop: 8 },
   chart: { marginTop: 8, gap: 5 },
   barRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   barLabel: { width: 76, fontSize: 11, color: colors.text },

@@ -13,11 +13,13 @@ export function PreviewHeader({
   subtitle,
   onBack,
   onShare,
+  onDelete,
 }: {
   title: string;
   subtitle?: string;
   onBack: () => void;
   onShare?: () => void;
+  onDelete?: () => void;
 }) {
   const insets = useSafeAreaInsets();
   return (
@@ -33,11 +35,11 @@ export function PreviewHeader({
           </Text>
         ) : null}
       </View>
-      {onShare ? (
-        <PreviewIconButton icon="share-social-outline" label="Share" onPress={onShare} />
-      ) : (
-        <View style={styles.spacer} />
-      )}
+      <View style={styles.headerActions}>
+        {onDelete ? <PreviewIconButton icon="trash-outline" label="Delete" onPress={onDelete} tone="danger" /> : null}
+        {onShare ? <PreviewIconButton icon="share-social-outline" label="Share" onPress={onShare} /> : null}
+        {!onShare && !onDelete ? <View style={styles.spacer} /> : null}
+      </View>
     </View>
   );
 }
@@ -45,7 +47,9 @@ export function PreviewHeader({
 export function PreviewActions({ children }: { children: React.ReactNode }) {
   const insets = useSafeAreaInsets();
   return (
-    <View style={[styles.actions, { paddingBottom: insets.bottom + spacing[5] }]}>{children}</View>
+    <View style={[styles.actionsShell, { paddingBottom: insets.bottom + spacing[4] }]}>
+      <View style={styles.actions}>{children}</View>
+    </View>
   );
 }
 
@@ -55,12 +59,14 @@ export function PreviewActionButton({
   variant,
   loading,
   icon,
+  span = 'half',
 }: {
   title: string;
   onPress: () => void;
   variant?: 'primary' | 'secondary' | 'ghost' | 'danger' | 'accent';
   loading?: boolean;
   icon?: PreviewIcon;
+  span?: 'half' | 'full';
 }) {
   return (
     <Button
@@ -69,7 +75,9 @@ export function PreviewActionButton({
       variant={variant}
       loading={loading}
       icon={icon}
-      style={styles.actionButton}
+      size="small"
+      style={[styles.actionButton, span === 'full' && styles.actionButtonFull]}
+      textStyle={styles.actionButtonText}
     />
   );
 }
@@ -78,10 +86,12 @@ function PreviewIconButton({
   icon,
   label,
   onPress,
+  tone,
 }: {
   icon: PreviewIcon;
   label: string;
   onPress: () => void;
+  tone?: 'default' | 'danger';
 }) {
   return (
     <Pressable
@@ -89,7 +99,7 @@ function PreviewIconButton({
       accessibilityLabel={label}
       onPress={onPress}
       hitSlop={6}
-      style={({ pressed }) => [styles.iconButton, pressed && styles.iconButtonPressed]}
+      style={({ pressed }) => [styles.iconButton, tone === 'danger' && styles.iconButtonDanger, pressed && styles.iconButtonPressed]}
     >
       <Ionicons name={icon} size={20} color={colors.textOnPrimary} />
     </Pressable>
@@ -111,6 +121,12 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
   },
+  headerActions: {
+    flexDirection: 'row',
+    gap: spacing[2],
+    minWidth: 38,
+    justifyContent: 'flex-end',
+  },
   iconButton: {
     width: 38,
     height: 38,
@@ -120,6 +136,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255,255,255,0.14)',
   },
   iconButtonPressed: { opacity: 0.7 },
+  iconButtonDanger: { backgroundColor: 'rgba(220,38,38,0.24)' },
   headerTitle: {
     ...typography.h4,
     color: colors.textOnPrimary,
@@ -133,19 +150,31 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   spacer: { width: 38 },
-  actions: {
-    paddingHorizontal: spacing[6],
-    paddingTop: spacing[5],
+  actionsShell: {
+    paddingHorizontal: spacing[5],
+    paddingTop: spacing[4],
     borderTopWidth: 1,
     borderTopColor: colors.border,
     backgroundColor: colors.bgElevated,
-    gap: spacing[4],
-    flexDirection: 'row',
-    flexWrap: 'wrap',
     ...shadows.sm,
   },
+  actions: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing[3],
+  },
   actionButton: {
-    flex: 1,
-    minWidth: 132,
+    flexBasis: '48%',
+    flexGrow: 1,
+    minHeight: 38,
+    paddingHorizontal: spacing[4],
+    paddingVertical: spacing[3],
+  },
+  actionButtonFull: {
+    flexBasis: '100%',
+  },
+  actionButtonText: {
+    fontSize: 12,
+    fontWeight: '500',
   },
 });
