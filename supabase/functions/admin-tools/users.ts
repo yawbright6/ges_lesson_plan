@@ -73,6 +73,21 @@ async function searchDirectoryUsers(
   const rowsById = new Map<string, DirectoryUser>();
   for (const row of emailError ? [] : emailMatches ?? []) rowsById.set(row.user_id, row);
 
+  const { data: phoneMatches, error: phoneError } = await service
+    .from('user_phone_numbers')
+    .select('user_id')
+    .ilike('phone_number', `%${normalizedQuery}%`)
+    .limit(limit);
+  const phoneUserIds = phoneError ? [] : (phoneMatches ?? []).map((row) => row.user_id).filter(Boolean);
+  if (phoneUserIds.length) {
+    const { data: phoneUsers } = await service
+      .from('app_user_directory')
+      .select('user_id,email,email_confirmed_at,invitation_code,created_at')
+      .in('user_id', phoneUserIds)
+      .limit(limit);
+    for (const row of phoneUsers ?? []) rowsById.set(row.user_id, row);
+  }
+
   if (isUuid(normalizedQuery)) {
     const { data: userMatch, error: userError } = await service
       .from('app_user_directory')
@@ -96,17 +111,19 @@ async function enrichUsers(service: ServiceClient, users: DirectoryUser[]): Prom
   const balanceByUser = new Map<string, number>();
   const adminUserIds = new Set<string>();
   const profileByUser = new Map<string, Record<string, unknown>>();
+  const phoneByUser = new Map<string, string>();
   const referralCodeByUser = new Map<string, string>();
   const referredByUser = new Map<string, string>();
 
   if (ids.length) {
-    const [balances, admins, profiles, codes, referrals] = await Promise.all([
+    const [balances, admins, profiles, phones, codes, referrals] = await Promise.all([
       service.from('user_credit_balances').select('user_id,balance').in('user_id', ids),
       service.from('admin_users').select('user_id').in('user_id', ids),
       service
         .from('teacher_profiles')
         .select('user_id,teacher_name,school_name,school_district,class_sizes,onboarding_completed')
         .in('user_id', ids),
+      service.from('user_phone_numbers').select('user_id,phone_number,is_primary,verified_at').in('user_id', ids),
       service.from('referral_codes').select('user_id,code').in('user_id', ids),
       service.from('referrals').select('referred_user_id,referrer_user_id').in('referred_user_id', ids),
     ]);
@@ -114,6 +131,12 @@ async function enrichUsers(service: ServiceClient, users: DirectoryUser[]): Prom
     for (const row of balances.error ? [] : balances.data ?? []) balanceByUser.set(row.user_id, Number(row.balance ?? 0));
     for (const row of admins.error ? [] : admins.data ?? []) adminUserIds.add(row.user_id);
     for (const row of profiles.error ? [] : profiles.data ?? []) profileByUser.set(row.user_id, row);
+    const phoneRows = phones.error ? [] : phones.data ?? [];
+    phoneRows
+      .sort((a, b) => Number(Boolean(b.is_primary)) - Number(Boolean(a.is_primary)))
+      .forEach((row) => {
+        if (!phoneByUser.has(row.user_id)) phoneByUser.set(row.user_id, row.phone_number ?? '');
+      });
     for (const row of codes.error ? [] : codes.data ?? []) referralCodeByUser.set(row.user_id, row.code ?? '');
 
     const referralRows = referrals.error ? [] : referrals.data ?? [];
@@ -132,6 +155,7 @@ async function enrichUsers(service: ServiceClient, users: DirectoryUser[]): Prom
       created_at: item.created_at,
       email_confirmed_at: item.email_confirmed_at,
       balance: balanceByUser.get(item.user_id) ?? 0,
+      phone_number: phoneByUser.get(item.user_id) ?? '',
       is_admin: adminUserIds.has(item.user_id),
       teacher_name: String(profile.teacher_name ?? ''),
       school_name: String(profile.school_name ?? ''),

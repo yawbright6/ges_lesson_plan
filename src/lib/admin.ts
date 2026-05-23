@@ -6,6 +6,7 @@ export type AdminUser = {
   created_at: string;
   email_confirmed_at: string | null;
   balance: number;
+  phone_number: string;
   is_admin: boolean;
   teacher_name: string;
   school_name: string;

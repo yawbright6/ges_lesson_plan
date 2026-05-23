@@ -205,7 +205,16 @@ export function UsersSection(props: {
         }
       >
         {props.users.length ? (
-          props.users.map((user) => <UserRow key={user.user_id} user={user} onPress={() => props.openUser(user)} />)
+          <View>
+            <View style={styles.userTableHeader}>
+              <Text style={[styles.userTableHeadText, styles.userEmailCell]}>Email</Text>
+              <Text style={[styles.userTableHeadText, styles.userNameCell]}>Name</Text>
+              <Text style={[styles.userTableHeadText, styles.userPhoneCell]}>Phone</Text>
+              <Text style={[styles.userTableHeadText, styles.userCreditsCell]}>Credits</Text>
+              <Text style={[styles.userTableHeadText, styles.userJoinedCell]}>Joined</Text>
+            </View>
+            {props.users.map((user) => <UserRow key={user.user_id} user={user} onPress={() => props.openUser(user)} />)}
+          </View>
         ) : (
           <Text style={styles.emptyText}>No users found.</Text>
         )}
@@ -911,6 +920,7 @@ function UserDetails({ detail }: { detail: AdminUserDetail }) {
     <>
       <View style={styles.detailGrid}>
         <Detail label="Email" value={user.email || 'No email'} />
+        <Detail label="Phone" value={user.phone_number || 'Not available'} />
         <Detail label="Balance" value={`${user.balance} credits`} />
         <Detail label="Teacher" value={user.teacher_name || 'Not set'} />
         <Detail label="School" value={user.school_name || 'Not set'} />
@@ -977,13 +987,14 @@ function LoadMoreButton({
 
 function UserRow({ user, onPress }: { user: AdminUser; onPress: () => void }) {
   return (
-    <Pressable style={styles.dataRow} onPress={onPress}>
-      <View style={{ flex: 1 }}>
-        <Text style={styles.rowTitle}>{user.email || 'No email'}</Text>
-        <Text style={styles.meta}>Balance: {user.balance} credits | Joined {new Date(user.created_at).toLocaleDateString()}</Text>
-        <Text style={styles.meta}>{user.teacher_name || 'No teacher profile'} {user.is_admin ? '| Admin' : ''}</Text>
-      </View>
-      <StatusPill status={user.email_confirmed_at ? 'active' : 'unconfirmed'} />
+    <Pressable style={styles.userTableRow} onPress={onPress}>
+      <Text style={[styles.userTableText, styles.userEmailCell]} numberOfLines={2}>{user.email || 'No email'}</Text>
+      <Text style={[styles.userTableText, styles.userNameCell]} numberOfLines={2}>
+        {user.teacher_name || (user.is_admin ? 'Admin' : 'No profile')}
+      </Text>
+      <Text style={[styles.userTableText, styles.userPhoneCell]} numberOfLines={1}>{user.phone_number || '-'}</Text>
+      <Text style={[styles.userTableText, styles.userCreditsCell]} numberOfLines={1}>{user.balance}</Text>
+      <Text style={[styles.userTableText, styles.userJoinedCell]} numberOfLines={1}>{new Date(user.created_at).toLocaleDateString()}</Text>
     </Pressable>
   );
 }

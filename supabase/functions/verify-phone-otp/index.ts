@@ -95,6 +95,7 @@ async function applyPhoneSignupReferral(
   supabase: ReturnType<typeof createClient>,
   input: {
     userId: string;
+    phoneNumber: string;
     referralCode?: string;
     deviceId?: string;
     request: Request;
@@ -110,7 +111,7 @@ async function applyPhoneSignupReferral(
     .maybeSingle();
   if (existing) {
     if (existing.status === 'pending') {
-      await rewardReferralDirectly(supabase, existing.id, existing.referrer_user_id, input.userId);
+      await rewardReferralDirectly(supabase, existing.id, existing.referrer_user_id, input.userId, input.phoneNumber, referralCode);
     }
     return;
   }
@@ -118,10 +119,19 @@ async function applyPhoneSignupReferral(
   const { data: code, error: codeError } = await supabase
     .from('referral_codes')
     .select('user_id,code,referrer_device_id')
-    .eq('code', referralCode)
+    .ilike('code', referralCode)
     .maybeSingle();
   if (codeError || !code) {
     console.warn('[referral] code not found:', referralCode, codeError?.message);
+    await logPhoneSignupEvent(supabase, {
+      phoneNumber: input.phoneNumber,
+      eventType: 'referral_apply_failed',
+      status: 'error',
+      userId: input.userId,
+      referralCode,
+      providerMessage: codeError?.message || 'Referral code not found',
+      metadata: { source: 'direct_referral_apply' },
+    });
     return;
   }
 
@@ -158,11 +168,20 @@ async function applyPhoneSignupReferral(
     .maybeSingle();
   if (insertError || !inserted) {
     console.warn('[referral] direct insert failed:', insertError?.message);
+    await logPhoneSignupEvent(supabase, {
+      phoneNumber: input.phoneNumber,
+      eventType: 'referral_apply_failed',
+      status: 'error',
+      userId: input.userId,
+      referralCode,
+      providerMessage: insertError?.message || 'Referral insert did not return a row',
+      metadata: { source: 'direct_referral_apply' },
+    });
     return;
   }
 
   if (inserted.status === 'pending') {
-    await rewardReferralDirectly(supabase, inserted.id, inserted.referrer_user_id, input.userId);
+    await rewardReferralDirectly(supabase, inserted.id, inserted.referrer_user_id, input.userId, input.phoneNumber, referralCode);
   }
 }
 
@@ -171,6 +190,8 @@ async function rewardReferralDirectly(
   referralId: string,
   referrerUserId: string,
   referredUserId: string,
+  phoneNumber?: string,
+  referralCode?: string,
 ) {
   const { data: setting } = await supabase
     .from('admin_app_settings')
@@ -229,6 +250,17 @@ async function rewardReferralDirectly(
   });
   if (creditError) {
     console.warn('[referral] direct reward credit failed:', creditError.message);
+    if (phoneNumber) {
+      await logPhoneSignupEvent(supabase, {
+        phoneNumber,
+        eventType: 'referral_reward_failed',
+        status: 'error',
+        userId: referredUserId,
+        referralCode,
+        providerMessage: creditError.message,
+        metadata: { referralId, referrerUserId },
+      });
+    }
     return;
   }
 
@@ -241,6 +273,17 @@ async function rewardReferralDirectly(
       updated_at: new Date().toISOString(),
     })
     .eq('id', referralId);
+
+  if (phoneNumber) {
+    await logPhoneSignupEvent(supabase, {
+      phoneNumber,
+      eventType: 'referral_rewarded',
+      status: 'success',
+      userId: referredUserId,
+      referralCode,
+      metadata: { referralId, referrerUserId },
+    });
+  }
 }
 
 serve(async (req: Request) => {
@@ -437,6 +480,7 @@ serve(async (req: Request) => {
         }
         await applyPhoneSignupReferral(supabase, {
           userId,
+          phoneNumber: formattedPhone,
           referralCode,
           deviceId,
           request: req,
