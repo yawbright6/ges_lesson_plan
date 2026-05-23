@@ -413,24 +413,27 @@ export default function SchemesScreen() {
 }
 
 const styles = StyleSheet.create({
-  content: { padding: spacing[7], paddingBottom: spacing[12], gap: spacing[5] },
+  content: { padding: spacing[6], paddingBottom: spacing[12], gap: spacing[4] },
   hero: {
     backgroundColor: colors.surfaceAlt,
-    borderRadius: radii.lg,
+    borderRadius: radii.md,
     borderWidth: 1,
     borderColor: colors.borderSubtle,
-    paddingHorizontal: spacing[7],
-    paddingVertical: spacing[7],
-    marginBottom: spacing[2],
+    paddingHorizontal: spacing[5],
+    paddingVertical: spacing[4],
+    marginBottom: spacing[1],
     ...shadows.sm,
   },
   heroEyebrow: {
     ...typography.eyebrow,
+    fontSize: 10,
+    lineHeight: 12,
+    fontWeight: '700',
     color: colors.primary,
-    marginBottom: spacing[3],
+    marginBottom: spacing[1],
   },
-  heading: { ...typography.h1, color: colors.text, marginBottom: spacing[3] },
-  sub: { ...typography.body, color: colors.textMuted },
+  heading: { color: colors.text, fontSize: 20, lineHeight: 24, fontWeight: '700', marginBottom: spacing[1] },
+  sub: { ...typography.bodySm, color: colors.textMuted, lineHeight: 18 },
   card: {
     backgroundColor: colors.surface,
     borderRadius: radii.lg,

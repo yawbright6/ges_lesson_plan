@@ -6,7 +6,6 @@ import {
   GestureResponderEvent,
   Platform,
   Pressable,
-  ScrollView,
   StyleSheet,
   Text,
   TextInput,
@@ -15,16 +14,6 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { router, useFocusEffect } from 'expo-router';
 import { useToast } from '@/components/ToastProvider';
-import {
-  exportLessonPlanPdf,
-  exportLessonPlansPdf,
-  exportRewrittenTestPaperPdf,
-  exportSchemePdf,
-  exportTeachingNotesPdf,
-  shareLessonPlan,
-  shareLessonPlans,
-  shareScheme,
-} from '@/lib/export';
 import { deleteLessonPlan, loadLessonWorks } from '@/lib/lessonStore';
 import { deleteScheme, loadSchemes } from '@/lib/schemeStore';
 import { deleteTeachingNotes, loadTeachingNotes } from '@/lib/teachingNotesStore';
@@ -45,10 +34,10 @@ type LibraryItem =
   | { kind: 'tests'; paper: CompiledTestPaper };
 
 const tabs: Array<{ key: LibraryTab; label: string; icon: keyof typeof Ionicons.glyphMap }> = [
-  { key: 'lesson', label: 'Lesson Plan', icon: 'document-text-outline' },
-  { key: 'scheme', label: 'Scheme', icon: 'calendar-outline' },
-  { key: 'notes', label: 'Teaching Notes', icon: 'reader-outline' },
-  { key: 'tests', label: 'Test Papers', icon: 'clipboard-outline' },
+  { key: 'lesson', label: 'Lessons', icon: 'document-text-outline' },
+  { key: 'scheme', label: 'Schemes', icon: 'calendar-outline' },
+  { key: 'notes', label: 'Notes', icon: 'reader-outline' },
+  { key: 'tests', label: 'Tests', icon: 'clipboard-outline' },
 ];
 
 export default function LibraryScreen() {
@@ -196,17 +185,11 @@ function TestPaperCard({ paper, onDelete }: { paper: CompiledTestPaper; onDelete
   return (
     <DocumentCard
       icon="clipboard-outline"
-      title={`${paper.subject} - ${paper.classLevel} - ${paper.termTitle ?? 'Term'} Test`}
+      title={`${paper.subject} - ${paper.classLevel} - ${paper.termTitle ?? 'Term'} Test${paper.editedAt ? ' - Edited' : ''}`}
       subtitle={`${paper.totalMarks} marks | ${paper.title}`}
       meta={formatDate(paper.createdAt)}
       onOpen={() => router.push(`/test-paper/${paper.id}`)}
-      actions={
-        <CardActions
-          onShare={() => exportRewrittenTestPaperPdf(paper)}
-          onPdf={() => exportRewrittenTestPaperPdf(paper)}
-          onDelete={onDelete}
-        />
-      }
+      actions={<CardActions onDelete={onDelete} />}
     />
   );
 }
@@ -246,12 +229,7 @@ function LibraryHeader({
         </View>
       </View>
 
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        style={styles.tabBar}
-        contentContainerStyle={styles.tabBarContent}
-      >
+      <View style={styles.tabBar}>
         {tabs.map((tab) => {
           const active = tab.key === activeTab;
           return (
@@ -262,13 +240,15 @@ function LibraryHeader({
               onPress={() => onSelectTab(tab.key)}
               style={({ pressed }) => [styles.tabButton, active && styles.tabButtonActive, pressed && styles.pressed]}
             >
-              <Ionicons name={tab.icon} size={18} color={active ? '#fff' : colors.primaryDark} />
+              <View style={styles.tabIconRow}>
+                <Ionicons name={tab.icon} size={15} color={active ? '#fff' : colors.primaryDark} />
+                <Text style={[styles.tabCount, active && styles.tabCountActive]}>{counts[tab.key]}</Text>
+              </View>
               <Text style={[styles.tabText, active && styles.tabTextActive]}>{tab.label}</Text>
-              <Text style={[styles.tabCount, active && styles.tabCountActive]}>{counts[tab.key]}</Text>
             </Pressable>
           );
         })}
-      </ScrollView>
+      </View>
 
       <View style={styles.filtersPanel}>
         <View style={styles.searchBox}>
@@ -313,7 +293,7 @@ function SortButton({ label, active, onPress }: { label: string; active: boolean
 
 function LessonCard({ work, onDelete }: { work: SavedLessonWork; onDelete: () => void }) {
   const isBundle = isLessonBundle(work);
-  const title = `${work.subject} - ${work.classLevel} - Week ${work.week}`;
+  const title = `${work.subject} - ${work.classLevel} - Week ${work.week}${work.editedAt ? ' - Edited' : ''}`;
   const translationLanguage = isBundle ? work.plans[0]?.translationLanguage : work.translationLanguage;
   const subtitleBase = isBundle ? `${work.lessonCount} lessons | ${work.termTitle}` : work.termTitle;
   const subtitle = translationLanguage ? `${subtitleBase} | ${translationLanguage} AI draft` : subtitleBase;
@@ -331,13 +311,7 @@ function LessonCard({ work, onDelete }: { work: SavedLessonWork; onDelete: () =>
         }
         router.push(`/lesson/${work.id}`);
       }}
-      actions={
-        <CardActions
-          onShare={() => (isBundle ? shareLessonPlans(work.plans) : shareLessonPlan(work))}
-          onPdf={() => (isBundle ? exportLessonPlansPdf(work.plans) : exportLessonPlanPdf(work))}
-          onDelete={onDelete}
-        />
-      }
+      actions={<CardActions onDelete={onDelete} />}
     />
   );
 }
@@ -350,13 +324,7 @@ function TeachingNotesCard({ notes, onDelete }: { notes: TeachingNotes; onDelete
       subtitle={`Teaching notes v${notes.versionNumber ?? 1} | ${notes.topic || notes.title}`}
       meta={formatDate(notes.updatedAt ?? notes.createdAt)}
       onOpen={() => router.push(`/teaching-note/${notes.id}`)}
-      actions={
-        <CardActions
-          onShare={() => exportTeachingNotesPdf(notes)}
-          onPdf={() => exportTeachingNotesPdf(notes)}
-          onDelete={onDelete}
-        />
-      }
+      actions={<CardActions onDelete={onDelete} />}
     />
   );
 }
@@ -369,13 +337,7 @@ function SchemeCard({ scheme, onDelete }: { scheme: SchemeOfWork; onDelete: () =
       subtitle={`${scheme.weeks.length} weeks | ${scheme.title}`}
       meta={formatDate(scheme.createdAt)}
       onOpen={() => router.push(`/scheme/${scheme.id}`)}
-      actions={
-        <CardActions
-          onShare={() => shareScheme(scheme)}
-          onPdf={() => exportSchemePdf(scheme)}
-          onDelete={onDelete}
-        />
-      }
+      actions={<CardActions onDelete={onDelete} />}
     />
   );
 }
@@ -410,19 +372,9 @@ function DocumentCard({
   );
 }
 
-function CardActions({
-  onShare,
-  onPdf,
-  onDelete,
-}: {
-  onShare: () => void;
-  onPdf: () => void;
-  onDelete: () => void;
-}) {
+function CardActions({ onDelete }: { onDelete: () => void }) {
   return (
     <View style={styles.cardActions}>
-      <ActionIcon icon="share-social-outline" label="Share" onPress={onShare} />
-      <ActionIcon icon="download-outline" label="PDF" onPress={onPdf} />
       <ActionIcon icon="trash-outline" label="Delete" onPress={onDelete} danger />
     </View>
   );
@@ -553,72 +505,87 @@ function formatDate(value?: string) {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.bg },
   content: { padding: spacing[6], paddingBottom: spacing[12] },
-  header: { marginBottom: spacing[5], gap: spacing[5] },
+  header: { marginBottom: spacing[4], gap: spacing[4] },
   hero: {
     flexDirection: 'row',
     alignItems: 'flex-start',
     justifyContent: 'space-between',
-    gap: spacing[5],
+    gap: spacing[4],
     backgroundColor: colors.surfaceAlt,
-    borderRadius: radii.lg,
+    borderRadius: radii.md,
     borderWidth: 1,
     borderColor: colors.borderSubtle,
-    paddingHorizontal: spacing[7],
-    paddingVertical: spacing[7],
+    paddingHorizontal: spacing[5],
+    paddingVertical: spacing[4],
     ...shadows.sm,
   },
   heroEyebrow: {
     ...typography.eyebrow,
+    fontSize: 10,
+    lineHeight: 12,
+    fontWeight: '700',
     color: colors.primary,
-    marginBottom: spacing[3],
+    marginBottom: spacing[1],
   },
-  heading: { ...typography.h1, color: colors.text, marginBottom: spacing[3] },
-  sub: { ...typography.body, color: colors.textMuted, maxWidth: 520 },
+  heading: { color: colors.text, fontSize: 20, lineHeight: 24, fontWeight: '700', marginBottom: spacing[1] },
+  sub: { ...typography.bodySm, color: colors.textMuted, maxWidth: 520, lineHeight: 18 },
   fileCountPill: {
-    minWidth: 72,
-    borderRadius: radii.lg,
-    paddingHorizontal: spacing[5],
-    paddingVertical: spacing[5],
+    minWidth: 56,
+    borderRadius: radii.md,
+    paddingHorizontal: spacing[4],
+    paddingVertical: spacing[3],
     backgroundColor: colors.primaryDark,
     alignItems: 'center',
     ...shadows.sm,
   },
-  fileCountValue: { color: colors.primaryOn, fontSize: 22, fontWeight: '800' },
+  fileCountValue: { color: colors.primaryOn, fontSize: 18, lineHeight: 22, fontWeight: '700' },
   fileCountLabel: {
     ...typography.eyebrow,
+    fontSize: 9,
+    lineHeight: 11,
     color: 'rgba(255,255,255,0.78)',
   },
-  tabBar: {},
-  tabBarContent: {
-    gap: spacing[3],
-    paddingRight: spacing[2],
+  tabBar: {
+    flexDirection: 'row',
+    gap: spacing[1],
+    width: '100%',
   },
   tabButton: {
-    minWidth: 144,
-    minHeight: 48,
-    borderRadius: radii.pill,
+    flex: 1,
+    minWidth: 0,
+    minHeight: 44,
+    borderRadius: radii.md,
     borderWidth: 1,
     borderColor: colors.border,
     backgroundColor: colors.surface,
-    paddingHorizontal: spacing[5],
+    paddingHorizontal: spacing[1],
+    paddingVertical: spacing[2],
+    flexDirection: 'column',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 2,
+  },
+  tabButtonActive: { backgroundColor: colors.primary, borderColor: colors.primary },
+  tabIconRow: {
+    minHeight: 17,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: spacing[3],
+    gap: 3,
   },
-  tabButtonActive: { backgroundColor: colors.primary, borderColor: colors.primary },
-  tabText: { ...typography.label, color: colors.textMuted },
+  tabText: { color: colors.textMuted, fontSize: 10, lineHeight: 12, fontWeight: '600', textAlign: 'center' },
   tabTextActive: { color: colors.primaryOn },
   tabCount: {
-    minWidth: 24,
+    minWidth: 16,
     textAlign: 'center',
     overflow: 'hidden',
     borderRadius: radii.pill,
-    paddingHorizontal: spacing[3],
-    paddingVertical: spacing[1],
+    paddingHorizontal: 3,
+    paddingVertical: 1,
     backgroundColor: colors.surfaceMuted,
     color: colors.textMuted,
-    fontSize: 12,
+    fontSize: 8,
+    lineHeight: 10,
     fontWeight: '800',
   },
   tabCountActive: { backgroundColor: 'rgba(255,255,255,0.22)', color: colors.primaryOn },

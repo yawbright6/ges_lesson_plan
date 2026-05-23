@@ -1,11 +1,14 @@
 import 'react-native-gesture-handler';
-import { Stack } from 'expo-router';
+import { Stack, router } from 'expo-router';
 import Head from 'expo-router/head';
 import { StatusBar } from 'expo-status-bar';
+import { Pressable, StyleSheet } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import { Ionicons } from '@expo/vector-icons';
+import { PreviewHeader } from '@/components/PreviewChrome';
 import { ToastProvider } from '@/components/ToastProvider';
-import { brandIdentity, colors, ThemeProvider } from '@/theme/colors';
+import { brandIdentity, colors, radii, spacing, ThemeProvider } from '@/theme/colors';
 
 const APP_NAME = brandIdentity.name;
 const APP_DESCRIPTION = brandIdentity.description;
@@ -13,6 +16,25 @@ const APP_TAGLINE = brandIdentity.tagline;
 const THEME_COLOR = brandIdentity.themeColor;
 const APP_URL = 'https://geslessonplanner.netlify.app/';
 const OG_IMAGE = `${APP_URL}og-image.png`;
+const compactHeaderOptions = {
+  headerStyle: { backgroundColor: colors.primaryDark },
+  headerTintColor: colors.textOnPrimary,
+  headerTitleAlign: 'center' as const,
+  headerTitleStyle: { fontSize: 14, fontWeight: '600' as const },
+  headerBackVisible: false,
+  headerBackTitleVisible: false,
+  headerLeft: () => <RootBackButton />,
+  headerShadowVisible: false,
+  contentStyle: { backgroundColor: colors.bg },
+};
+
+function compactToolOptions(title: string) {
+  return {
+    title,
+    header: () => <PreviewHeader title={title} onBack={goBackFromTool} />,
+    contentStyle: { backgroundColor: colors.bg },
+  };
+}
 
 export default function RootLayout() {
   return (
@@ -47,13 +69,7 @@ export default function RootLayout() {
             </Head>
             <StatusBar style="light" />
             <Stack
-              screenOptions={{
-                headerStyle: { backgroundColor: colors.primaryDark },
-                headerTintColor: colors.textOnPrimary,
-                headerTitleStyle: { fontWeight: '700' },
-                headerShadowVisible: false,
-                contentStyle: { backgroundColor: colors.bg },
-              }}
+              screenOptions={compactHeaderOptions}
             >
             <Stack.Screen name="index" options={{ headerShown: false }} />
             <Stack.Screen name="(auth)" options={{ headerShown: false }} />
@@ -61,23 +77,23 @@ export default function RootLayout() {
             <Stack.Screen name="landingpage" options={{ headerShown: false }} />
             <Stack.Screen
               name="tools/lesson-plan"
-              options={{ title: 'Lesson Plan Tool' }}
+              options={compactToolOptions('Lesson Plan Tool')}
             />
             <Stack.Screen
               name="tools/scheme"
-              options={{ title: 'Scheme Tool' }}
+              options={compactToolOptions('Scheme Tool')}
             />
             <Stack.Screen
               name="tools/scheme-builder"
-              options={{ title: 'Scheme Builder' }}
+              options={compactToolOptions('Scheme Builder')}
             />
             <Stack.Screen
               name="tools/teaching-notes"
-              options={{ title: 'Teaching Notes' }}
+              options={compactToolOptions('Teaching Notes')}
             />
             <Stack.Screen
               name="tools/test-item-compiler"
-              options={{ title: 'Test Item Compiler' }}
+              options={compactToolOptions('Test Item Compiler')}
             />
             <Stack.Screen
               name="teaching-note/[id]"
@@ -88,11 +104,23 @@ export default function RootLayout() {
               options={{ headerShown: false }}
             />
             <Stack.Screen
+              name="lesson/edit/[id]"
+              options={{ headerShown: false }}
+            />
+            <Stack.Screen
               name="lesson/week"
               options={{ headerShown: false }}
             />
             <Stack.Screen
+              name="lesson/week/edit"
+              options={{ headerShown: false }}
+            />
+            <Stack.Screen
               name="test-paper/[id]"
+              options={{ headerShown: false }}
+            />
+            <Stack.Screen
+              name="test-paper/edit/[id]"
               options={{ headerShown: false }}
             />
             <Stack.Screen
@@ -108,4 +136,40 @@ export default function RootLayout() {
     </GestureHandlerRootView>
   );
 }
+
+function RootBackButton() {
+  if (!router.canGoBack()) return null;
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel="Back"
+      onPress={() => router.back()}
+      hitSlop={6}
+      style={({ pressed }) => [styles.backButton, pressed && styles.backButtonPressed]}
+    >
+      <Ionicons name="arrow-back" size={16} color={colors.textOnPrimary} />
+    </Pressable>
+  );
+}
+
+function goBackFromTool() {
+  if (router.canGoBack()) {
+    router.back();
+    return;
+  }
+  router.replace('/(tabs)/tools');
+}
+
+const styles = StyleSheet.create({
+  backButton: {
+    width: 30,
+    height: 30,
+    borderRadius: radii.pill,
+    marginLeft: spacing[1],
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(255,255,255,0.14)',
+  },
+  backButtonPressed: { opacity: 0.7 },
+});
 

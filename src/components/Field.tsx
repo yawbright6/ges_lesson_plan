@@ -8,6 +8,7 @@ interface Props extends TextInputProps {
   error?: string;
   isPasswordField?: boolean;
   helperText?: string;
+  compact?: boolean;
 }
 
 export function Field({
@@ -16,6 +17,7 @@ export function Field({
   style,
   isPasswordField,
   helperText,
+  compact,
   multiline,
   ...rest
 }: Props) {
@@ -24,11 +26,12 @@ export function Field({
   const isPassword = isPasswordField || rest.secureTextEntry;
 
   return (
-    <View style={styles.wrap}>
-      <Text style={styles.label}>{label}</Text>
+    <View style={[styles.wrap, compact && styles.wrapCompact]}>
+      <Text style={[styles.label, compact && styles.labelCompact]}>{label}</Text>
       <View
         style={[
           styles.inputShell,
+          compact && styles.inputShellCompact,
           focused && styles.inputShellFocused,
           !!error && styles.inputShellError,
           multiline && styles.inputShellMultiline,
@@ -49,6 +52,7 @@ export function Field({
           secureTextEntry={isPassword && !showPassword}
           style={[
             styles.input,
+            compact && styles.inputCompact,
             multiline && styles.inputMultiline,
             isPassword && styles.inputWithIcon,
             style,
@@ -81,10 +85,16 @@ export function Field({
 
 const styles = StyleSheet.create({
   wrap: { marginBottom: spacing[6] },
+  wrapCompact: { marginBottom: spacing[3] },
   label: {
     ...typography.label,
     color: colors.text,
     marginBottom: spacing[3],
+  },
+  labelCompact: {
+    fontSize: 11,
+    lineHeight: 14,
+    marginBottom: spacing[1],
   },
   inputShell: {
     flexDirection: 'row',
@@ -95,6 +105,10 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface,
     paddingHorizontal: spacing[5],
     minHeight: 48,
+  },
+  inputShellCompact: {
+    minHeight: 40,
+    paddingHorizontal: spacing[3],
   },
   inputShellMultiline: {
     alignItems: 'flex-start',
@@ -112,6 +126,11 @@ const styles = StyleSheet.create({
     paddingVertical: spacing[4],
     ...typography.bodyLg,
     color: colors.text,
+  },
+  inputCompact: {
+    paddingVertical: spacing[2],
+    fontSize: 13,
+    lineHeight: 17,
   },
   inputMultiline: {
     minHeight: 80,

@@ -479,12 +479,15 @@ export default function GenerateScreen() {
 
         <View style={styles.headerPanel}>
           <View style={styles.headerControls}>
-            <View style={styles.headerControl}>
+            <View style={styles.termControl}>
               <SelectField
                 label="Term"
                 value={term}
                 options={TERM_OPTIONS}
                 onChange={setTerm}
+                compact
+                triggerStyle={styles.termTrigger}
+                triggerTextStyle={styles.termTriggerText}
               />
             </View>
             <View style={styles.headerControl}>
@@ -501,40 +504,47 @@ export default function GenerateScreen() {
           </Text>
         </View>
 
-        <SelectField
-          label="Class"
-          value={classLevel}
-          options={CLASS_LEVEL_OPTIONS}
-          onChange={(value) => setClassLevel(value as ClassLevel)}
-        />
-
-        <SelectField
-          label="Subject"
-          value={subject}
-          options={subjectOptions}
-          onChange={setSubject}
-          placeholder="Select a subject"
-          helperText={
-            subjectOptions.length
-              ? undefined
-              : 'No mapped subjects are available for this level yet.'
-          }
-          disabled={!subjectOptions.length}
-        />
-
-        <SelectField
-          label="Week"
-          value={week}
-          options={weekOptions}
-          onChange={setWeek}
-        />
-
-        <SelectField
-          label="Lessons per week"
-          value={sessionsPerWeekInput}
-          options={LESSONS_PER_WEEK_OPTIONS}
-          onChange={setSessionsPerWeekInput}
-        />
+        <View style={styles.coreFieldGrid}>
+          <View style={styles.coreFieldCell}>
+            <SelectField
+              label="Class"
+              value={classLevel}
+              options={CLASS_LEVEL_OPTIONS}
+              onChange={(value) => setClassLevel(value as ClassLevel)}
+            />
+          </View>
+          <View style={styles.coreFieldCell}>
+            <SelectField
+              label="Subject"
+              value={subject}
+              options={subjectOptions}
+              onChange={setSubject}
+              placeholder="Select a subject"
+              helperText={
+                subjectOptions.length
+                  ? undefined
+                  : 'No mapped subjects are available for this level yet.'
+              }
+              disabled={!subjectOptions.length}
+            />
+          </View>
+          <View style={styles.coreFieldCell}>
+            <SelectField
+              label="Week"
+              value={week}
+              options={weekOptions}
+              onChange={setWeek}
+            />
+          </View>
+          <View style={styles.coreFieldCell}>
+            <SelectField
+              label="Lessons per week"
+              value={sessionsPerWeekInput}
+              options={LESSONS_PER_WEEK_OPTIONS}
+              onChange={setSessionsPerWeekInput}
+            />
+          </View>
+        </View>
 
         <View style={styles.lessonStripWrap}>
           <Text style={styles.lessonStripLabel}>Lesson This Week</Text>
@@ -656,44 +666,75 @@ const styles = StyleSheet.create({
     borderTopColor: colors.border,
     backgroundColor: colors.surface,
   },
-  content: { padding: spacing[7], paddingBottom: spacing[12], gap: spacing[5] },
+  content: { padding: spacing[6], paddingBottom: spacing[12], gap: spacing[4] },
   hero: {
     backgroundColor: colors.surfaceAlt,
-    borderRadius: radii.lg,
+    borderRadius: radii.md,
     borderWidth: 1,
     borderColor: colors.borderSubtle,
-    paddingHorizontal: spacing[7],
-    paddingVertical: spacing[7],
-    marginBottom: spacing[2],
+    paddingHorizontal: spacing[5],
+    paddingVertical: spacing[4],
+    marginBottom: spacing[1],
     ...shadows.sm,
   },
   heroEyebrow: {
     ...typography.eyebrow,
+    fontSize: 10,
+    lineHeight: 12,
+    fontWeight: '700',
     color: colors.primary,
-    marginBottom: spacing[3],
+    marginBottom: spacing[1],
   },
-  heading: { ...typography.h1, color: colors.text, marginBottom: spacing[3] },
-  sub: { ...typography.body, color: colors.textMuted },
+  heading: { color: colors.text, fontSize: 20, lineHeight: 24, fontWeight: '700', marginBottom: spacing[1] },
+  sub: { ...typography.bodySm, color: colors.textMuted, lineHeight: 18 },
   headerPanel: {
     backgroundColor: colors.surface,
     borderWidth: 1,
     borderColor: colors.border,
-    borderRadius: radii.lg,
-    padding: spacing[6],
-    gap: spacing[3],
+    borderRadius: radii.md,
+    padding: spacing[4],
+    gap: spacing[2],
     ...shadows.sm,
   },
   headerControls: {
-    flexDirection: Platform.OS === 'web' ? 'row' : 'column',
-    gap: spacing[5],
+    flexDirection: 'row',
+    flexWrap: 'nowrap',
+    columnGap: spacing[2],
+    alignItems: 'flex-start',
   },
   headerControl: {
     flex: 1,
+    minWidth: 0,
+  },
+  termControl: {
+    width: 82,
+    maxWidth: 90,
+    flexShrink: 0,
+  },
+  termTrigger: {
+    paddingHorizontal: spacing[2],
+    gap: 1,
+  },
+  termTriggerText: {
+    fontSize: 11,
+    lineHeight: 14,
   },
   headerMeta: {
-    ...typography.label,
+    ...typography.bodySm,
     color: colors.primary,
-    marginTop: spacing[1],
+    marginTop: 2,
+  },
+  coreFieldGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    columnGap: spacing[4],
+    rowGap: spacing[3],
+  },
+  coreFieldCell: {
+    width: '47.5%',
+    flexGrow: 0,
+    flexShrink: 0,
+    minWidth: 0,
   },
   actions: {
     padding: spacing[6],

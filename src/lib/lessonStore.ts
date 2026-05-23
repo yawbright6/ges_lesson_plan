@@ -210,6 +210,7 @@ function normalizeLessonPlanBundle(plans: LessonPlan[], bundle?: Partial<LessonP
     weekTitle,
     lessonCount,
     plans: normalizedPlans,
+    editedAt: bundle?.editedAt,
     createdAt,
     updatedAt: bundle?.updatedAt ?? createdAt,
   };

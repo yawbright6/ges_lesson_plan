@@ -57,6 +57,7 @@ export interface CompiledTestPaper {
   sections: CompiledTestSection[];
   answerKey: CompiledAnswerKeyItem[];
   totalMarks: number;
+  editedAt?: string;
   createdAt?: string;
   creditBalance?: number;
 }

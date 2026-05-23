@@ -119,6 +119,7 @@ export interface LessonPlan {
   week: number;
   sessionIndex?: number;
   sessionsPerWeek?: number;
+  editedAt?: string;
   createdAt?: string;
   updatedAt?: string;
 }
@@ -134,6 +135,7 @@ export interface LessonPlanBundle {
   weekTitle: string;
   lessonCount: number;
   plans: LessonPlan[];
+  editedAt?: string;
   createdAt?: string;
   updatedAt?: string;
 }

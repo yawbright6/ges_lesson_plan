@@ -94,7 +94,9 @@ export default function LessonWeekDetailScreen() {
     <View style={styles.container}>
       <PreviewHeader
         title={`Week Plan (${plans.length})`}
+        subtitle={shareBundle.editedAt ? 'Edited' : undefined}
         onBack={() => goBackOrReplace()}
+        onEdit={bundleId ? () => router.push(`/lesson/week/edit?bundleId=${encodeURIComponent(bundleId)}`) : undefined}
         onShare={() => shareLessonPlans(plans)}
       />
       <LessonPlanStack plans={plans} />

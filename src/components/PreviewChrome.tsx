@@ -12,19 +12,24 @@ export function PreviewHeader({
   title,
   subtitle,
   onBack,
+  onEdit,
   onShare,
   onDelete,
 }: {
   title: string;
   subtitle?: string;
   onBack: () => void;
+  onEdit?: () => void;
   onShare?: () => void;
   onDelete?: () => void;
 }) {
   const insets = useSafeAreaInsets();
   return (
-    <View style={[styles.header, { paddingTop: insets.top + spacing[3] }]}>
-      <PreviewIconButton icon="arrow-back" label="Back" onPress={onBack} />
+    <View style={[styles.header, { paddingTop: insets.top + spacing[1] }]}>
+      <View style={styles.headerSide}>
+        <PreviewIconButton icon="arrow-back" label="Back" onPress={onBack} />
+        {onEdit ? <PreviewIconButton icon="create-outline" label="Edit" onPress={onEdit} /> : null}
+      </View>
       <View style={styles.titleWrap}>
         <Text style={styles.headerTitle} numberOfLines={1}>
           {title}
@@ -36,8 +41,8 @@ export function PreviewHeader({
         ) : null}
       </View>
       <View style={styles.headerActions}>
-        {onDelete ? <PreviewIconButton icon="trash-outline" label="Delete" onPress={onDelete} tone="danger" /> : null}
         {onShare ? <PreviewIconButton icon="share-social-outline" label="Share" onPress={onShare} /> : null}
+        {onDelete ? <PreviewIconButton icon="trash-outline" label="Delete" onPress={onDelete} tone="danger" /> : null}
         {!onShare && !onDelete ? <View style={styles.spacer} /> : null}
       </View>
     </View>
@@ -82,7 +87,7 @@ export function PreviewActionButton({
   );
 }
 
-function PreviewIconButton({
+export function PreviewIconButton({
   icon,
   label,
   onPress,
@@ -101,35 +106,41 @@ function PreviewIconButton({
       hitSlop={6}
       style={({ pressed }) => [styles.iconButton, tone === 'danger' && styles.iconButtonDanger, pressed && styles.iconButtonPressed]}
     >
-      <Ionicons name={icon} size={20} color={colors.textOnPrimary} />
+      <Ionicons name={icon} size={16} color={colors.textOnPrimary} />
     </Pressable>
   );
 }
 
 const styles = StyleSheet.create({
   header: {
-    minHeight: 56,
+    minHeight: 40,
     backgroundColor: colors.primaryDark,
-    paddingHorizontal: spacing[5],
-    paddingBottom: spacing[4],
+    paddingHorizontal: spacing[3],
+    paddingBottom: spacing[1],
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    gap: spacing[4],
+    gap: spacing[2],
   },
   titleWrap: {
     flex: 1,
     alignItems: 'center',
   },
+  headerSide: {
+    flexDirection: 'row',
+    gap: spacing[1],
+    minWidth: 64,
+    justifyContent: 'flex-start',
+  },
   headerActions: {
     flexDirection: 'row',
-    gap: spacing[2],
-    minWidth: 38,
+    gap: spacing[1],
+    minWidth: 64,
     justifyContent: 'flex-end',
   },
   iconButton: {
-    width: 38,
-    height: 38,
+    width: 30,
+    height: 30,
     borderRadius: radii.pill,
     alignItems: 'center',
     justifyContent: 'center',
@@ -138,18 +149,20 @@ const styles = StyleSheet.create({
   iconButtonPressed: { opacity: 0.7 },
   iconButtonDanger: { backgroundColor: 'rgba(220,38,38,0.24)' },
   headerTitle: {
-    ...typography.h4,
     color: colors.textOnPrimary,
-    fontWeight: '700',
+    fontSize: 14,
+    lineHeight: 18,
+    fontWeight: '600',
     textAlign: 'center',
   },
   headerSubtitle: {
-    ...typography.caption,
     color: 'rgba(255,255,255,0.78)',
+    fontSize: 10,
+    lineHeight: 12,
     textAlign: 'center',
-    marginTop: 2,
+    marginTop: 0,
   },
-  spacer: { width: 38 },
+  spacer: { width: 30 },
   actionsShell: {
     paddingHorizontal: spacing[5],
     paddingTop: spacing[4],

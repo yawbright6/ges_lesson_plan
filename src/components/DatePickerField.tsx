@@ -171,7 +171,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
   },
-  triggerText: { fontSize: 16, color: colors.text, flex: 1 },
+  triggerText: { fontSize: 13, color: colors.text, flex: 1 },
   placeholder: { color: colors.textMuted },
   calendarIcon: { marginLeft: 10 },
   pressed: { opacity: 0.82 },

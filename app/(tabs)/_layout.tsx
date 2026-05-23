@@ -15,7 +15,7 @@ export default function TabsLayout() {
         headerTitle: () => <AppHeaderTitle />,
         headerRight: () => <HeaderQuickActions />,
         headerStyle: {
-          height: 56 + insets.top,
+          height: 42 + insets.top,
         },
         headerStatusBarHeight: insets.top,
         headerShadowVisible: false,
@@ -164,12 +164,12 @@ const styles = StyleSheet.create({
   headerBrand: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing[4],
-    paddingLeft: Platform.OS === 'ios' ? 0 : spacing[2],
+    gap: spacing[2],
+    paddingLeft: Platform.OS === 'ios' ? 0 : spacing[1],
   },
   headerMark: {
-    width: 34,
-    height: 34,
+    width: 28,
+    height: 28,
     borderRadius: radii.md,
     backgroundColor: colors.accent,
     alignItems: 'center',
@@ -179,7 +179,7 @@ const styles = StyleSheet.create({
   headerMarkText: {
     color: colors.accentOn,
     fontWeight: '900',
-    fontSize: 11,
+    fontSize: 9,
     letterSpacing: 0.6,
   },
   headerBrandText: {
@@ -187,23 +187,24 @@ const styles = StyleSheet.create({
   },
   headerBrandPrimary: {
     color: colors.textOnPrimary,
-    fontSize: 15,
-    fontWeight: '800',
+    fontSize: 13,
+    fontWeight: '700',
     letterSpacing: 0.1,
   },
   headerTagline: {
     color: 'rgba(255,255,255,0.74)',
-    fontSize: 11,
-    marginTop: 1,
+    fontSize: 9,
+    lineHeight: 11,
+    marginTop: 0,
     maxWidth: 200,
   },
   headerAction: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing[2],
-    paddingHorizontal: spacing[4],
-    paddingVertical: spacing[3],
-    marginRight: spacing[4],
+    gap: spacing[1],
+    paddingHorizontal: spacing[3],
+    paddingVertical: spacing[2],
+    marginRight: spacing[3],
     borderRadius: radii.pill,
     backgroundColor: 'rgba(255,255,255,0.14)',
   },
@@ -212,7 +213,7 @@ const styles = StyleSheet.create({
   },
   headerActionText: {
     color: colors.textOnPrimary,
-    fontSize: 12,
-    fontWeight: '700',
+    fontSize: 11,
+    fontWeight: '600',
   },
 });

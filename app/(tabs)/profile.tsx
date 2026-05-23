@@ -176,13 +176,13 @@ export default function ProfileScreen() {
           <View style={styles.avatar}>
             <Text style={styles.avatarText}>{getInitials(teacherName, session.user.email)}</Text>
           </View>
-          <View style={{ flex: 1 }}>
+          <View style={styles.headerIdentity}>
             <Text style={styles.headerEyebrow}>Signed in</Text>
-            <Text style={styles.headerTitle} numberOfLines={1}>
+            <Text style={styles.headerTitle} numberOfLines={2}>
               {teacherName.trim() || session.user.email || 'Welcome back'}
             </Text>
             {teacherName.trim() ? (
-              <Text style={styles.headerSubtitle} numberOfLines={1}>
+              <Text style={styles.headerSubtitle} numberOfLines={2}>
                 {session.user.email}
               </Text>
             ) : null}
@@ -200,18 +200,21 @@ export default function ProfileScreen() {
           value={teacherName}
           onChangeText={setTeacherName}
           placeholder="e.g. Ama Mensah"
+          compact
         />
         <Field
           label="Name of School"
           value={schoolName}
           onChangeText={setSchoolName}
           placeholder="e.g. Adenta M/A Basic School"
+          compact
         />
         <Field
           label="School District"
           value={schoolDistrict}
           onChangeText={setSchoolDistrict}
           placeholder="e.g. Adenta Municipal"
+          compact
         />
 
         <View style={styles.classEntryPanel}>
@@ -223,6 +226,7 @@ export default function ProfileScreen() {
                 label="Class"
                 value={classToAdd}
                 options={classOptions}
+                compact
                 onChange={(value) => {
                   setClassToAdd(value);
                   setClassSizeToAdd(classSizes[value] ?? '');
@@ -236,6 +240,7 @@ export default function ProfileScreen() {
                 onChangeText={(value) => setClassSizeToAdd(cleanNumeric(value))}
                 placeholder="42"
                 keyboardType="number-pad"
+                compact
               />
             </View>
           </View>
@@ -421,7 +426,7 @@ function cleanClassSizes(classSizes: Record<string, string>) {
 const styles = StyleSheet.create({
   centered: { flex: 1, backgroundColor: colors.bg, alignItems: 'center', justifyContent: 'center' },
   scroll: { flex: 1, backgroundColor: colors.bg },
-  scrollContent: { padding: spacing[7], paddingBottom: spacing[12], gap: spacing[5] },
+  scrollContent: { padding: spacing[5], paddingBottom: spacing[12], gap: spacing[4] },
   screenTitle: {
     ...typography.h1,
     color: colors.text,
@@ -434,18 +439,18 @@ const styles = StyleSheet.create({
   },
   headerPanel: {
     backgroundColor: colors.primaryDark,
-    borderRadius: radii.lg,
-    padding: spacing[7],
+    borderRadius: radii.md,
+    padding: spacing[4],
     ...shadows.md,
   },
   headerRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing[5],
+    gap: spacing[3],
   },
   avatar: {
-    width: 60,
-    height: 60,
+    width: 42,
+    height: 42,
     borderRadius: radii.pill,
     backgroundColor: colors.accent,
     alignItems: 'center',
@@ -453,24 +458,27 @@ const styles = StyleSheet.create({
   },
   avatarText: {
     color: colors.accentOn,
-    fontSize: 22,
+    fontSize: 15,
     fontWeight: '800',
     letterSpacing: 0.4,
   },
+  headerIdentity: { flex: 1, minWidth: 0 },
   headerEyebrow: {
     ...typography.eyebrow,
+    fontSize: 10,
+    lineHeight: 12,
     color: 'rgba(255,255,255,0.78)',
-    marginBottom: spacing[2],
+    marginBottom: 2,
   },
-  headerTitle: { color: colors.primaryOn, fontSize: 20, fontWeight: '800', letterSpacing: -0.2 },
-  headerSubtitle: { color: 'rgba(255,255,255,0.78)', ...typography.bodySm, marginTop: spacing[1] },
+  headerTitle: { color: colors.primaryOn, fontSize: 16, lineHeight: 20, fontWeight: '700' },
+  headerSubtitle: { color: 'rgba(255,255,255,0.78)', fontSize: 12, lineHeight: 16, marginTop: 1 },
   section: {
     backgroundColor: colors.surface,
-    borderRadius: radii.lg,
-    padding: spacing[7],
+    borderRadius: radii.md,
+    padding: spacing[5],
     borderWidth: 1,
     borderColor: colors.border,
-    gap: spacing[5],
+    gap: spacing[3],
     ...shadows.sm,
   },
   sectionHeader: { gap: spacing[1] },
@@ -480,24 +488,24 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.borderSubtle,
     borderRadius: radii.md,
-    padding: spacing[5],
+    padding: spacing[4],
     backgroundColor: colors.surfaceAlt,
-    gap: spacing[3],
+    gap: spacing[2],
   },
   subsectionTitle: { ...typography.label, color: colors.text },
   classEntryRow: {
     flexDirection: Platform.OS === 'web' ? 'row' : 'column',
-    gap: spacing[4],
+    gap: spacing[3],
   },
   classSelectWrap: { flex: 1 },
   classSizeWrap: { flex: 1 },
-  classList: { gap: spacing[3] },
+  classList: { gap: spacing[2] },
   classRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing[4],
-    paddingVertical: spacing[4],
-    paddingHorizontal: spacing[5],
+    gap: spacing[3],
+    paddingVertical: spacing[3],
+    paddingHorizontal: spacing[4],
     borderWidth: 1,
     borderColor: colors.borderSubtle,
     borderRadius: radii.md,

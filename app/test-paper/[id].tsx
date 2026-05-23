@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Alert, Platform, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useLocalSearchParams } from 'expo-router';
+import { router } from 'expo-router';
 import { Button } from '@/components/Button';
 import { PreviewActionButton, PreviewActions, PreviewHeader } from '@/components/PreviewChrome';
 import { useToast } from '@/components/ToastProvider';
@@ -53,8 +54,9 @@ export default function TestPaperDetailScreen() {
     <View style={styles.container}>
       <PreviewHeader
         title="Test Paper"
-        subtitle={`${paper.subject} - ${paper.classLevel}${paper.termTitle ? ` - ${paper.termTitle}` : ''}`}
+        subtitle={`${paper.subject} - ${paper.classLevel}${paper.termTitle ? ` - ${paper.termTitle}` : ''}${paper.editedAt ? ' - Edited' : ''}`}
         onBack={() => goBackOrReplace()}
+        onEdit={() => router.push(`/test-paper/edit/${encodeURIComponent(paper.id ?? '')}`)}
         onShare={() => exportRewrittenTestPaperPdf(paper)}
         onDelete={async () => {
           const confirmed = await confirmRemoval('Delete test paper', `Delete ${paper.title}?`);

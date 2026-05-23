@@ -1,5 +1,15 @@
 import { Ionicons } from '@expo/vector-icons';
-import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import {
+  Modal,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+  type StyleProp,
+  type TextStyle,
+  type ViewStyle,
+} from 'react-native';
 import { useMemo, useState } from 'react';
 import { colors, radii, shadows, spacing, typography } from '@/theme/colors';
 import type { SelectOption } from '@/lib/options';
@@ -12,6 +22,9 @@ interface Props {
   onChange: (value: string) => void;
   disabled?: boolean;
   helperText?: string;
+  compact?: boolean;
+  triggerStyle?: StyleProp<ViewStyle>;
+  triggerTextStyle?: StyleProp<TextStyle>;
 }
 
 export function SelectField({
@@ -22,6 +35,9 @@ export function SelectField({
   onChange,
   disabled,
   helperText,
+  compact,
+  triggerStyle,
+  triggerTextStyle,
 }: Props) {
   const [open, setOpen] = useState(false);
 
@@ -31,8 +47,8 @@ export function SelectField({
   );
 
   return (
-    <View style={styles.wrap}>
-      <Text style={styles.label}>{label}</Text>
+    <View style={[styles.wrap, compact && styles.wrapCompact]}>
+      <Text style={[styles.label, compact && styles.labelCompact]}>{label}</Text>
       <Pressable
         accessibilityRole="button"
         accessibilityState={{ disabled: !!disabled, expanded: open }}
@@ -40,11 +56,13 @@ export function SelectField({
         onPress={() => setOpen(true)}
         style={({ pressed }) => [
           styles.trigger,
+          compact && styles.triggerCompact,
+          triggerStyle,
           disabled && styles.triggerDisabled,
           pressed && !disabled && styles.triggerPressed,
         ]}
       >
-        <Text style={[styles.triggerText, !selectedLabel && styles.placeholder]} numberOfLines={1}>
+        <Text style={[styles.triggerText, compact && styles.triggerTextCompact, triggerTextStyle, !selectedLabel && styles.placeholder]} numberOfLines={1}>
           {selectedLabel || placeholder}
         </Text>
         <Ionicons name="chevron-down" size={18} color={colors.textMuted} />
@@ -103,10 +121,16 @@ export function SelectField({
 
 const styles = StyleSheet.create({
   wrap: { marginBottom: spacing[6] },
+  wrapCompact: { marginBottom: spacing[3] },
   label: {
     ...typography.label,
     color: colors.text,
     marginBottom: spacing[3],
+  },
+  labelCompact: {
+    fontSize: 11,
+    lineHeight: 14,
+    marginBottom: spacing[1],
   },
   trigger: {
     borderWidth: 1,
@@ -121,6 +145,12 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     gap: spacing[4],
   },
+  triggerCompact: {
+    minHeight: 40,
+    paddingHorizontal: spacing[3],
+    paddingVertical: spacing[2],
+    gap: spacing[2],
+  },
   triggerDisabled: {
     opacity: 0.55,
   },
@@ -131,6 +161,10 @@ const styles = StyleSheet.create({
     ...typography.bodyLg,
     color: colors.text,
     flex: 1,
+  },
+  triggerTextCompact: {
+    fontSize: 13,
+    lineHeight: 17,
   },
   placeholder: {
     color: colors.textSubtle,

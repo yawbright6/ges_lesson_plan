@@ -57,7 +57,9 @@ export default function LessonDetailScreen() {
     <View style={styles.container}>
       <PreviewHeader
         title="Lesson Plan"
+        subtitle={plan.editedAt ? 'Edited' : undefined}
         onBack={() => goBackOrReplace()}
+        onEdit={() => router.push(`/lesson/edit/${encodeURIComponent(plan.id ?? '')}`)}
         onShare={() => shareLessonPlan(plan)}
         onDelete={async () => {
           const confirmed = await confirmRemoval(
