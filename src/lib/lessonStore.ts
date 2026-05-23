@@ -1,19 +1,23 @@
-import { supabase } from './supabase';
-import { cachedRequest, invalidateCache } from './cache';
-import { withTimeout } from './async';
-import {
-  addDays,
-  getCurrentUserId,
-  loadGeneratedRetentionDays,
-  loadLocalItems,
-  scopeRemoteGeneratedId,
-  slugify,
-  writeLocalItems,
-} from './generatedStore';
+import { createGeneratedRepository } from './generatedRepository';
+import { slugify } from './generatedStore';
 import type { LessonPlan, LessonPlanBundle, SavedLessonWork } from '@/types/lessonPlan';
 
 const STORAGE_KEY = 'local-lesson-plans';
 const CACHE_PREFIX = 'generated:lesson-works';
+
+const lessonWorkRepository = createGeneratedRepository<SavedLessonWork>({
+  table: 'saved_lesson_plans',
+  localStorageKey: STORAGE_KEY,
+  cachePrefix: CACHE_PREFIX,
+  normalize: normalizeLessonWork,
+  title: buildTitle,
+  sort: (a, b) => (b.createdAt ?? '').localeCompare(a.createdAt ?? ''),
+  createdAt: (item) => item.createdAt,
+  saveTimeoutMessage: 'Lesson plan took too long to save.',
+  loadTimeoutMessage: 'Saved lesson plans took too long to load.',
+  getTimeoutMessage: 'Saved lesson plan took too long to load.',
+  deleteTimeoutMessage: 'Saved lesson plan deletion took too long.',
+});
 
 export async function saveLessonPlan(plan: LessonPlan): Promise<LessonPlan> {
   const normalized = normalizeLessonPlan(plan);
@@ -31,30 +35,7 @@ export async function saveLessonPlanWork(work: SavedLessonWork): Promise<SavedLe
 }
 
 async function saveLessonWork(work: SavedLessonWork): Promise<SavedLessonWork> {
-  const normalized = normalizeLessonWork(work);
-  const userId = await getCurrentUserId();
-  if (userId) {
-    const remoteWork = { ...normalized, id: scopeRemoteGeneratedId(userId, normalized.id ?? '') };
-    const retentionDays = await loadGeneratedRetentionDays();
-    const expiresAt = addDays(new Date(), retentionDays).toISOString();
-    const { error } = await supabase.from('saved_lesson_plans').upsert({
-      id: remoteWork.id,
-      user_id: userId,
-      title: buildTitle(remoteWork),
-      payload: remoteWork,
-      expires_at: expiresAt,
-      updated_at: new Date().toISOString(),
-    });
-    if (error) throw error;
-    invalidateCache(CACHE_PREFIX);
-    return remoteWork;
-  }
-
-  const works = await loadLocalLessonWorks();
-  const next = [normalized, ...works.filter((item) => item.id !== normalized.id)];
-  await writeLessonWorks(next);
-  invalidateCache(CACHE_PREFIX);
-  return normalized;
+  return lessonWorkRepository.save(work);
 }
 
 export async function loadLessonPlans(): Promise<LessonPlan[]> {
@@ -63,103 +44,21 @@ export async function loadLessonPlans(): Promise<LessonPlan[]> {
 }
 
 export async function loadLessonWorks(): Promise<SavedLessonWork[]> {
-  const userId = await getCurrentUserId();
-  if (userId) {
-    return cachedRequest(`${CACHE_PREFIX}:${userId}`, async () => {
-      const { data, error } = await withTimeout(
-        supabase
-          .from('saved_lesson_plans')
-          .select('payload')
-          .eq('user_id', userId)
-          .gt('expires_at', new Date().toISOString())
-          .order('created_at', { ascending: false }),
-        10000,
-        'Saved lesson plans took too long to load.',
-      );
-      if (error) throw error;
-      return (data ?? [])
-        .map((item) => normalizeLessonWork(item.payload as SavedLessonWork));
-    });
-  }
-  return loadLocalLessonWorks();
+  return lessonWorkRepository.loadAll();
 }
 
 export async function getLessonPlanById(id: string): Promise<LessonPlan | null> {
-  const userId = await getCurrentUserId();
-  if (userId) {
-    const { data, error } = await withTimeout(
-      supabase
-        .from('saved_lesson_plans')
-        .select('payload')
-        .eq('user_id', userId)
-        .eq('id', id)
-        .gt('expires_at', new Date().toISOString())
-        .maybeSingle(),
-      10000,
-      'Saved lesson plan took too long to load.',
-    );
-    if (error) throw error;
-    if (!data?.payload) return null;
-    const work = normalizeLessonWork(data.payload as SavedLessonWork);
-    return isLessonPlan(work) ? work : null;
-  }
-
-  const works = await loadLocalLessonWorks();
-  const work = works.find((item) => item.id === id);
+  const work = await lessonWorkRepository.getById(id);
   return work && isLessonPlan(work) ? work : null;
 }
 
 export async function getLessonPlanBundleById(id: string): Promise<LessonPlanBundle | null> {
-  const userId = await getCurrentUserId();
-  if (userId) {
-    const { data, error } = await withTimeout(
-      supabase
-        .from('saved_lesson_plans')
-        .select('payload')
-        .eq('user_id', userId)
-        .eq('id', id)
-        .gt('expires_at', new Date().toISOString())
-        .maybeSingle(),
-      10000,
-      'Saved lesson bundle took too long to load.',
-    );
-    if (error) throw error;
-    if (!data?.payload) return null;
-    const work = normalizeLessonWork(data.payload as SavedLessonWork);
-    return isLessonPlanBundle(work) ? work : null;
-  }
-
-  const works = await loadLocalLessonWorks();
-  const work = works.find((item) => item.id === id);
+  const work = await lessonWorkRepository.getById(id);
   return work && isLessonPlanBundle(work) ? work : null;
 }
 
 export async function deleteLessonPlan(id: string): Promise<void> {
-  const userId = await getCurrentUserId();
-  if (userId) {
-    const { error } = await withTimeout(
-      supabase.from('saved_lesson_plans').delete().eq('user_id', userId).eq('id', id),
-      10000,
-      'Saved lesson plan deletion took too long.',
-    );
-    if (error) throw error;
-    invalidateCache(CACHE_PREFIX);
-    return;
-  }
-
-  const works = await loadLocalLessonWorks();
-  const next = works.filter((work) => work.id !== id);
-  await writeLessonWorks(next);
-  invalidateCache(CACHE_PREFIX);
-}
-
-async function loadLocalLessonWorks(): Promise<SavedLessonWork[]> {
-  return loadLocalItems(
-    STORAGE_KEY,
-    normalizeLessonWork,
-    (a, b) => (b.createdAt ?? '').localeCompare(a.createdAt ?? ''),
-    (item) => item.createdAt,
-  );
+  return lessonWorkRepository.remove(id);
 }
 
 function normalizeLessonWork(work: SavedLessonWork): SavedLessonWork {
@@ -214,10 +113,6 @@ function normalizeLessonPlanBundle(plans: LessonPlan[], bundle?: Partial<LessonP
     createdAt,
     updatedAt: bundle?.updatedAt ?? createdAt,
   };
-}
-
-async function writeLessonWorks(works: SavedLessonWork[]) {
-  await writeLocalItems(STORAGE_KEY, works);
 }
 
 function buildTitle(work: SavedLessonWork) {

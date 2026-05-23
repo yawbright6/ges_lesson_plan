@@ -132,8 +132,13 @@ export async function generateLessonPlan(
     try {
       const data = await postLocal<LessonPlan>('/generate-lesson-plan', requestBody, options);
       return validateLessonPlan(visualGenerationEnabled ? data : stripLessonPlanGeminiVisuals(data));
-    } catch {
-      return buildFallbackLessonPlan(input, groundingScheme);
+    } catch (err) {
+      console.warn('[ai] Local lesson generation failed; using fallback lesson plan.', err);
+      const fallback = buildFallbackLessonPlan(input, groundingScheme);
+      return {
+        ...fallback,
+        references: `${fallback.references}. Local AI fallback reason: ${getErrorMessage(err)}`,
+      };
     }
   }
 
@@ -211,8 +216,13 @@ export async function generateTeachingNotes(
       return validateTeachingNotes(
         visualGenerationEnabled ? data : stripGeneratedTeachingNoteVisuals(data),
       );
-    } catch {
-      return buildFallbackTeachingNotes(plan);
+    } catch (err) {
+      console.warn('[ai] Local teaching notes generation failed; using fallback teaching notes.', err);
+      const fallback = buildFallbackTeachingNotes(plan);
+      return {
+        ...fallback,
+        overview: `${fallback.overview}\n\nFallback note: local AI failed with "${getErrorMessage(err)}".`,
+      };
     }
   }
 
@@ -230,8 +240,16 @@ export async function rewriteTestItems(
     try {
       const data = await postLocal<CompiledTestPaper>('/rewrite-test-items', input, options);
       return validateCompiledTestPaper(data);
-    } catch {
-      return buildFallbackTestPaper(input);
+    } catch (err) {
+      console.warn('[ai] Local test item rewrite failed; using fallback test paper.', err);
+      const fallback = buildFallbackTestPaper(input);
+      return {
+        ...fallback,
+        instructions: [
+          ...fallback.instructions,
+          `Fallback note: local AI failed with "${getErrorMessage(err)}".`,
+        ],
+      };
     }
   }
 
