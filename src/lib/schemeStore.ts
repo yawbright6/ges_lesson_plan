@@ -1,20 +1,24 @@
 import { normalizeSchemeWeek } from '@/lib/schemeWeek';
-import { supabase } from './supabase';
-import { cachedRequest, invalidateCache } from './cache';
-import { withTimeout } from './async';
-import {
-  addDays,
-  getCurrentUserId,
-  loadGeneratedRetentionDays,
-  loadLocalItems,
-  scopeRemoteGeneratedId,
-  writeLocalItems,
-} from './generatedStore';
+import { createGeneratedRepository } from './generatedRepository';
 import type { ClassLevel } from '@/types/lessonPlan';
 import type { SchemeOfWork, SchemeWeek } from '@/types/scheme';
 
 const STORAGE_KEY = 'local-schemes';
 const CACHE_PREFIX = 'generated:schemes';
+
+const schemeRepository = createGeneratedRepository<SchemeOfWork>({
+  table: 'saved_schemes',
+  localStorageKey: STORAGE_KEY,
+  cachePrefix: CACHE_PREFIX,
+  normalize: normalizeScheme,
+  title: (scheme) => scheme.title,
+  sort: (a, b) => (b.createdAt ?? '').localeCompare(a.createdAt ?? ''),
+  createdAt: (scheme) => scheme.createdAt,
+  saveTimeoutMessage: 'Scheme took too long to save.',
+  loadTimeoutMessage: 'Saved schemes took too long to load.',
+  getTimeoutMessage: 'Saved scheme took too long to load.',
+  deleteTimeoutMessage: 'Saved scheme deletion took too long.',
+});
 
 type SchemeMatchInput = {
   subject: string;
@@ -38,51 +42,11 @@ type SchemeContext = {
 };
 
 export async function saveScheme(scheme: SchemeOfWork): Promise<SchemeOfWork> {
-  const normalized = normalizeScheme(scheme);
-  const userId = await getCurrentUserId();
-  if (userId) {
-    const remoteScheme = { ...normalized, id: scopeRemoteGeneratedId(userId, normalized.id ?? '') };
-    const retentionDays = await loadGeneratedRetentionDays();
-    const expiresAt = addDays(new Date(), retentionDays).toISOString();
-    const { error } = await supabase.from('saved_schemes').upsert({
-      id: remoteScheme.id,
-      user_id: userId,
-      title: remoteScheme.title,
-      payload: remoteScheme,
-      expires_at: expiresAt,
-      updated_at: new Date().toISOString(),
-    });
-    if (error) throw error;
-    invalidateCache(CACHE_PREFIX);
-    return remoteScheme;
-  }
-
-  const schemes = await loadLocalSchemes();
-  const next = [normalized, ...schemes.filter((item) => item.id !== normalized.id)];
-  await writeSchemes(next);
-  invalidateCache(CACHE_PREFIX);
-  return normalized;
+  return schemeRepository.save(scheme);
 }
 
 export async function loadSchemes(): Promise<SchemeOfWork[]> {
-  const userId = await getCurrentUserId();
-  if (userId) {
-    return cachedRequest(`${CACHE_PREFIX}:${userId}`, async () => {
-      const { data, error } = await withTimeout(
-        supabase
-          .from('saved_schemes')
-          .select('payload')
-          .eq('user_id', userId)
-          .gt('expires_at', new Date().toISOString())
-          .order('created_at', { ascending: false }),
-        10000,
-        'Saved schemes took too long to load.',
-      );
-      if (error) throw error;
-      return (data ?? []).map((item) => normalizeScheme(item.payload as SchemeOfWork));
-    });
-  }
-  return loadLocalSchemes();
+  return schemeRepository.loadAll();
 }
 
 export async function findMatchingScheme(input: SchemeMatchInput): Promise<SchemeOfWork | null> {
@@ -104,44 +68,11 @@ export async function loadMatchingSchemes(input: SchemeMatchInput): Promise<Sche
 }
 
 export async function getSchemeById(id: string): Promise<SchemeOfWork | null> {
-  const userId = await getCurrentUserId();
-  if (userId) {
-    const { data, error } = await withTimeout(
-      supabase
-        .from('saved_schemes')
-        .select('payload')
-        .eq('user_id', userId)
-        .eq('id', id)
-        .gt('expires_at', new Date().toISOString())
-        .maybeSingle(),
-      10000,
-      'Saved scheme took too long to load.',
-    );
-    if (error) throw error;
-    return data?.payload ? normalizeScheme(data.payload as SchemeOfWork) : null;
-  }
-
-  const schemes = await loadLocalSchemes();
-  return schemes.find((scheme) => scheme.id === id) ?? null;
+  return schemeRepository.getById(id);
 }
 
 export async function deleteScheme(id: string): Promise<void> {
-  const userId = await getCurrentUserId();
-  if (userId) {
-    const { error } = await withTimeout(
-      supabase.from('saved_schemes').delete().eq('user_id', userId).eq('id', id),
-      10000,
-      'Saved scheme deletion took too long.',
-    );
-    if (error) throw error;
-    invalidateCache(CACHE_PREFIX);
-    return;
-  }
-
-  const schemes = await loadLocalSchemes();
-  const next = schemes.filter((scheme) => scheme.id !== id);
-  await writeSchemes(next);
-  invalidateCache(CACHE_PREFIX);
+  return schemeRepository.remove(id);
 }
 
 export function buildSchemeContext(scheme: SchemeOfWork, week: number): SchemeContext {
@@ -180,15 +111,6 @@ export function normalizeTerm(term?: string): string {
   return value;
 }
 
-async function loadLocalSchemes(): Promise<SchemeOfWork[]> {
-  return loadLocalItems(
-    STORAGE_KEY,
-    normalizeScheme,
-    (a, b) => (b.createdAt ?? '').localeCompare(a.createdAt ?? ''),
-    (item) => item.createdAt,
-  );
-}
-
 function normalizeScheme(scheme: SchemeOfWork): SchemeOfWork {
   const createdAt = scheme.createdAt ?? new Date().toISOString();
   const id = scheme.id ?? `${normalizeText(scheme.subject)}-${scheme.classLevel}-${normalizeTerm(scheme.term)}-${createdAt}`;
@@ -204,10 +126,6 @@ function normalizeScheme(scheme: SchemeOfWork): SchemeOfWork {
       .map(normalizeSchemeWeek)
       .sort((a, b) => a.week - b.week),
   };
-}
-
-async function writeSchemes(schemes: SchemeOfWork[]) {
-  await writeLocalItems(STORAGE_KEY, schemes);
 }
 
 function normalizeText(value?: string): string {
