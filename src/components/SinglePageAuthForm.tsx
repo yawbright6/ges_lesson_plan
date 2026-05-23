@@ -9,7 +9,7 @@ import {
 import { isSupabaseConfigured } from '@/lib/supabase';
 import { colors } from '@/theme/colors';
 import { sendPhoneOtp, verifyPhoneOtp, validatePhoneNumber, formatPhoneNumber } from '@/lib/phoneAuth';
-import { signInWithEmail, getAuthErrorMessage } from '@/lib/auth';
+import { signInWithEmail, signOut, getAuthErrorMessage } from '@/lib/auth';
 
 type FormMode = 'signin' | 'signup';
 
@@ -157,7 +157,12 @@ export function SinglePageAuthForm({
       );
 
       if (result.success) {
-        await signInWithEmail(email.trim().toLowerCase(), password);
+        const normalizedEmail = email.trim().toLowerCase();
+        await signOut().catch(() => undefined);
+        const authData = await signInWithEmail(normalizedEmail, password);
+        if (authData.user?.email?.toLowerCase() !== normalizedEmail) {
+          throw new Error('The new account was created, but this browser did not switch to it. Please sign in again.');
+        }
         showToast({ message: 'Account created successfully!' });
         onAccountCreated?.();
       } else {

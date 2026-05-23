@@ -12,8 +12,8 @@ export type TeacherProfile = {
 };
 
 export async function loadTeacherProfile(): Promise<TeacherProfile> {
-  const { data } = await supabase.auth.getUser();
-  const userId = data.user?.id;
+  const { data } = await supabase.auth.getSession();
+  const userId = data.session?.user.id;
   if (userId) {
     const remote = await loadRemoteTeacherProfile(userId).catch(() => null);
     if (remote) {
@@ -34,8 +34,8 @@ export async function loadTeacherProfile(): Promise<TeacherProfile> {
 }
 
 export async function saveTeacherProfile(profile: TeacherProfile) {
-  const { data } = await supabase.auth.getUser();
-  const userId = data.user?.id;
+  const { data } = await supabase.auth.getSession();
+  const userId = data.session?.user.id;
   if (userId) {
     await appStorage.setItem(scopedStorageKey(userId), JSON.stringify(profile));
     await saveRemoteTeacherProfile(userId, profile);

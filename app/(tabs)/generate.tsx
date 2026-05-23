@@ -120,11 +120,11 @@ export default function GenerateScreen() {
     useCallback(() => {
       refreshSchemes();
       Promise.all([
-        loadCreditBalance().catch(() => 0),
+        loadCreditBalance().catch(() => null),
         loadRuntimeAppSettings(),
       ])
         .then(([balance, settings]) => {
-          setCreditBalance(balance);
+          if (typeof balance === 'number') setCreditBalance(balance);
           setLessonCreditCost(settings.featureCreditCosts.lesson_generation);
         })
         .catch(() => undefined);

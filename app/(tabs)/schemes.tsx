@@ -87,11 +87,11 @@ export default function SchemesScreen() {
     useCallback(() => {
       refreshSchemes();
       Promise.all([
-        loadCreditBalance().catch(() => 0),
+        loadCreditBalance().catch(() => null),
         loadRuntimeAppSettings(),
       ])
         .then(([balance, settings]) => {
-          setCreditBalance(balance);
+          if (typeof balance === 'number') setCreditBalance(balance);
           setSchemeCreditCost(settings.featureCreditCosts.scheme_generation);
           setParsingCreditCost(settings.featureCreditCosts.scheme_parsing);
         })

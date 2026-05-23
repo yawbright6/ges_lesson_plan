@@ -6,8 +6,8 @@ import { invalidateCache } from './cache';
 export const DEFAULT_RETENTION_DAYS = defaultRuntimeSettings.generatedFileRetention.days;
 
 export async function getCurrentUserId(): Promise<string | null> {
-  const { data } = await supabase.auth.getUser();
-  return data.user?.id ?? null;
+  const { data } = await supabase.auth.getSession();
+  return data.session?.user.id ?? null;
 }
 
 export async function loadGeneratedRetentionDays(): Promise<number> {
@@ -60,4 +60,9 @@ export function slugify(value?: string) {
 
 export function clearGeneratedStoreCaches() {
   invalidateCache('generated:');
+}
+
+export function scopeRemoteGeneratedId(userId: string, id: string) {
+  const prefix = `${userId}:`;
+  return id.startsWith(prefix) ? id : `${prefix}${id}`;
 }

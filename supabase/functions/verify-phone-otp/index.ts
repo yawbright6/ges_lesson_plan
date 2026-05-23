@@ -37,6 +37,212 @@ interface VerifyPhoneOtpResponse {
   error?: string;
 }
 
+async function logPhoneSignupEvent(
+  supabase: ReturnType<typeof createClient>,
+  input: {
+    phoneNumber: string;
+    eventType: string;
+    status: 'info' | 'success' | 'error';
+    otpRequestId?: string | null;
+    userId?: string | null;
+    referralCode?: string | null;
+    providerMessage?: string | null;
+    metadata?: Record<string, unknown>;
+  },
+) {
+  const { error } = await supabase.from('phone_signup_events').insert({
+    phone_number: input.phoneNumber,
+    event_type: input.eventType,
+    status: input.status,
+    otp_request_id: input.otpRequestId ?? null,
+    user_id: input.userId ?? null,
+    referral_code: input.referralCode?.trim().toUpperCase() || null,
+    provider: 'internal',
+    provider_message: input.providerMessage ?? null,
+    metadata: input.metadata ?? {},
+  });
+  if (error) console.warn('[phone_signup_events] insert failed:', error.message);
+}
+
+async function ensureStarterCredits(supabase: ReturnType<typeof createClient>, userId: string) {
+  const { data: existing } = await supabase
+    .from('credit_transactions')
+    .select('id')
+    .eq('user_id', userId)
+    .eq('kind', 'starter')
+    .limit(1);
+  if (existing?.length) return;
+
+  const { data: setting } = await supabase
+    .from('admin_app_settings')
+    .select('value')
+    .eq('key', 'starter_credits')
+    .maybeSingle();
+  const credits = Math.max(0, Number(setting?.value?.credits ?? 5));
+  if (!credits) return;
+
+  const { error } = await supabase.rpc('add_user_credits', {
+    p_user_id: userId,
+    p_amount: credits,
+    p_kind: 'starter',
+    p_description: 'Starter credits',
+    p_metadata: { source: 'phone_signup_verify' },
+  });
+  if (error) console.warn('[starter credits] grant failed:', error.message);
+}
+
+async function applyPhoneSignupReferral(
+  supabase: ReturnType<typeof createClient>,
+  input: {
+    userId: string;
+    referralCode?: string;
+    deviceId?: string;
+    request: Request;
+  },
+) {
+  const referralCode = input.referralCode?.trim().toUpperCase();
+  if (!referralCode) return;
+
+  const { data: existing } = await supabase
+    .from('referrals')
+    .select('id,status,referrer_user_id')
+    .eq('referred_user_id', input.userId)
+    .maybeSingle();
+  if (existing) {
+    if (existing.status === 'pending') {
+      await rewardReferralDirectly(supabase, existing.id, existing.referrer_user_id, input.userId);
+    }
+    return;
+  }
+
+  const { data: code, error: codeError } = await supabase
+    .from('referral_codes')
+    .select('user_id,code,referrer_device_id')
+    .eq('code', referralCode)
+    .maybeSingle();
+  if (codeError || !code) {
+    console.warn('[referral] code not found:', referralCode, codeError?.message);
+    return;
+  }
+
+  let rejectionReason: string | null = null;
+  if (code.user_id === input.userId) {
+    rejectionReason = 'Self referral';
+  } else if (
+    code.referrer_device_id &&
+    input.deviceId?.trim() &&
+    code.referrer_device_id === input.deviceId.trim()
+  ) {
+    rejectionReason = 'Same device as referrer';
+  }
+
+  const { data: inserted, error: insertError } = await supabase
+    .from('referrals')
+    .insert({
+      referrer_user_id: code.user_id,
+      referred_user_id: input.userId,
+      referral_code: code.code,
+      referrer_device_id: code.referrer_device_id ?? null,
+      referred_device_id: input.deviceId?.trim() || null,
+      referred_ip:
+        input.request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ||
+        input.request.headers.get('cf-connecting-ip') ||
+        null,
+      referred_user_agent: input.request.headers.get('user-agent'),
+      status: rejectionReason ? 'rejected' : 'pending',
+      rejection_reason: rejectionReason,
+      referred_email_confirmed: true,
+      referred_email_confirmed_at: new Date().toISOString(),
+    })
+    .select('id,status,referrer_user_id')
+    .maybeSingle();
+  if (insertError || !inserted) {
+    console.warn('[referral] direct insert failed:', insertError?.message);
+    return;
+  }
+
+  if (inserted.status === 'pending') {
+    await rewardReferralDirectly(supabase, inserted.id, inserted.referrer_user_id, input.userId);
+  }
+}
+
+async function rewardReferralDirectly(
+  supabase: ReturnType<typeof createClient>,
+  referralId: string,
+  referrerUserId: string,
+  referredUserId: string,
+) {
+  const { data: setting } = await supabase
+    .from('admin_app_settings')
+    .select('value')
+    .eq('key', 'referral_reward')
+    .maybeSingle();
+  const rewardCredits = Math.max(0, Number(setting?.value?.credits ?? 5));
+  const monthlyLimit = Math.max(0, Number(setting?.value?.monthly_limit ?? 5));
+  const active = Boolean(setting?.value?.active ?? true);
+
+  if (!active || rewardCredits <= 0) {
+    await supabase
+      .from('referrals')
+      .update({
+        status: 'rejected',
+        rejection_reason: 'Referral rewards are inactive',
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', referralId)
+      .eq('status', 'pending');
+    return;
+  }
+
+  const monthStart = new Date();
+  monthStart.setUTCDate(1);
+  monthStart.setUTCHours(0, 0, 0, 0);
+  const { count } = await supabase
+    .from('referrals')
+    .select('id', { count: 'exact', head: true })
+    .eq('referrer_user_id', referrerUserId)
+    .eq('status', 'rewarded')
+    .gte('rewarded_at', monthStart.toISOString());
+
+  if ((count ?? 0) >= monthlyLimit) {
+    await supabase
+      .from('referrals')
+      .update({
+        status: 'rejected',
+        rejection_reason: 'Monthly referral reward limit reached',
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', referralId);
+    return;
+  }
+
+  const { error: creditError } = await supabase.rpc('add_user_credits', {
+    p_user_id: referrerUserId,
+    p_amount: rewardCredits,
+    p_kind: 'referral_reward',
+    p_description: 'Referral reward',
+    p_metadata: {
+      referral_id: referralId,
+      referred_user_id: referredUserId,
+      source: 'phone_signup_verify',
+    },
+  });
+  if (creditError) {
+    console.warn('[referral] direct reward credit failed:', creditError.message);
+    return;
+  }
+
+  await supabase
+    .from('referrals')
+    .update({
+      status: 'rewarded',
+      qualified_at: new Date().toISOString(),
+      rewarded_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    })
+    .eq('id', referralId);
+}
+
 serve(async (req: Request) => {
   // Handle CORS
   if (req.method === 'OPTIONS') {
@@ -67,6 +273,12 @@ serve(async (req: Request) => {
     }
 
     console.log('[verify-phone-otp] Looking up OTP for phone:', formattedPhone);
+    await logPhoneSignupEvent(supabase, {
+      phoneNumber: formattedPhone,
+      eventType: 'otp_verify_attempted',
+      status: 'info',
+      referralCode,
+    });
 
     // Find OTP request
     const { data: otpRequests, error: queryError } = await supabase
@@ -125,8 +337,31 @@ serve(async (req: Request) => {
     let userId: string;
 
     if (existingPhoneUser && existingPhoneUser.length > 0) {
-      // User already exists, just verify the OTP
       userId = existingPhoneUser[0].user_id;
+      if (email?.trim()) {
+        const { data: existingUser } = await supabase.auth.admin.getUserById(userId);
+        const existingEmail = existingUser.user?.email?.toLowerCase();
+        const requestedEmail = email.trim().toLowerCase();
+        if (existingEmail && existingEmail !== requestedEmail) {
+          await logPhoneSignupEvent(supabase, {
+            phoneNumber: formattedPhone,
+            eventType: 'otp_verify_failed',
+            status: 'error',
+            otpRequestId: otpRecord.id,
+            userId,
+            referralCode,
+            providerMessage: 'Phone number already belongs to another account',
+            metadata: { requestedEmail, existingEmail },
+          });
+          return jsonResponse(
+            {
+              error: 'This phone number is already linked to another account. Please sign in with that account or use a different phone number.',
+              success: false,
+            },
+            409,
+          );
+        }
+      }
     } else {
       // Create new user with phone number
       if (!password || password.length < 6) {
@@ -166,6 +401,7 @@ serve(async (req: Request) => {
       }
 
       userId = authData.user.id;
+      await ensureStarterCredits(supabase, userId);
 
       // Handle referral code after phone OTP verification. Phone verification makes
       // the referred account active immediately, so the referral can be rewarded here.
@@ -199,6 +435,12 @@ serve(async (req: Request) => {
             console.warn('[Referral Reward Error] Continuing signup without granting reward.');
           }
         }
+        await applyPhoneSignupReferral(supabase, {
+          userId,
+          referralCode,
+          deviceId,
+          request: req,
+        });
       }
     }
 
@@ -217,6 +459,14 @@ serve(async (req: Request) => {
       console.error('[Phone Link Error]', phoneError);
       // Don't fail if phone linking fails - user is already created
     }
+    await logPhoneSignupEvent(supabase, {
+      phoneNumber: formattedPhone,
+      eventType: 'otp_verified',
+      status: 'success',
+      otpRequestId: otpRecord.id,
+      userId,
+      referralCode,
+    });
 
     // Mark OTP as verified
     const { error: updateError } = await supabase

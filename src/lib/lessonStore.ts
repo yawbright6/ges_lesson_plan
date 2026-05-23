@@ -6,6 +6,7 @@ import {
   getCurrentUserId,
   loadGeneratedRetentionDays,
   loadLocalItems,
+  scopeRemoteGeneratedId,
   slugify,
   writeLocalItems,
 } from './generatedStore';
@@ -16,45 +17,44 @@ const CACHE_PREFIX = 'generated:lesson-works';
 
 export async function saveLessonPlan(plan: LessonPlan): Promise<LessonPlan> {
   const normalized = normalizeLessonPlan(plan);
-  await saveLessonWork(normalized);
-  return normalized;
+  return (await saveLessonWork(normalized)) as LessonPlan;
 }
 
 export async function saveLessonPlanBundle(plans: LessonPlan[]): Promise<LessonPlanBundle> {
   const normalized = normalizeLessonPlanBundle(plans);
-  await saveLessonWork(normalized);
-  return normalized;
+  return (await saveLessonWork(normalized)) as LessonPlanBundle;
 }
 
 export async function saveLessonPlanWork(work: SavedLessonWork): Promise<SavedLessonWork> {
   const normalized = normalizeLessonWork(work);
-  await saveLessonWork(normalized);
-  return normalized;
+  return saveLessonWork(normalized);
 }
 
-async function saveLessonWork(work: SavedLessonWork): Promise<void> {
+async function saveLessonWork(work: SavedLessonWork): Promise<SavedLessonWork> {
   const normalized = normalizeLessonWork(work);
   const userId = await getCurrentUserId();
   if (userId) {
+    const remoteWork = { ...normalized, id: scopeRemoteGeneratedId(userId, normalized.id ?? '') };
     const retentionDays = await loadGeneratedRetentionDays();
     const expiresAt = addDays(new Date(), retentionDays).toISOString();
     const { error } = await supabase.from('saved_lesson_plans').upsert({
-      id: normalized.id,
+      id: remoteWork.id,
       user_id: userId,
-      title: buildTitle(normalized),
-      payload: normalized,
+      title: buildTitle(remoteWork),
+      payload: remoteWork,
       expires_at: expiresAt,
       updated_at: new Date().toISOString(),
     });
     if (error) throw error;
     invalidateCache(CACHE_PREFIX);
-    return;
+    return remoteWork;
   }
 
   const works = await loadLocalLessonWorks();
   const next = [normalized, ...works.filter((item) => item.id !== normalized.id)];
   await writeLessonWorks(next);
   invalidateCache(CACHE_PREFIX);
+  return normalized;
 }
 
 export async function loadLessonPlans(): Promise<LessonPlan[]> {

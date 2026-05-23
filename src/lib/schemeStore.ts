@@ -7,6 +7,7 @@ import {
   getCurrentUserId,
   loadGeneratedRetentionDays,
   loadLocalItems,
+  scopeRemoteGeneratedId,
   writeLocalItems,
 } from './generatedStore';
 import type { ClassLevel } from '@/types/lessonPlan';
@@ -40,19 +41,20 @@ export async function saveScheme(scheme: SchemeOfWork): Promise<SchemeOfWork> {
   const normalized = normalizeScheme(scheme);
   const userId = await getCurrentUserId();
   if (userId) {
+    const remoteScheme = { ...normalized, id: scopeRemoteGeneratedId(userId, normalized.id ?? '') };
     const retentionDays = await loadGeneratedRetentionDays();
     const expiresAt = addDays(new Date(), retentionDays).toISOString();
     const { error } = await supabase.from('saved_schemes').upsert({
-      id: normalized.id,
+      id: remoteScheme.id,
       user_id: userId,
-      title: normalized.title,
-      payload: normalized,
+      title: remoteScheme.title,
+      payload: remoteScheme,
       expires_at: expiresAt,
       updated_at: new Date().toISOString(),
     });
     if (error) throw error;
     invalidateCache(CACHE_PREFIX);
-    return normalized;
+    return remoteScheme;
   }
 
   const schemes = await loadLocalSchemes();

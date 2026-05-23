@@ -1,6 +1,5 @@
 import 'react-native-url-polyfill/auto';
 import Constants from 'expo-constants';
-import { Platform } from 'react-native';
 import { createClient } from '@supabase/supabase-js';
 import { appStorage } from './storage';
 
@@ -34,7 +33,7 @@ const clientAnonKey = isSupabaseConfigured ? anonKey : 'placeholder-anon-key';
 export const supabase = createClient(clientUrl, clientAnonKey, {
   auth: {
     storage: appStorage,
-    autoRefreshToken: Platform.OS !== 'web',
+    autoRefreshToken: true,
     persistSession: true,
     detectSessionInUrl: false,
   },
