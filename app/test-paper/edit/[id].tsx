@@ -4,6 +4,7 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { Button } from '@/components/Button';
 import { Field } from '@/components/Field';
 import { PreviewIconButton } from '@/components/PreviewChrome';
+import { reportClientError } from '@/lib/logger';
 import { goBackOrReplace } from '@/lib/navigation';
 import { getTestPaperById, saveTestPaper } from '@/lib/testPaperStore';
 import { colors, radii, spacing, typography } from '@/theme/colors';
@@ -71,6 +72,7 @@ export default function TestPaperEditScreen() {
       } as CompiledTestPaper & { updatedAt: string });
       router.replace(`/test-paper/${encodeURIComponent(saved.id ?? id ?? '')}`);
     } catch (err) {
+      reportClientError('test_paper_edit_save', err, { testPaperId: current.id ?? id });
       Alert.alert('Save failed', err instanceof Error ? err.message : 'Could not save test paper edits.');
     } finally {
       setSaving(false);

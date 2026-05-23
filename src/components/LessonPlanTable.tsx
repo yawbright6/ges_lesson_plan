@@ -142,7 +142,7 @@ function LessonPlanContent({ plan }: Props) {
             key={phase.phase}
             phase={phase}
             alt={idx % 2 === 1}
-            visualAids={[]} // DISABLED: Visual generation disabled for testing
+            visualAids={(plan.visualAids ?? []).filter((visualAid) => visualAid.phase === phase.phase)}
           />
         ))}
       </View>

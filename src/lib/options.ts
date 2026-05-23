@@ -88,6 +88,16 @@ export function getWeekOptions(count: number): SelectOption[] {
   }));
 }
 
+export function getExplicitWeekOptions(weeks: number[]): SelectOption[] {
+  return [...new Set(weeks)]
+    .filter((week) => Number.isInteger(week) && week > 0)
+    .sort((a, b) => a - b)
+    .map((week) => ({
+      label: `Week ${week}`,
+      value: String(week),
+    }));
+}
+
 export function getLessonIndexOptions(count: number): SelectOption[] {
   return Array.from({ length: count }, (_, index) => ({
     label: `Lesson ${index + 1}`,

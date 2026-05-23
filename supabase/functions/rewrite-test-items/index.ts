@@ -5,9 +5,8 @@ import {
   testItemRewriteSystemPrompt,
   type TestItemRewriteBody,
 } from '../_shared/generation.ts';
-import { consumeCreditsForRequest, getFeatureCreditCost, refundCredits } from '../_shared/credits.ts';
-import { HttpError, logEdgeError } from '../_shared/supabase.ts';
-import { rewardReferralIfQualified } from '../_shared/referrals.ts';
+import { json, runCreditBackedGeneration } from '../_shared/generation-action.ts';
+import { HttpError } from '../_shared/supabase.ts';
 
 const TEST_ITEM_REWRITE_CREDIT_COST = 1;
 
@@ -23,92 +22,43 @@ Deno.serve(async (req) => {
   try {
     body = await req.json();
   } catch {
-    return json({ error: 'Invalid JSON body' }, 400);
+    return json({ error: 'Invalid JSON body' }, 400, corsHeaders);
   }
 
   if (!body.subject || !body.classLevel || !Array.isArray(body.items) || !body.items.length) {
-    return json({ error: 'subject, classLevel and items are required' }, 400);
+    return json({ error: 'subject, classLevel and items are required' }, 400, corsHeaders);
   }
 
-  let creditDebit: Awaited<ReturnType<typeof consumeCreditsForRequest>> | null = null;
-  let creditCost = TEST_ITEM_REWRITE_CREDIT_COST;
+  const metadata = {
+    subject: body.subject,
+    classLevel: body.classLevel,
+    termTitle: body.termTitle ?? null,
+    itemCount: body.items.length,
+  };
 
   try {
-    creditCost = await getFeatureCreditCost('test_item_rewrite', TEST_ITEM_REWRITE_CREDIT_COST);
-    creditDebit = await consumeCreditsForRequest(
+    const result = await runCreditBackedGeneration({
       req,
-      creditCost,
-      'test_item_rewrite',
-      'Test item rewrite',
-      {
-        subject: body.subject,
-        classLevel: body.classLevel,
-        termTitle: body.termTitle ?? null,
-        itemCount: body.items.length,
+      action: 'rewrite_test_items',
+      creditKind: 'test_item_rewrite',
+      fallbackCreditCost: TEST_ITEM_REWRITE_CREDIT_COST,
+      description: 'Test item rewrite',
+      metadata,
+      async run() {
+        const rawPaper = await callClaudeJson<Record<string, unknown>>({
+          system: testItemRewriteSystemPrompt,
+          user: buildTestItemRewritePrompt(body),
+          maxTokens: 10000,
+        });
+        return normalizeTestItemRewriteResponse(rawPaper, body);
       },
-    );
-
-    const rawPaper = await callClaudeJson<Record<string, unknown>>({
-      system: testItemRewriteSystemPrompt,
-      user: buildTestItemRewritePrompt(body),
-      maxTokens: 10000,
     });
-    const normalized = normalizeTestItemRewriteResponse(rawPaper, body);
 
-    await rewardReferralIfQualified(creditDebit.user.id);
-
-    return json({ ...normalized, creditBalance: creditDebit.balance }, 200);
+    return json(result, 200, corsHeaders);
   } catch (err) {
     if (err instanceof HttpError) {
-      return json({ error: err.message, ...(err.payload ?? {}) }, err.status);
+      return json({ error: err.message, ...(err.payload ?? {}) }, err.status, corsHeaders);
     }
-
-    await logEdgeError({
-      userId: creditDebit?.user.id ?? null,
-      source: 'edge',
-      action: 'rewrite_test_items',
-      message: (err as Error).message,
-      metadata: {
-        subject: body.subject,
-        classLevel: body.classLevel,
-        itemCount: body.items?.length ?? 0,
-      },
-    });
-
-    if (creditDebit) {
-      try {
-        await refundCredits(
-          creditDebit.user.id,
-          creditCost,
-          'Refund for failed test item rewrite',
-          {
-            originalTransactionId: creditDebit.transactionId,
-            reason: (err as Error).message,
-          },
-        );
-      } catch (refundErr) {
-        console.error('[CRITICAL] Credit refund failed after test item rewrite error', {
-          userId: creditDebit.user.id,
-          transactionId: creditDebit.transactionId,
-          credits: creditCost,
-          refundError: (refundErr as Error).message,
-          originalError: (err as Error).message,
-        });
-        return json({
-          error: (err as Error).message,
-          refundStatus: 'failed_to_refund',
-          supportNote: 'Credits may not have been refunded. Support has been notified.',
-        }, 500);
-      }
-    }
-
-    return json({ error: (err as Error).message }, 500);
+    return json({ error: (err as Error).message }, 500, corsHeaders);
   }
 });
-
-function json(payload: unknown, status: number) {
-  return new Response(JSON.stringify(payload), {
-    status,
-    headers: { ...corsHeaders, 'content-type': 'application/json' },
-  });
-}

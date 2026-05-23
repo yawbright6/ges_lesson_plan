@@ -9,6 +9,7 @@ import { Field } from '@/components/Field';
 import { SelectField } from '@/components/SelectField';
 import { CLASS_LEVEL_OPTIONS } from '@/lib/options';
 import { loadTeacherProfile, saveTeacherProfile } from '@/lib/teacherProfile';
+import { reportClientError } from '@/lib/logger';
 import { brandIdentity, colors, radii, spacing, typography } from '@/theme/colors';
 
 export default function OnboardingScreen() {
@@ -59,6 +60,7 @@ export default function OnboardingScreen() {
       });
       router.replace('/(tabs)/schemes');
     } catch (err: unknown) {
+      reportClientError('onboarding_save_profile', err, { teacherName, schoolName, schoolDistrict });
       Alert.alert('Setup failed', err instanceof Error ? err.message : 'Could not save setup.');
     } finally {
       setSaving(false);

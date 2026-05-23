@@ -9,6 +9,7 @@ import {
   validatePhoneNumber,
   formatPhoneNumber,
 } from '@/lib/phoneAuth';
+import { reportClientError } from '@/lib/logger';
 import { colors } from '@/theme/colors';
 
 type PhoneAuthMode = 'phone-input' | 'otp-input' | 'password-input';
@@ -73,6 +74,7 @@ export function PhoneAuthForm({ onSignedUp, referralCode }: PhoneAuthFormProps) 
         });
       } else {
         const message = getPhoneAuthResultMessage(result, 'Failed to send OTP');
+        reportClientError('phone_send_otp_rejected', message, { phoneNumber }, 'warning');
         setFieldError(message);
         showToast({
           message,
@@ -81,6 +83,7 @@ export function PhoneAuthForm({ onSignedUp, referralCode }: PhoneAuthFormProps) 
       }
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Failed to send OTP';
+      reportClientError('phone_send_otp', err, { phoneNumber });
       setFieldError(message);
       showToast({ message, type: 'error' });
     } finally {
@@ -121,6 +124,7 @@ export function PhoneAuthForm({ onSignedUp, referralCode }: PhoneAuthFormProps) 
         }
       } else {
         const message = getPhoneAuthResultMessage(result, 'Failed to verify OTP');
+        reportClientError('phone_verify_otp_rejected', message, { phoneNumber }, 'warning');
         setFieldError(message);
         showToast({
           message,
@@ -129,6 +133,7 @@ export function PhoneAuthForm({ onSignedUp, referralCode }: PhoneAuthFormProps) 
       }
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Failed to verify OTP';
+      reportClientError('phone_verify_otp', err, { phoneNumber });
       setFieldError(message);
       showToast({ message, type: 'error' });
     } finally {
@@ -167,6 +172,7 @@ export function PhoneAuthForm({ onSignedUp, referralCode }: PhoneAuthFormProps) 
         onSignedUp?.();
       } else {
         const message = getPhoneAuthResultMessage(result, 'Failed to create account');
+        reportClientError('phone_complete_signup_rejected', message, { phoneNumber }, 'warning');
         setFieldError(message);
         showToast({
           message,
@@ -175,6 +181,7 @@ export function PhoneAuthForm({ onSignedUp, referralCode }: PhoneAuthFormProps) 
       }
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Failed to create account';
+      reportClientError('phone_complete_signup', err, { phoneNumber });
       setFieldError(message);
       showToast({ message, type: 'error' });
     } finally {

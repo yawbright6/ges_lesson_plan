@@ -5,6 +5,7 @@ import { Button } from '@/components/Button';
 import { Field } from '@/components/Field';
 import { PreviewIconButton } from '@/components/PreviewChrome';
 import { getLessonPlanBundleById, saveLessonPlanWork } from '@/lib/lessonStore';
+import { reportClientError } from '@/lib/logger';
 import { goBackOrReplace } from '@/lib/navigation';
 import { colors, radii, spacing, typography } from '@/theme/colors';
 import type { LessonPhase, LessonPlan, LessonPlanBundle } from '@/types/lessonPlan';
@@ -73,6 +74,7 @@ export default function WeekLessonEditScreen() {
       });
       router.replace(`/lesson/week?bundleId=${encodeURIComponent(saved.id ?? bundleId ?? '')}`);
     } catch (err) {
+      reportClientError('week_edit_save', err, { bundleId: current.id ?? bundleId });
       Alert.alert('Save failed', err instanceof Error ? err.message : 'Could not save week plan edits.');
     } finally {
       setSaving(false);

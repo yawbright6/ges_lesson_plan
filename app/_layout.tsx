@@ -2,12 +2,14 @@ import 'react-native-gesture-handler';
 import { Stack, router } from 'expo-router';
 import Head from 'expo-router/head';
 import { StatusBar } from 'expo-status-bar';
+import { useEffect } from 'react';
 import { Pressable, StyleSheet } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { Ionicons } from '@expo/vector-icons';
 import { PreviewHeader } from '@/components/PreviewChrome';
 import { ToastProvider } from '@/components/ToastProvider';
+import { reportClientError } from '@/lib/logger';
 import { brandIdentity, colors, radii, spacing, ThemeProvider } from '@/theme/colors';
 
 const APP_NAME = brandIdentity.name;
@@ -37,6 +39,28 @@ function compactToolOptions(title: string) {
 }
 
 export default function RootLayout() {
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    const handleError = (event: ErrorEvent) => {
+      reportClientError('client_unhandled_error', event.error ?? event.message, {
+        filename: event.filename,
+        lineno: event.lineno,
+        colno: event.colno,
+      });
+    };
+    const handleUnhandledRejection = (event: PromiseRejectionEvent) => {
+      reportClientError('client_unhandled_rejection', event.reason);
+    };
+
+    window.addEventListener('error', handleError);
+    window.addEventListener('unhandledrejection', handleUnhandledRejection);
+    return () => {
+      window.removeEventListener('error', handleError);
+      window.removeEventListener('unhandledrejection', handleUnhandledRejection);
+    };
+  }, []);
+
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <SafeAreaProvider>

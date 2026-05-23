@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import type { AuthResponse, Session } from '@supabase/supabase-js';
 import { supabase } from './supabase';
+import { reportClientError } from './logger';
 
 export function useAuthSession() {
   const [session, setSession] = useState<Session | null>(null);
@@ -13,6 +14,7 @@ export function useAuthSession() {
     const timeout = setTimeout(() => {
       if (!active || settled) return;
       console.warn('[auth] Session restore timed out after 8 seconds. Continuing without a restored session.');
+      reportClientError('auth_session_restore_timeout', 'Session restore timed out after 8 seconds.', undefined, 'warning');
       setSession(null);
       setLoading(false);
     }, 8000); // ✅ Increased from 4s to 8s for slow networks
@@ -29,6 +31,7 @@ export function useAuthSession() {
           settled = true;
           clearTimeout(timeout);
           console.warn('[auth] Failed to restore session', error);
+          reportClientError('auth_session_restore_failed', error);
           setSession(null);
         }
       } finally {

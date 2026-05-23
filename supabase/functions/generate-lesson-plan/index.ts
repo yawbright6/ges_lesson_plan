@@ -5,9 +5,8 @@ import {
   normalizeLessonPlanResponse,
   type LessonGenerationBody,
 } from '../_shared/generation.ts';
-import { consumeCreditsForRequest, getFeatureCreditCost, refundCredits } from '../_shared/credits.ts';
-import { HttpError, logEdgeError } from '../_shared/supabase.ts';
-import { rewardReferralIfQualified } from '../_shared/referrals.ts';
+import { json, runCreditBackedGeneration } from '../_shared/generation-action.ts';
+import { HttpError } from '../_shared/supabase.ts';
 
 const LESSON_PLAN_CREDIT_COST = 1;
 
@@ -23,93 +22,42 @@ Deno.serve(async (req) => {
   try {
     body = await req.json();
   } catch {
-    return json({ error: 'Invalid JSON body' }, 400);
+    return json({ error: 'Invalid JSON body' }, 400, corsHeaders);
   }
 
   if (!body.subject || !body.classLevel || !body.week) {
-    return json({ error: 'subject, classLevel and week are required' }, 400);
+    return json({ error: 'subject, classLevel and week are required' }, 400, corsHeaders);
   }
 
-  let creditDebit: Awaited<ReturnType<typeof consumeCreditsForRequest>> | null = null;
-  let creditCost = LESSON_PLAN_CREDIT_COST;
+  const metadata = {
+    subject: body.subject,
+    classLevel: body.classLevel,
+    week: body.week,
+    term: body.term ?? null,
+  };
 
   try {
-    creditCost = await getFeatureCreditCost('lesson_generation', LESSON_PLAN_CREDIT_COST);
-    creditDebit = await consumeCreditsForRequest(
+    const result = await runCreditBackedGeneration({
       req,
-      creditCost,
-      'lesson_generation',
-      'Lesson plan generation',
-      {
-        subject: body.subject,
-        classLevel: body.classLevel,
-        week: body.week,
-        term: body.term ?? null,
+      action: 'generate_lesson_plan',
+      creditKind: 'lesson_generation',
+      fallbackCreditCost: LESSON_PLAN_CREDIT_COST,
+      description: 'Lesson plan generation',
+      metadata,
+      async run() {
+        const plan = await callClaudeJson<Record<string, unknown>>({
+          system: getLessonPlanSystemPrompt(body.visualGenerationEnabled !== false),
+          user: buildLessonPrompt(body),
+        });
+        return normalizeLessonPlanResponse(plan, body);
       },
-    );
-
-    const plan = await callClaudeJson<Record<string, unknown>>({
-      system: getLessonPlanSystemPrompt(false), // DISABLED: Visual generation disabled for testing
-      user: buildLessonPrompt(body),
     });
-    await rewardReferralIfQualified(creditDebit.user.id);
 
-    return json(
-      {
-        ...normalizeLessonPlanResponse(plan, body),
-        creditBalance: creditDebit.balance,
-      },
-      200,
-    );
+    return json(result, 200, corsHeaders);
   } catch (err) {
     if (err instanceof HttpError) {
-      return json({ error: err.message, ...(err.payload ?? {}) }, err.status);
+      return json({ error: err.message, ...(err.payload ?? {}) }, err.status, corsHeaders);
     }
-
-    await logEdgeError({
-      userId: creditDebit?.user.id ?? null,
-      source: 'edge',
-      action: 'generate_lesson_plan',
-      message: (err as Error).message,
-      metadata: { subject: body.subject, classLevel: body.classLevel, week: body.week },
-    });
-
-    if (creditDebit) {
-      // ✅ Add error handling for credit refund
-      try {
-        await refundCredits(
-          creditDebit.user.id,
-          creditCost,
-          'Refund for failed lesson plan generation',
-          {
-            originalTransactionId: creditDebit.transactionId,
-            reason: (err as Error).message,
-          },
-        );
-      } catch (refundErr) {
-        console.error('[CRITICAL] Credit refund failed after generation error', {
-          userId: creditDebit.user.id,
-          transactionId: creditDebit.transactionId,
-          credits: creditCost,
-          refundError: (refundErr as Error).message,
-          originalError: (err as Error).message
-        });
-        // Still return the original error but with note about refund
-        return json({ 
-          error: (err as Error).message,
-          refundStatus: 'failed_to_refund',
-          supportNote: 'Credits may not have been refunded. Support has been notified.'
-        }, 500);
-      }
-    }
-
-    return json({ error: (err as Error).message }, 500);
+    return json({ error: (err as Error).message }, 500, corsHeaders);
   }
 });
-
-function json(payload: unknown, status: number) {
-  return new Response(JSON.stringify(payload), {
-    status,
-    headers: { ...corsHeaders, 'content-type': 'application/json' },
-  });
-}

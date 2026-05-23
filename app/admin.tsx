@@ -72,6 +72,7 @@ import {
   toSubunit,
   toWhole,
 } from '@/features/admin/adminUtils';
+import { reportClientError } from '@/lib/logger';
 import { colors } from '@/theme/colors';
 
 export default function AdminScreen() {
@@ -128,6 +129,7 @@ export default function AdminScreen() {
     } catch (err: unknown) {
       const message = getMessage(err);
       setLoadError(message);
+      reportClientError('admin_load_dashboard', err);
       if (!isAdminAuthError(message)) {
         Alert.alert('Admin unavailable', message);
       }
@@ -153,6 +155,7 @@ export default function AdminScreen() {
       const nextUsers = await adminSearchUsers(query);
       setUsers(nextUsers);
     } catch (err: unknown) {
+      reportClientError('admin_search_users', err, { query });
       Alert.alert('Search failed', getMessage(err));
     } finally {
       setSearching(false);
@@ -165,6 +168,7 @@ export default function AdminScreen() {
       setSelectedUser(detail);
       setSection('users');
     } catch (err: unknown) {
+      reportClientError('admin_load_user_detail', err, { userId: user.user_id });
       Alert.alert('User details unavailable', getMessage(err));
     }
   }
@@ -183,6 +187,7 @@ export default function AdminScreen() {
       setSelectedUser(null);
       await load();
     } catch (err: unknown) {
+      reportClientError('admin_adjust_credits', err, { userId: target.user_id, amount: parsed });
       Alert.alert('Adjustment failed', getMessage(err));
     }
   }
@@ -226,6 +231,7 @@ export default function AdminScreen() {
       setEditingPackage(null);
       await load();
     } catch (err: unknown) {
+      reportClientError('admin_save_package', err, { packageId: prepared.id, isNew: prepared.isNew });
       Alert.alert('Could not save package', getMessage(err));
     }
   }
@@ -243,6 +249,7 @@ export default function AdminScreen() {
             setEditingPackage(null);
             await load();
           } catch (err: unknown) {
+            reportClientError('admin_remove_package', err, { packageId: pack.id });
             Alert.alert('Could not remove package', getMessage(err));
           }
         },
@@ -294,6 +301,7 @@ export default function AdminScreen() {
       Alert.alert('Settings saved', 'App settings have been updated.');
       await load();
     } catch (err: unknown) {
+      reportClientError('admin_save_app_settings', err);
       Alert.alert('Could not save settings', getMessage(err));
     } finally {
       setSavingAppSettings(false);
@@ -317,6 +325,7 @@ export default function AdminScreen() {
       await load();
       Alert.alert('FAQ section saved');
     } catch (err: unknown) {
+      reportClientError('admin_save_faq_section', err, { id: faqSectionDraft.id });
       Alert.alert('Could not save FAQ section', getMessage(err));
     } finally {
       setSavingFaq(false);
@@ -342,6 +351,7 @@ export default function AdminScreen() {
       await load();
       Alert.alert('FAQ answer saved');
     } catch (err: unknown) {
+      reportClientError('admin_save_faq_item', err, { id: faqItemDraft.id, sectionId: faqItemDraft.sectionId });
       Alert.alert('Could not save FAQ answer', getMessage(err));
     } finally {
       setSavingFaq(false);
@@ -361,6 +371,7 @@ export default function AdminScreen() {
       await load();
       Alert.alert('FAQ section deleted');
     } catch (err: unknown) {
+      reportClientError('admin_delete_faq_section', err, { id });
       Alert.alert('Could not delete FAQ section', getMessage(err));
     }
   }
@@ -374,6 +385,7 @@ export default function AdminScreen() {
       await load();
       Alert.alert('FAQ answer deleted');
     } catch (err: unknown) {
+      reportClientError('admin_delete_faq_item', err, { id });
       Alert.alert('Could not delete FAQ answer', getMessage(err));
     }
   }
@@ -408,6 +420,7 @@ export default function AdminScreen() {
         appendReport(report, next, (items) => ({ logs: [...dashboard.logs, ...items] }));
       }
     } catch (err: unknown) {
+      reportClientError('admin_load_more_report', err, { report });
       Alert.alert('Could not load more', getMessage(err));
     } finally {
       setLoadingMore((current) => ({ ...current, [report]: false }));
@@ -456,6 +469,7 @@ export default function AdminScreen() {
       setAdminPassword('');
       await load();
     } catch (err: unknown) {
+      reportClientError('admin_signin', err, { email: adminEmail.trim().toLowerCase() });
       setLoadError(getMessage(err));
       Alert.alert('Admin sign in failed', getMessage(err));
     } finally {

@@ -2,6 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useState } from 'react';
 import { Modal, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { Button } from '@/components/Button';
+import { reportClientError } from '@/lib/logger';
 import { shareLesson } from '@/lib/shareStore';
 import { colors, radii, shadows, spacing, typography } from '@/theme/colors';
 import type { LessonPlanBundle, SavedLessonWork } from '@/types/lessonPlan';
@@ -39,6 +40,7 @@ export default function ShareWithAdminModal({
       setMessage('');
       onClose();
     } catch (err) {
+      reportClientError('share_with_admin', err, { lessonId });
       setError(err instanceof Error ? err.message : 'Failed to share lesson');
     } finally {
       setIsLoading(false);

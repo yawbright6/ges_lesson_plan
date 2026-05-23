@@ -25,10 +25,11 @@ import { defaultRuntimeSettings, loadRuntimeAppSettings } from '@/lib/appSetting
 import { loadCreditBalance } from '@/lib/credits';
 import { exportLessonPlanPdf, exportLessonPlansPdf, shareLessonPlan, shareLessonPlans } from '@/lib/export';
 import { saveLessonPlan, saveLessonPlanBundle } from '@/lib/lessonStore';
-import { logAppError } from '@/lib/logger';
+import { logAppError, reportClientError } from '@/lib/logger';
 import {
   CLASS_LEVEL_OPTIONS,
   getDefaultSubjectForClassLevel,
+  getExplicitWeekOptions,
   getSubjectOptionsForClassLevel,
   getWeekOptions,
   LESSONS_PER_WEEK_OPTIONS,
@@ -142,7 +143,10 @@ export default function GenerateScreen() {
     [selectedScheme],
   );
 
-  const weekOptions = useMemo(() => getWeekOptions(availableWeeks.length), [availableWeeks.length]);
+  const weekOptions = useMemo(
+    () => (selectedScheme?.weeks.length ? getExplicitWeekOptions(availableWeeks) : getWeekOptions(availableWeeks.length)),
+    [availableWeeks, selectedScheme?.weeks.length],
+  );
   const lessonNumbers = useMemo(
     () => Array.from({ length: sessionsPerWeek }, (_, index) => index + 1),
     [sessionsPerWeek],
@@ -388,6 +392,10 @@ export default function GenerateScreen() {
         }
         showToast({ message: 'Translated lesson plan saved.' });
       } catch (err) {
+        reportClientError('lesson_preview_translate_generated', err, {
+          lessonIds: generatedPlans.map((plan) => plan.id).filter(Boolean),
+          language: previewLocalLanguage,
+        });
         Alert.alert('Translation failed', err instanceof Error ? err.message : 'Could not translate lesson plan.');
       } finally {
         setPreviewTranslating(false);

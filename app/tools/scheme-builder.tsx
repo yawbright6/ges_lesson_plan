@@ -23,6 +23,7 @@ import {
   type CurriculumEntryOption,
 } from '@/lib/schemeBuilder';
 import { getWeekEntries, getWeekTopic } from '@/lib/schemeWeek';
+import { reportClientError } from '@/lib/logger';
 import { saveScheme } from '@/lib/schemeStore';
 import { loadLastSelectedTerm, saveLastSelectedTerm } from '@/lib/termPrefs';
 import {
@@ -261,6 +262,7 @@ export default function SchemeBuilderScreen() {
       showToast({ message: 'Scheme builder draft saved.' });
       router.push(`/scheme/${saved.id}`);
     } catch (error: unknown) {
+      reportClientError('scheme_builder_save', error, { subject, classLevel, term, numberOfWeeks });
       Alert.alert('Save failed', error instanceof Error ? error.message : 'Could not save this scheme.');
     } finally {
       setSaving(false);

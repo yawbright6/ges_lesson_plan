@@ -18,6 +18,7 @@ import {
   validateReferralCode,
 } from '@/lib/referrals';
 import { isSupabaseConfigured } from '@/lib/supabase';
+import { reportClientError } from '@/lib/logger';
 import { colors } from '@/theme/colors';
 
 type AuthFormMode = 'signin' | 'signup' | 'reset-request' | 'reset-update';
@@ -65,6 +66,7 @@ export function EmailPasswordAuthForm({
       } catch (err: unknown) {
         if (!active) return;
         const message = err instanceof Error ? err.message : 'Password reset link could not be opened.';
+        reportClientError('auth_initialize_password_recovery', err);
         setFieldError(message);
         showToast({ message, type: 'error' });
       }
@@ -104,6 +106,7 @@ export function EmailPasswordAuthForm({
         setMode('signin');
       } catch (err: unknown) {
         const message = err instanceof Error ? err.message : 'Could not send password reset link.';
+        reportClientError('auth_request_password_reset', err, { email: normalizedEmail });
         setFieldError(message);
         showToast({ message, type: 'error' });
       } finally {
@@ -132,6 +135,7 @@ export function EmailPasswordAuthForm({
         setMode('signin');
       } catch (err: unknown) {
         const message = err instanceof Error ? err.message : 'Could not update password.';
+        reportClientError('auth_complete_password_reset', err);
         setFieldError(message);
         showToast({ message, type: 'error' });
       } finally {
@@ -197,6 +201,7 @@ export function EmailPasswordAuthForm({
       }
     } catch (err: unknown) {
       const message = getAuthErrorMessage(err, mode === 'signup' ? 'signup' : 'signin');
+      reportClientError(mode === 'signup' ? 'auth_email_signup' : 'auth_email_signin', err, { email: normalizedEmail });
       setFieldError(message);
       if (message.toLowerCase().includes('confirm your email')) {
         setInfoMessage('Your email is not confirmed yet. Open the confirmation link in your inbox, then sign in again.');

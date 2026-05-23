@@ -5,6 +5,7 @@ import { Button } from '@/components/Button';
 import { Field } from '@/components/Field';
 import { PreviewIconButton } from '@/components/PreviewChrome';
 import { getLessonPlanById, saveLessonPlan } from '@/lib/lessonStore';
+import { reportClientError } from '@/lib/logger';
 import { goBackOrReplace } from '@/lib/navigation';
 import { colors, radii, spacing, typography } from '@/theme/colors';
 import type { LessonPhase, LessonPlan } from '@/types/lessonPlan';
@@ -61,6 +62,7 @@ export default function LessonEditScreen() {
       });
       router.replace(`/lesson/${encodeURIComponent(saved.id ?? id ?? '')}`);
     } catch (err) {
+      reportClientError('lesson_edit_save', err, { lessonId: current.id ?? id });
       Alert.alert('Save failed', err instanceof Error ? err.message : 'Could not save lesson edits.');
     } finally {
       setSaving(false);

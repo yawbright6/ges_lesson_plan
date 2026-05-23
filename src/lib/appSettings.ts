@@ -2,6 +2,7 @@ import { supabase } from './supabase';
 import { AppError } from './appError';
 import { withTimeout } from './async';
 import { cachedRequest, invalidateCache } from './cache';
+import { reportClientError } from './logger';
 
 export type RuntimeAppSettings = {
   starterCredits: { credits: number; active: boolean };
@@ -55,6 +56,7 @@ export async function loadRuntimeAppSettingsOrDefault(): Promise<RuntimeAppSetti
     return await loadRuntimeAppSettings();
   } catch (err) {
     console.warn('[appSettings] Falling back to default runtime settings', err);
+    reportClientError('runtime_settings_fallback_to_defaults', err);
     return defaultRuntimeSettings;
   }
 }

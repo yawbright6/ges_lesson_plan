@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { reportClientError } from '@/lib/logger';
 import { updateShareFeedback } from '@/lib/shareStore';
 import { LessonPlanStack, LessonPlanTable } from '@/components/LessonPlanTable';
 import { Button } from '@/components/Button';
@@ -27,6 +28,7 @@ export default function AdminLessonReview({ share, onFeedbackUpdated, onBack }: 
       onFeedbackUpdated({ ...share, ...updated });
       setIsEditing(false);
     } catch (err) {
+      reportClientError('admin_save_lesson_feedback', err, { shareId: share.id });
       setError(err instanceof Error ? err.message : 'Failed to save feedback');
     } finally {
       setIsSaving(false);

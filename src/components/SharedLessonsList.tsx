@@ -2,6 +2,7 @@ import { useCallback, useState } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
+import { reportClientError } from '@/lib/logger';
 import { loadSharedLessonsForAdmin } from '@/lib/shareStore';
 import { colors, radii, spacing, typography } from '@/theme/colors';
 import type { AdminLessonShare, LessonPlanBundle, SavedLessonWork } from '@/types/lessonPlan';
@@ -22,6 +23,7 @@ export default function SharedLessonsList({ onSelectShare }: SharedLessonsListPr
       setError(null);
       setShares(await loadSharedLessonsForAdmin());
     } catch (err) {
+      reportClientError('admin_load_shared_lessons', err);
       setError(err instanceof Error ? err.message : 'Failed to load shared lessons');
     } finally {
       setIsLoading(false);

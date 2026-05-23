@@ -1,5 +1,6 @@
 import { supabase } from './supabase';
 import { appStorage } from './storage';
+import { reportClientError } from './logger';
 
 const STORAGE_KEY = 'teacher-profile';
 
@@ -15,7 +16,10 @@ export async function loadTeacherProfile(): Promise<TeacherProfile> {
   const { data } = await supabase.auth.getSession();
   const userId = data.session?.user.id;
   if (userId) {
-    const remote = await loadRemoteTeacherProfile(userId).catch(() => null);
+    const remote = await loadRemoteTeacherProfile(userId).catch((err) => {
+      reportClientError('teacher_profile_load_remote', err, { userId });
+      return null;
+    });
     if (remote) {
       await appStorage.setItem(scopedStorageKey(userId), JSON.stringify(remote));
       return remote;

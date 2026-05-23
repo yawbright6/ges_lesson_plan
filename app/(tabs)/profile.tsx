@@ -11,6 +11,7 @@ import { signOut, useAuthSession } from '@/lib/auth';
 import { CLASS_LEVEL_OPTIONS } from '@/lib/options';
 import { buildReferralLink, loadReferralDashboard, type ReferralDashboard } from '@/lib/referrals';
 import { loadTeacherProfile, saveTeacherProfile } from '@/lib/teacherProfile';
+import { reportClientError } from '@/lib/logger';
 import { colors, radii, shadows, spacing, typography } from '@/theme/colors';
 import { Ionicons } from '@expo/vector-icons';
 
@@ -48,12 +49,16 @@ export default function ProfileScreen() {
     let active = true;
 
     async function loadProfile() {
-      const profile = await loadTeacherProfile();
-      if (!active) return;
-      setTeacherName(profile.teacherName);
-      setSchoolName(profile.schoolName);
-      setSchoolDistrict(profile.schoolDistrict);
-      setClassSizes(profile.classSizes ?? {});
+      try {
+        const profile = await loadTeacherProfile();
+        if (!active) return;
+        setTeacherName(profile.teacherName);
+        setSchoolName(profile.schoolName);
+        setSchoolDistrict(profile.schoolDistrict);
+        setClassSizes(profile.classSizes ?? {});
+      } catch (err) {
+        reportClientError('profile_load', err);
+      }
     }
 
     loadProfile();
@@ -76,6 +81,7 @@ export default function ProfileScreen() {
       setReferralMonthlyLimit(dashboard.stats.monthlyLimit ?? settings.referralReward.monthlyLimit);
       setReferralRewardActive(dashboard.stats.active ?? settings.referralReward.active);
     } catch (err: unknown) {
+      reportClientError('profile_refresh_referral', err);
       setReferralError(getMessage(err));
     } finally {
       setReferralLoading(false);
@@ -93,6 +99,7 @@ export default function ProfileScreen() {
       await signOut();
       router.replace('/(auth)/sign-in');
     } catch (err: unknown) {
+      reportClientError('profile_signout', err);
       Alert.alert('Sign-out failed', getMessage(err));
     }
   }
@@ -109,6 +116,7 @@ export default function ProfileScreen() {
       });
       showToast({ message: 'Teacher details saved.' });
     } catch (err: unknown) {
+      reportClientError('profile_save', err, { teacherName, schoolName, schoolDistrict });
       Alert.alert('Profile save failed', getMessage(err));
     } finally {
       setSavingProfile(false);
@@ -121,14 +129,19 @@ export default function ProfileScreen() {
       return;
     }
 
-    if (Platform.OS === 'web' && typeof navigator !== 'undefined' && navigator.clipboard) {
-      await navigator.clipboard.writeText(referralLink);
-      showToast({ message: 'Referral link copied.' });
-      return;
-    }
+    try {
+      if (Platform.OS === 'web' && typeof navigator !== 'undefined' && navigator.clipboard) {
+        await navigator.clipboard.writeText(referralLink);
+        showToast({ message: 'Referral link copied.' });
+        return;
+      }
 
-    await Share.share({ message: referralLink });
-    showToast({ message: 'Referral link shared.' });
+      await Share.share({ message: referralLink });
+      showToast({ message: 'Referral link shared.' });
+    } catch (err) {
+      reportClientError('profile_share_referral_link', err, { referralCode: referral?.code });
+      Alert.alert('Could not share link', getMessage(err));
+    }
   }
 
   async function shareReferralLink() {

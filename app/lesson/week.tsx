@@ -11,6 +11,7 @@ import ShareWithAdminModal from '@/components/ShareWithAdminModal';
 import { translateLessonPlan } from '@/lib/ai';
 import { exportLessonPlansPdf, shareLessonPlans } from '@/lib/export';
 import { getLessonPlanBundleById, getLessonPlanById, saveLessonPlanBundle } from '@/lib/lessonStore';
+import { reportClientError } from '@/lib/logger';
 import { goBackOrReplace } from '@/lib/navigation';
 import { LOCAL_LANGUAGE_OPTIONS } from '@/lib/options';
 import { getShareForLesson } from '@/lib/shareStore';
@@ -45,7 +46,8 @@ export default function LessonWeekDetailScreen() {
           try {
             const shareInfo = await getShareForLesson(result.id);
             if (active) setShare(shareInfo);
-          } catch {
+          } catch (err) {
+            reportClientError('week_preview_load_share_status', err, { bundleId: result.id }, 'warning');
             if (active) setShare(null);
           }
         }
@@ -61,7 +63,8 @@ export default function LessonWeekDetailScreen() {
         try {
           const shareInfo = previewBundle.id ? await getShareForLesson(previewBundle.id) : null;
           if (active) setShare(shareInfo);
-        } catch {
+        } catch (err) {
+          reportClientError('week_preview_load_share_status', err, { bundleId: previewBundle.id }, 'warning');
           if (active) setShare(null);
         }
       }
@@ -137,6 +140,11 @@ export default function LessonWeekDetailScreen() {
                 }
                 showToast({ message: 'Translated week plan saved.' });
               } catch (err) {
+                reportClientError('week_preview_translate', err, {
+                  bundleId: shareBundle.id,
+                  lessonIds: plans.map((plan) => plan.id).filter(Boolean),
+                  language: localLanguage,
+                });
                 Alert.alert('Translation failed', err instanceof Error ? err.message : 'Could not translate week plan.');
               } finally {
                 setTranslating(false);
@@ -171,7 +179,8 @@ export default function LessonWeekDetailScreen() {
               setShare(updated);
             }
             showToast({ message: 'Week plan shared with admin successfully!' });
-          } catch {
+          } catch (err) {
+            reportClientError('week_preview_share_confirmation', err, { bundleId: shareBundle.id }, 'warning');
             Alert.alert('Shared', 'Week plan was shared, but the confirmation could not be loaded.');
           }
         }}

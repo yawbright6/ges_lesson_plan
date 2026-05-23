@@ -10,6 +10,7 @@ import { isSupabaseConfigured } from '@/lib/supabase';
 import { colors } from '@/theme/colors';
 import { sendPhoneOtp, verifyPhoneOtp, validatePhoneNumber, formatPhoneNumber } from '@/lib/phoneAuth';
 import { signInWithEmail, getAuthErrorMessage } from '@/lib/auth';
+import { reportClientError } from '@/lib/logger';
 
 type AuthFormMode = 'signin' | 'email-input' | 'phone-input' | 'otp-input' | 'password-input';
 
@@ -74,6 +75,7 @@ export function UnifiedAuthForm({
       onSignedIn?.();
     } catch (err: unknown) {
       const message = getAuthErrorMessage(err, 'signin');
+      reportClientError('unified_auth_signin', err, { email: signinEmail.trim().toLowerCase() });
       setFieldError(message);
       showToast({ message, type: 'error' });
     } finally {
@@ -109,11 +111,14 @@ export function UnifiedAuthForm({
         setOtpExpiry(900); // 15 minutes
         setMode('otp-input');
       } else {
-        setFieldError(result.message || 'Could not send OTP.');
-        showToast({ message: result.message || 'Could not send OTP.', type: 'error' });
+        const message = result.message || 'Could not send OTP.';
+        reportClientError('unified_auth_send_otp_rejected', message, { email: email.trim().toLowerCase(), phone }, 'warning');
+        setFieldError(message);
+        showToast({ message, type: 'error' });
       }
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Could not send OTP.';
+      reportClientError('unified_auth_send_otp', err, { email: email.trim().toLowerCase(), phone });
       setFieldError(message);
       showToast({ message, type: 'error' });
     } finally {
@@ -170,11 +175,14 @@ export function UnifiedAuthForm({
         showToast({ message: 'Account created successfully!' });
         onAccountCreated?.();
       } else {
-        setFieldError(result.message || 'Could not create account.');
-        showToast({ message: result.message || 'Could not create account.', type: 'error' });
+        const message = result.message || 'Could not create account.';
+        reportClientError('unified_auth_create_account_rejected', message, { email: email.trim().toLowerCase(), phone }, 'warning');
+        setFieldError(message);
+        showToast({ message, type: 'error' });
       }
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Could not create account.';
+      reportClientError('unified_auth_create_account', err, { email: email.trim().toLowerCase(), phone });
       setFieldError(message);
       showToast({ message, type: 'error' });
     } finally {

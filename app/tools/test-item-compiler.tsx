@@ -18,7 +18,7 @@ import {
   exportRewrittenTestPaperWord,
 } from '@/lib/export';
 import { loadLessonWorks } from '@/lib/lessonStore';
-import { logAppError } from '@/lib/logger';
+import { logAppError, reportClientError } from '@/lib/logger';
 import { buildTestItemsHeading, buildTestItemsWeekLine } from '@/lib/testItemCompiler';
 import { saveTestPaper } from '@/lib/testPaperStore';
 import { colors, radii, shadows, spacing, typography } from '@/theme/colors';
@@ -444,6 +444,11 @@ export default function TestItemCompilerScreen() {
                     setRewrittenPaper(saved);
                     showToast({ message: 'AI test paper saved to Library.' });
                   } catch (err) {
+                    reportClientError('test_item_compiler_save_paper', err, {
+                      subject: rewrittenPaper.subject,
+                      classLevel: rewrittenPaper.classLevel,
+                      title: rewrittenPaper.title,
+                    });
                     Alert.alert('Save failed', err instanceof Error ? err.message : 'Could not save test paper.');
                   }
                 }}

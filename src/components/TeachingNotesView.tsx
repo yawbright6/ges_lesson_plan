@@ -19,8 +19,8 @@ export function TeachingNotesView({
   showVisuals?: boolean;
   showGeneratedVisuals?: boolean;
 }) {
-  const resolvedOverride = showGeneratedVisualsOverride ?? showVisuals ?? false; // DISABLED: Visual generation disabled for testing
-  const [showGeneratedVisuals, setShowGeneratedVisuals] = useState(false); // DISABLED: Force false for testing
+  const resolvedOverride = showGeneratedVisualsOverride ?? showVisuals;
+  const [showGeneratedVisuals, setShowGeneratedVisuals] = useState(Boolean(resolvedOverride));
 
   useEffect(() => {
     if (resolvedOverride !== undefined) {

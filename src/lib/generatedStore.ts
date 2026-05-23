@@ -23,12 +23,13 @@ export async function loadLocalItems<T>(
 ): Promise<T[]> {
   const raw = await appStorage.getItem(storageKey);
   if (!raw) return [];
+  const retentionDays = await loadGeneratedRetentionDays();
 
   try {
     const parsed = JSON.parse(raw) as T[];
     return parsed
       .map(normalize)
-      .filter((item) => !isExpired(getCreatedAt(item), DEFAULT_RETENTION_DAYS))
+      .filter((item) => !isExpired(getCreatedAt(item), retentionDays))
       .sort(sort);
   } catch {
     return [];

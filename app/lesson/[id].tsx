@@ -11,6 +11,7 @@ import ShareFeedbackDisplay from '@/components/ShareFeedbackDisplay';
 import { translateLessonPlan } from '@/lib/ai';
 import { exportLessonPlanPdf, shareLessonPlan } from '@/lib/export';
 import { deleteLessonPlan, getLessonPlanById, saveLessonPlan } from '@/lib/lessonStore';
+import { reportClientError } from '@/lib/logger';
 import { goBackOrReplace } from '@/lib/navigation';
 import { getShareForLesson } from '@/lib/shareStore';
 import { LOCAL_LANGUAGE_OPTIONS } from '@/lib/options';
@@ -37,7 +38,7 @@ export default function LessonDetailScreen() {
         const shareInfo = await getShareForLesson(id);
         setShare(shareInfo);
       } catch (err) {
-        // Silently fail if not shared
+        reportClientError('lesson_preview_load_share_status', err, { lessonId: id }, 'warning');
       }
     }
     load();
@@ -67,9 +68,14 @@ export default function LessonDetailScreen() {
             `Delete ${plan.subject} ${plan.classLevel} Week ${plan.week}?`,
           );
           if (!confirmed || !plan.id) return;
-          await deleteLessonPlan(plan.id);
-          showToast({ message: 'Lesson plan deleted.' });
-          goBackOrReplace();
+          try {
+            await deleteLessonPlan(plan.id);
+            showToast({ message: 'Lesson plan deleted.' });
+            goBackOrReplace();
+          } catch (err) {
+            reportClientError('lesson_preview_delete', err, { lessonId: plan.id });
+            Alert.alert('Delete failed', err instanceof Error ? err.message : 'Could not delete this lesson plan.');
+          }
         }}
       />
       <LessonPlanTable plan={plan} />
@@ -110,6 +116,7 @@ export default function LessonDetailScreen() {
                   router.replace(`/lesson/${encodeURIComponent(saved.id)}`);
                 }
               } catch (err) {
+                reportClientError('lesson_preview_translate', err, { lessonId: plan.id, language: localLanguage });
                 Alert.alert('Translation failed', err instanceof Error ? err.message : 'Could not translate lesson plan.');
               } finally {
                 setTranslating(false);
@@ -142,6 +149,7 @@ export default function LessonDetailScreen() {
             }
             showToast({ message: 'Lesson shared with admin successfully!' });
           } catch (err) {
+            reportClientError('lesson_preview_share_confirmation', err, { lessonId: plan.id }, 'warning');
             Alert.alert('Error', 'Lesson was shared but we could not load the confirmation.');
           }
         }}
