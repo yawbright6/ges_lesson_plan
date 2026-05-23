@@ -183,13 +183,9 @@ serve(async (req: Request) => {
 
         if (referralError) {
           console.error('[Referral Error]', referralError);
-          return jsonResponse(
-            {
-              error: referralError.message || 'Failed to apply referral code',
-              success: false,
-            },
-            500,
-          );
+          // Do not fail account creation if referral tracking has a database-side issue.
+          // The user has already verified their phone and the auth account was created.
+          console.warn('[Referral Error] Continuing signup without applying referral reward.');
         }
 
         const appliedReferral = Array.isArray(referralResult) ? referralResult[0] : referralResult;
@@ -199,13 +195,8 @@ serve(async (req: Request) => {
           });
           if (rewardError) {
             console.error('[Referral Reward Error]', rewardError);
-            return jsonResponse(
-              {
-                error: rewardError.message || 'Failed to grant referral reward',
-                success: false,
-              },
-              500,
-            );
+            // Rewards can be repaired later from admin reports; signup should not fail.
+            console.warn('[Referral Reward Error] Continuing signup without granting reward.');
           }
         }
       }

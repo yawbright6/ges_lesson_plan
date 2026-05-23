@@ -6,7 +6,7 @@ import { useToast } from '@/components/ToastProvider';
 import {
   validateReferralCode,
 } from '@/lib/referrals';
-import { isSupabaseConfigured, supabase } from '@/lib/supabase';
+import { isSupabaseConfigured } from '@/lib/supabase';
 import { colors } from '@/theme/colors';
 import { sendPhoneOtp, verifyPhoneOtp, validatePhoneNumber, formatPhoneNumber } from '@/lib/phoneAuth';
 import { signInWithEmail, getAuthErrorMessage } from '@/lib/auth';
@@ -78,33 +78,12 @@ export function SinglePageAuthForm({
     }
   }
 
-  async function checkEmailExists(emailToCheck: string): Promise<boolean> {
-    try {
-      const { data } = await supabase.auth.admin.listUsers();
-      return data?.users?.some((u) => u.email?.toLowerCase() === emailToCheck.toLowerCase()) ?? false;
-    } catch {
-      // If we can't check, allow it to proceed
-      return false;
-    }
-  }
-
   async function handleSendOtp() {
     setFieldError(null);
 
     // Validate email
     if (!email.trim()) {
       setFieldError('Email is required.');
-      return;
-    }
-
-    // Check if email already has an account
-    const emailExists = await checkEmailExists(email.trim());
-    if (emailExists) {
-      setFieldError('This email already has an account. Please sign in instead.');
-      showToast({
-        message: 'Email already registered. Please sign in or use a different email.',
-        type: 'error',
-      });
       return;
     }
 
@@ -115,18 +94,7 @@ export function SinglePageAuthForm({
       return;
     }
 
-    // Validate referral code if provided
-    if (invitationCode.trim()) {
-      try {
-        await validateReferralCode(invitationCode);
-      } catch (err: unknown) {
-        const message = err instanceof Error ? err.message : 'Invalid referral code.';
-        setFieldError(message);
-        showToast({ message, type: 'error' });
-        return;
-      }
-    } else {
-      // Make referral code required
+    if (!invitationCode.trim()) {
       setFieldError('Referral / Invitation code is required.');
       showToast({
         message: 'Registration is by invitation only. Please enter your referral code.',
@@ -137,6 +105,7 @@ export function SinglePageAuthForm({
 
     setLoading(true);
     try {
+      await validateReferralCode(invitationCode);
       const result = await sendPhoneOtp(validation.normalized!);
       if (result.success) {
         showToast({ message: 'OTP sent to your phone.' });
