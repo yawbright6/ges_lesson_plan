@@ -5,6 +5,19 @@ import { formatPhoneForArkesel } from '../_shared/phone.ts'; // ✅ Use shared u
 const supabaseUrl = Deno.env.get('SUPABASE_URL') || '';
 const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || '';
 
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Methods': 'POST, OPTIONS',
+  'Access-Control-Allow-Headers': 'Content-Type, Authorization, x-client-info, apikey',
+};
+
+function jsonResponse(body: unknown, status = 200) {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { 'Content-Type': 'application/json', ...corsHeaders },
+  });
+}
+
 interface VerifyPhoneOtpRequest {
   phoneNumber: string;
   otp: string;
@@ -29,29 +42,19 @@ serve(async (req: Request) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, {
       status: 200,
-      headers: {
-        'Access-Control-Allow-Origin': '*',
-        'Access-Control-Allow-Methods': 'POST, OPTIONS',
-        'Access-Control-Allow-Headers': 'Content-Type, Authorization, x-client-info, apikey',
-      },
+      headers: corsHeaders,
     });
   }
 
   if (req.method !== 'POST') {
-    return new Response(JSON.stringify({ error: 'Method not allowed' }), {
-      status: 405,
-      headers: { 'Content-Type': 'application/json' },
-    });
+    return jsonResponse({ error: 'Method not allowed' }, 405);
   }
 
   try {
     const { phoneNumber, otp, email, password, referralCode, deviceId } = (await req.json()) as VerifyPhoneOtpRequest;
 
     if (!phoneNumber?.trim() || !otp?.trim()) {
-      return new Response(
-        JSON.stringify({ error: 'Phone number and OTP are required', success: false }),
-        { status: 400, headers: { 'Content-Type': 'application/json' } }
-      );
+      return jsonResponse({ error: 'Phone number and OTP are required', success: false }, 400);
     }
 
     // Initialize Supabase client
@@ -60,10 +63,7 @@ serve(async (req: Request) => {
     // Format phone number properly (same way as send-phone-otp does)
     const formattedPhone = formatPhoneForArkesel(phoneNumber);
     if (!formattedPhone) {
-      return new Response(
-        JSON.stringify({ error: 'Invalid phone number format', success: false }),
-        { status: 400, headers: { 'Content-Type': 'application/json' } }
-      );
+      return jsonResponse({ error: 'Invalid phone number format', success: false }, 400);
     }
 
     console.log('[verify-phone-otp] Looking up OTP for phone:', formattedPhone);
@@ -80,19 +80,16 @@ serve(async (req: Request) => {
 
     if (queryError) {
       console.error('[Query Error]', queryError);
-      return new Response(
-        JSON.stringify({ error: 'Failed to verify OTP', success: false }),
-        { status: 500, headers: { 'Content-Type': 'application/json' } }
-      );
+      return jsonResponse({ error: 'Failed to verify OTP', success: false }, 500);
     }
 
     if (!otpRequests || otpRequests.length === 0) {
-      return new Response(
-        JSON.stringify({
+      return jsonResponse(
+        {
           error: 'No valid OTP request found. Please request a new OTP.',
           success: false,
-        }),
-        { status: 400, headers: { 'Content-Type': 'application/json' } }
+        },
+        400,
       );
     }
 
@@ -109,12 +106,12 @@ serve(async (req: Request) => {
         })
         .eq('id', otpRecord.id);
 
-      return new Response(
-        JSON.stringify({
+      return jsonResponse(
+        {
           error: 'Invalid OTP. Please try again.',
           success: false,
-        }),
-        { status: 400, headers: { 'Content-Type': 'application/json' } }
+        },
+        400,
       );
     }
 
@@ -133,12 +130,12 @@ serve(async (req: Request) => {
     } else {
       // Create new user with phone number
       if (!password || password.length < 6) {
-        return new Response(
-          JSON.stringify({
+        return jsonResponse(
+          {
             error: 'Password must be at least 6 characters',
             success: false,
-          }),
-          { status: 400, headers: { 'Content-Type': 'application/json' } }
+          },
+          400,
         );
       }
 
@@ -159,12 +156,12 @@ serve(async (req: Request) => {
 
       if (authError) {
         console.error('[Auth Error]', authError);
-        return new Response(
-          JSON.stringify({
+        return jsonResponse(
+          {
             error: authError.message || 'Failed to create user account',
             success: false,
-          }),
-          { status: 500, headers: { 'Content-Type': 'application/json' } }
+          },
+          500,
         );
       }
 
@@ -186,12 +183,12 @@ serve(async (req: Request) => {
 
         if (referralError) {
           console.error('[Referral Error]', referralError);
-          return new Response(
-            JSON.stringify({
+          return jsonResponse(
+            {
               error: referralError.message || 'Failed to apply referral code',
               success: false,
-            }),
-            { status: 500, headers: { 'Content-Type': 'application/json' } }
+            },
+            500,
           );
         }
 
@@ -202,12 +199,12 @@ serve(async (req: Request) => {
           });
           if (rewardError) {
             console.error('[Referral Reward Error]', rewardError);
-            return new Response(
-              JSON.stringify({
+            return jsonResponse(
+              {
                 error: rewardError.message || 'Failed to grant referral reward',
                 success: false,
-              }),
-              { status: 500, headers: { 'Content-Type': 'application/json' } }
+              },
+              500,
             );
           }
         }
@@ -242,28 +239,25 @@ serve(async (req: Request) => {
       console.error('[Update Error]', updateError);
     }
 
-    return new Response(
-      JSON.stringify({
+    return jsonResponse(
+      {
         success: true,
         message: 'Phone number verified successfully',
         user: {
           id: userId,
           phone_number: formattedPhone,
         },
-      }),
-      {
-        status: 200,
-        headers: { 'Content-Type': 'application/json' },
-      }
+      },
+      200,
     );
   } catch (error) {
     console.error('[Request Error]', error);
-    return new Response(
-      JSON.stringify({
+    return jsonResponse(
+      {
         error: 'Internal server error',
         success: false,
-      }),
-      { status: 500, headers: { 'Content-Type': 'application/json' } }
+      },
+      500,
     );
   }
 });

@@ -50,10 +50,10 @@ export async function invokeEdgeFunction<T>(
     throw new Error('Supabase URL or anon key is missing.');
   }
 
-  // If no token but not requiring auth, get anon token for the Authorization header
+  // Public functions should use the anon JWT directly. Calling signInAnonymously()
+  // creates a real auth signup request and fails when anonymous auth is disabled.
   if (!token && !requireAuth) {
-    const { data } = await supabase.auth.signInAnonymously();
-    token = data.session?.access_token || null;
+    token = supabaseAnonKey;
   }
 
   const response = await fetchWithTimeout(
