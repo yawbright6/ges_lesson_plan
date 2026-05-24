@@ -137,6 +137,7 @@ export async function generateLessonPlan(
       const fallback = buildFallbackLessonPlan(input, groundingScheme);
       return {
         ...fallback,
+        visualAids: visualGenerationEnabled ? fallback.visualAids : [],
         references: `${fallback.references}. Local AI fallback reason: ${getErrorMessage(err)}`,
       };
     }
@@ -258,22 +259,7 @@ export async function rewriteTestItems(
 }
 
 function stripLessonPlanGeminiVisuals(plan: LessonPlan): LessonPlan {
-  const visualAids = (plan.visualAids ?? [])
-    .map((aid) => ({
-      ...aid,
-      prompt: undefined,
-      status: undefined,
-      imageUrl: undefined,
-      storagePath: undefined,
-      error: undefined,
-    }))
-    .filter(
-      (aid) =>
-        Boolean(aid.title) &&
-        (aid.labels?.length || aid.steps?.length || aid.data?.length || aid.rows?.length),
-    );
-
-  return { ...plan, visualAids };
+  return { ...plan, visualAids: [] };
 }
 
 export async function translateLessonPlan(
