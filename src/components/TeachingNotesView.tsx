@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Image, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { MathText } from '@/components/MathText';
 import { loadRuntimeAppSettingsOrDefault } from '@/lib/appSettings';
 import {
   contentBlockToVisual,
@@ -38,12 +39,12 @@ export function TeachingNotesView({
   return (
     <ScrollView style={styles.scroll} contentContainerStyle={styles.content}>
       <View style={styles.header}>
-        <Text style={styles.title}>{notes.title}</Text>
-        <Text style={styles.meta}>
+        <MathText style={styles.title}>{notes.title}</MathText>
+        <MathText style={styles.meta}>
           {notes.subject} - {notes.classLevel} - Week {notes.week}
           {notes.lessonNumber ? ` - Lesson ${notes.lessonNumber}` : ''}
           {notes.versionNumber ? ` - Version ${notes.versionNumber}` : ''}
-        </Text>
+        </MathText>
       </View>
 
       <Section title="Overview" text={notes.overview} />
@@ -53,7 +54,7 @@ export function TeachingNotesView({
         <Text style={styles.sectionTitle}>Teaching Guide</Text>
         {notes.phaseGuidance.map((phase) => (
           <View key={phase.phase} style={styles.phaseBlock}>
-            <Text style={styles.phaseTitle}>Phase {phase.phase}: {phase.title}</Text>
+            <MathText style={styles.phaseTitle}>Phase {phase.phase}: {phase.title}</MathText>
             {phase.teacherNotes.map((item, index) => (
               <Bullet key={index} text={item} />
             ))}
@@ -81,20 +82,20 @@ function ContentBlocks({ blocks }: { blocks: TeachingNoteContentBlock[] }) {
           return <VisualBlock key={block.id} visual={contentBlockToVisual(block)} />;
         }
         if (block.type === 'heading') {
-          return <Text key={block.id} style={styles.contentHeading}>{block.text || block.title}</Text>;
+          return <MathText key={block.id} style={styles.contentHeading}>{block.text || block.title}</MathText>;
         }
         if (block.items?.length) {
           return (
             <View key={block.id} style={styles.contentBlock}>
-              {block.title ? <Text style={styles.visualTitle}>{block.title}</Text> : null}
+              {block.title ? <MathText style={styles.visualTitle}>{block.title}</MathText> : null}
               {block.items.map((item, index) => <Bullet key={index} text={item} />)}
             </View>
           );
         }
         return block.text ? (
           <View key={block.id} style={styles.contentBlock}>
-            {block.title ? <Text style={styles.visualTitle}>{block.title}</Text> : null}
-            <Text style={styles.body}>{block.text}</Text>
+            {block.title ? <MathText style={styles.visualTitle}>{block.title}</MathText> : null}
+            <MathText style={styles.body}>{block.text}</MathText>
           </View>
         ) : null;
       })}
@@ -107,7 +108,7 @@ function Section({ title, text }: { title: string; text?: string }) {
   return (
     <View style={styles.section}>
       <Text style={styles.sectionTitle}>{title}</Text>
-      <Text style={styles.body}>{text}</Text>
+      <MathText style={styles.body}>{text}</MathText>
     </View>
   );
 }
@@ -126,7 +127,7 @@ function Bullet({ text }: { text: string }) {
   return (
     <View style={styles.bulletRow}>
       <Text style={styles.bulletDot}>{'\u2022'}</Text>
-      <Text style={styles.body}>{text}</Text>
+      <MathText style={styles.body}>{text}</MathText>
     </View>
   );
 }
@@ -138,7 +139,7 @@ function VisualBlock({ visual }: { visual: TeachingNoteVisual }) {
         const maxValue = Math.max(...visual.data!.map((entry) => entry.value), 1);
         return (
           <View key={`${item.label}-${index}`} style={styles.barRow}>
-            <Text style={styles.barLabel}>{item.label}</Text>
+            <MathText style={styles.barLabel}>{item.label}</MathText>
             <View style={styles.barTrack}>
               <View style={[styles.barFill, { width: `${Math.max(8, (item.value / maxValue) * 100)}%` }]} />
             </View>
@@ -151,7 +152,7 @@ function VisualBlock({ visual }: { visual: TeachingNoteVisual }) {
 
   return (
     <View style={styles.visual}>
-      <Text style={styles.visualTitle}>{visual.title}</Text>
+      <MathText style={styles.visualTitle}>{visual.title}</MathText>
       {visual.imageUrl ? (
         <Image source={{ uri: visual.imageUrl }} style={styles.visualImage} resizeMode="contain" />
       ) : barChart ? (
@@ -161,7 +162,7 @@ function VisualBlock({ visual }: { visual: TeachingNoteVisual }) {
           {(visual.steps ?? visual.labels?.map((item) => item.label) ?? []).map((item, index) => (
             <View key={`${visual.id}-${index}`} style={styles.diagramStep}>
               <Text style={styles.diagramIndex}>{index + 1}</Text>
-              <Text style={styles.diagramText}>{item}</Text>
+              <MathText style={styles.diagramText}>{item}</MathText>
             </View>
           ))}
           {visual.rows?.length ? (
@@ -169,7 +170,7 @@ function VisualBlock({ visual }: { visual: TeachingNoteVisual }) {
               {visual.rows.map((row, rowIndex) => (
                 <View key={rowIndex} style={[styles.tableRow, rowIndex === 0 && styles.tableHead]}>
                   {row.map((cell, cellIndex) => (
-                    <Text key={cellIndex} style={styles.tableCell}>{cell}</Text>
+                    <MathText key={cellIndex} style={styles.tableCell}>{cell}</MathText>
                   ))}
                 </View>
               ))}
@@ -177,12 +178,12 @@ function VisualBlock({ visual }: { visual: TeachingNoteVisual }) {
           ) : null}
         </View>
       )}
-      {visual.caption ? <Text style={styles.caption}>{visual.caption}</Text> : null}
-      {visual.attribution ? <Text style={styles.attribution}>{visual.attribution}</Text> : null}
+      {visual.caption ? <MathText style={styles.caption}>{visual.caption}</MathText> : null}
+      {visual.attribution ? <MathText style={styles.attribution}>{visual.attribution}</MathText> : null}
       {visual.labels?.length && visual.imageUrl ? (
         <View style={styles.labelWrap}>
           {visual.labels.map((item) => (
-            <Text key={item.label} style={styles.labelPill}>{item.label}</Text>
+            <MathText key={item.label} style={styles.labelPill}>{item.label}</MathText>
           ))}
         </View>
       ) : null}

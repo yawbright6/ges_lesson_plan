@@ -6,6 +6,7 @@ import { Button } from '@/components/Button';
 import { CreditUsagePreview } from '@/components/CreditUsagePreview';
 import { Field } from '@/components/Field';
 import { GenerationProgress } from '@/components/GenerationProgress';
+import { MathText } from '@/components/MathText';
 import { SelectField } from '@/components/SelectField';
 import { useToast } from '@/components/ToastProvider';
 import { formatAiActionError, isInsufficientCreditsError, rewriteTestItems } from '@/lib/ai';
@@ -339,7 +340,7 @@ export default function TestItemCompilerScreen() {
                   </Pressable>
                   <View style={{ flex: 1 }}>
                     <Text style={styles.cardTitle}>Week {plan.week}{plan.lessonNumber ? ` - Lesson ${plan.lessonNumber}` : ''}</Text>
-                    <Text style={styles.cardSub}>{plan.topic || plan.strand || plan.subStrand || 'No topic'}</Text>
+                    <MathText style={styles.cardSub}>{plan.topic || plan.strand || plan.subStrand || 'No topic'}</MathText>
                     <Text style={styles.cardMeta}>
                       {disabled ? 'No assessment items found' : `${itemCount} assessment item${itemCount === 1 ? '' : 's'}`}
                     </Text>
@@ -459,20 +460,20 @@ export default function TestItemCompilerScreen() {
             </View>
             {rewrittenPaper.sections.map((section) => (
               <View key={section.id} style={styles.group}>
-                <Text style={styles.groupTitle}>{section.title}</Text>
+                <MathText style={styles.groupTitle}>{section.title}</MathText>
                 {section.questions.map((question) => (
-                  <Text key={question.id} style={styles.questionText}>
+                  <MathText key={question.id} style={styles.questionText}>
                     {question.id}. {question.text} [{question.marks}]
-                  </Text>
+                  </MathText>
                 ))}
               </View>
             ))}
             <View style={styles.group}>
-              <Text style={styles.groupTitle}>Answer Key</Text>
+              <MathText style={styles.groupTitle}>Answer Key</MathText>
               {rewrittenPaper.answerKey.map((item) => (
-                <Text key={item.questionId} style={styles.questionText}>
+                <MathText key={item.questionId} style={styles.questionText}>
                   {item.questionId}. {item.answer}
-                </Text>
+                </MathText>
               ))}
             </View>
           </AccordionSection>
@@ -585,14 +586,14 @@ function CompiledBank({ items, onRemoveItem }: { items: CompiledTestItem[]; onRe
     <View style={styles.bankList}>
       {groupCompiledItems(items).map((group) => (
         <View key={group.key} style={styles.group}>
-          <Text style={styles.groupTitle}>{group.title}</Text>
-          {group.topic ? <Text style={styles.cardMeta}>{group.topic}</Text> : null}
+          <MathText style={styles.groupTitle}>{group.title}</MathText>
+          {group.topic ? <MathText style={styles.cardMeta}>{group.topic}</MathText> : null}
           {group.items.map((item, index) => (
             <View key={item.id} style={styles.itemRow}>
               <Text style={styles.itemNumber}>{index + 1}</Text>
               <View style={{ flex: 1 }}>
-                <Text style={styles.questionText}>{item.question}</Text>
-                <Text style={styles.cardMeta}>{item.indicator || item.strand || item.subStrand || 'Source lesson item'}</Text>
+                <MathText style={styles.questionText}>{item.question}</MathText>
+                <MathText style={styles.cardMeta}>{item.indicator || item.strand || item.subStrand || 'Source lesson item'}</MathText>
               </View>
               <Pressable accessibilityRole="button" accessibilityLabel="Remove question" onPress={() => onRemoveItem(item.id)} style={styles.smallIconButton}>
                 <Ionicons name="close" size={16} color={colors.danger} />

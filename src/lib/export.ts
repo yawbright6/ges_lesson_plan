@@ -14,6 +14,7 @@ import type { LessonPlan } from '@/types/lessonPlan';
 import type { SchemeOfWork } from '@/types/scheme';
 import type { TeachingNoteVisual, TeachingNotes } from '@/types/teachingNotes';
 import type { CompiledTestCompilation, CompiledTestPaper } from '@/types/testItemCompiler';
+import { formatMathText } from './mathText';
 import { buildTestItemsHeading, buildTestItemsWeekLine } from './testItemCompiler';
 
 export async function exportLessonPlanPdf(plan: LessonPlan) {
@@ -749,8 +750,8 @@ function notesStyles() {
   `;
 }
 
-function escapeHtml(value: string) {
-  return value
+function escapeHtml(value: string | number | null | undefined) {
+  return formatMathText(value)
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;')

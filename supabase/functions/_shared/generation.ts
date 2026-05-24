@@ -441,7 +441,12 @@ Rules:
 - Multiple choice questions must include options A-D in the question text and the answer key must give the correct option and answer.
 - Format multiple choice options as separate lines in the question text using A., B., C., and D.
 - Fill-in questions should be short completion items with clear expected answers.
-- Essay type questions should use explain, discuss, describe, compare, justify, or evaluate prompts.
+- Essay type questions should use explain, discuss, describe, compare, justify, or evaluate prompts for theory-heavy subjects.
+- For Mathematics, "essay" means constructed-response problem-solving questions. Ask learners to calculate, simplify, solve,
+  prove by working, draw/interpret, or apply a method, and require clear working where appropriate. Do not turn Mathematics
+  essay questions into concept-description prompts unless the source item itself explicitly asks for an explanation.
+- For Mathematics, prefer precise notation such as \frac{3}{4}, \sqrt{18}, x^{2}, \vec{AB}, inequalities, equations,
+  tables, diagrams, and multi-step word problems that demand an answer with working.
 - Do not include any instruction about silent electronic calculators.
 - If workings are needed, use exactly this instruction: "All workings in Section B must be shown clearly."
 - Improve clarity and test-paper wording, but keep the same skill or knowledge demand as the source prompt.

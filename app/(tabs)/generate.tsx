@@ -20,11 +20,15 @@ import { PreviewActionButton, PreviewActions, PreviewHeader } from '@/components
 import { SelectField } from '@/components/SelectField';
 import ShareWithAdminModal from '@/components/ShareWithAdminModal';
 import { useToast } from '@/components/ToastProvider';
-import { formatAiActionError, generateLessonPlan, isInsufficientCreditsError, translateLessonPlan } from '@/lib/ai';
+import { formatAiActionError, isInsufficientCreditsError } from '@/lib/ai';
 import { defaultRuntimeSettings, loadRuntimeAppSettings } from '@/lib/appSettings';
 import { loadCreditBalance } from '@/lib/credits';
 import { exportLessonPlanPdf, exportLessonPlansPdf, shareLessonPlan, shareLessonPlans } from '@/lib/export';
-import { saveLessonPlan, saveLessonPlanBundle } from '@/lib/lessonStore';
+import {
+  buildGeneratedBundle,
+  generateAndSaveLessonPlans,
+  translateAndSaveLessonPlans,
+} from '@/lib/lessonGeneration';
 import { logAppError, reportClientError } from '@/lib/logger';
 import {
   CLASS_LEVEL_OPTIONS,
@@ -43,9 +47,8 @@ import {
 } from '@/lib/subjectPrefs';
 import { calculateWeekEnding, loadTermStartDate, saveTermStartDate } from '@/lib/termDates';
 import { loadLastSelectedTerm, saveLastSelectedTerm } from '@/lib/termPrefs';
-import { loadTeacherProfile } from '@/lib/teacherProfile';
 import { colors, radii, shadows, spacing, typography } from '@/theme/colors';
-import type { ClassLevel, LessonPlan, LessonPlanBundle } from '@/types/lessonPlan';
+import type { ClassLevel, LessonPlan } from '@/types/lessonPlan';
 import type { SchemeOfWork } from '@/types/scheme';
 
 type LessonSelection = number | 'all';
@@ -262,61 +265,24 @@ export default function GenerateScreen() {
         }
       }
 
-      const teacherProfile = await loadTeacherProfile();
-      const weekEnding = calculateWeekEnding(termStartDate, weekNum);
-      const classSize = teacherProfile.classSizes?.[classLevel]?.trim() ?? '';
-      const generated: LessonPlan[] = [];
-      const savedIds: string[] = [];
-      let bundleId: string | null = null;
+      const result = await generateAndSaveLessonPlans({
+        subject,
+        classLevel,
+        week: weekNum,
+        term,
+        termStartDate,
+        sessionsPerWeek,
+        selectedLessonNumbers,
+        sessionIndex,
+        notes,
+        selectedScheme,
+      });
 
-      for (const lessonNumber of selectedLessonNumbers) {
-        const result = await generateLessonPlan(
-          {
-            subject: subject.trim(),
-            classLevel,
-            week: weekNum,
-            term: term.trim() || undefined,
-            weekEnding: weekEnding || undefined,
-            duration: '60 mins',
-            sessionIndex: lessonNumber,
-            sessionsPerWeek,
-            notes: notes.trim() || undefined,
-            teacherName: teacherProfile.teacherName || undefined,
-            schoolName: teacherProfile.schoolName || undefined,
-            schoolDistrict: teacherProfile.schoolDistrict || undefined,
-            classSize,
-          },
-          selectedScheme,
-        );
-        const enrichedResult = {
-          ...result,
-          date: weekEnding || result.date,
-          duration: '60 mins',
-          classSize,
-          teacherName: teacherProfile.teacherName || undefined,
-          schoolName: teacherProfile.schoolName || undefined,
-          schoolDistrict: teacherProfile.schoolDistrict || undefined,
-        };
-        if (sessionIndex !== 'all') {
-          const saved = await saveLessonPlan(enrichedResult);
-          if (saved.id) savedIds.push(saved.id);
-          generated.push(saved);
-        } else {
-          generated.push(enrichedResult);
-        }
-      }
-
-      if (sessionIndex === 'all') {
-        const savedBundle = await saveLessonPlanBundle(generated);
-        bundleId = savedBundle.id ?? null;
-        generated.splice(0, generated.length, ...savedBundle.plans);
-      }
-
-      setSavedPlanIds(savedIds);
-      setSavedBundleId(bundleId);
-      setGeneratedPlans(generated);
+      setSavedPlanIds(result.savedPlanIds);
+      setSavedBundleId(result.savedBundleId);
+      setGeneratedPlans(result.plans);
       loadCreditBalance().then(setCreditBalance).catch(() => undefined);
-      const usedFallback = generated.some(
+      const usedFallback = result.plans.some(
         (result) =>
           typeof result.references === 'string' &&
           result.references.toLowerCase().includes('fallback template'),
@@ -324,7 +290,7 @@ export default function GenerateScreen() {
       showToast({
         message:
           sessionIndex === 'all'
-            ? `${generated.length} lesson plans generated for the week.`
+            ? `${result.plans.length} lesson plans generated for the week.`
             : usedFallback
               ? 'Lesson plan generated from fallback template.'
               : 'Lesson plan generated successfully.',
@@ -375,21 +341,10 @@ export default function GenerateScreen() {
       }
       setPreviewTranslating(true);
       try {
-        if (singlePlan) {
-          const translated = await translateLessonPlan(singlePlan, previewLocalLanguage);
-          const saved = await saveLessonPlan(translated);
-          setGeneratedPlans([saved]);
-          setSavedPlanIds(saved.id ? [saved.id] : []);
-          setSavedBundleId(null);
-        } else {
-          const translatedPlans = await Promise.all(
-            generatedPlans.map((plan) => translateLessonPlan(plan, previewLocalLanguage)),
-          );
-          const savedBundle = await saveLessonPlanBundle(translatedPlans);
-          setGeneratedPlans(savedBundle.plans);
-          setSavedPlanIds([]);
-          setSavedBundleId(savedBundle.id ?? null);
-        }
+        const result = await translateAndSaveLessonPlans(generatedPlans, previewLocalLanguage);
+        setGeneratedPlans(result.plans);
+        setSavedPlanIds(result.savedPlanIds);
+        setSavedBundleId(result.savedBundleId);
         showToast({ message: 'Translated lesson plan saved.' });
       } catch (err) {
         reportClientError('lesson_preview_translate_generated', err, {
@@ -856,29 +811,4 @@ function formatCredits(value: number) {
 
 function isGhanaianLanguageSubject(subject?: string) {
   return subject?.trim().toLowerCase() === 'ghanaian language';
-}
-
-function buildGeneratedBundle(plans: LessonPlan[], savedBundleId: string | null): LessonPlanBundle {
-  const first = plans[0];
-  const subject = first?.subject ?? 'Lesson';
-  const classLevel = first?.classLevel ?? 'B7';
-  const week = first?.week ?? 1;
-  const termTitle = first?.termTitle ?? '';
-  const createdAt = first?.createdAt ?? new Date().toISOString();
-  const lessonCount = plans.length;
-
-  return {
-    kind: 'bundle',
-    id: savedBundleId ?? `generated-week-plan-${subject}-${classLevel}-${week}-${createdAt}`,
-    title: `${subject} ${classLevel} Week ${week} (${lessonCount} lessons)`,
-    subject,
-    classLevel,
-    termTitle,
-    week,
-    weekTitle: first?.weekTitle ?? `WEEK ${week}`,
-    lessonCount,
-    plans,
-    createdAt,
-    updatedAt: new Date().toISOString(),
-  };
 }

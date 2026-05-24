@@ -1,4 +1,6 @@
 import { Image, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { MathText } from '@/components/MathText';
+import { formatMathText } from '@/lib/mathText';
 import { colors } from '@/theme/colors';
 import type { LessonPlan, LessonPhase, LessonVisualAid, LocalLanguageSupport } from '@/types/lessonPlan';
 
@@ -151,10 +153,10 @@ function LessonPlanContent({ plan }: Props) {
 
       {hasTeacherDetails(plan) ? (
         <View style={[styles.teacherDetails, styles.mt8]}>
-          {plan.teacherName ? <Text style={styles.teacherText}>Teacher: {plan.teacherName}</Text> : null}
-          {plan.schoolName ? <Text style={styles.teacherText}>School: {plan.schoolName}</Text> : null}
+          {plan.teacherName ? <MathText style={styles.teacherText}>Teacher: {plan.teacherName}</MathText> : null}
+          {plan.schoolName ? <MathText style={styles.teacherText}>School: {plan.schoolName}</MathText> : null}
           {plan.schoolDistrict ? (
-            <Text style={styles.teacherText}>District: {plan.schoolDistrict}</Text>
+            <MathText style={styles.teacherText}>District: {plan.schoolDistrict}</MathText>
           ) : null}
         </View>
       ) : null}
@@ -175,10 +177,10 @@ function LocalLanguageBlock({ support }: { support: LocalLanguageSupport }) {
   return (
     <View style={styles.localLanguageBlock}>
       <Text style={styles.visualLabel}>Local Language Support</Text>
-      <Text style={styles.visualTitle}>{support.language}</Text>
-      <Text style={styles.localReview}>
+      <MathText style={styles.visualTitle}>{support.language}</MathText>
+      <MathText style={styles.localReview}>
         {support.reviewNote || 'AI-assisted draft. Teacher should review before classroom use.'}
-      </Text>
+      </MathText>
       <TranslationGroup title="Key Vocabulary" items={support.vocabulary} showPronunciation />
       <TranslationGroup title="Classroom Expressions" items={support.classroomExpressions} />
       <TranslationGroup title="Activity Prompts" items={support.activityPrompts} />
@@ -202,11 +204,11 @@ function TranslationGroup({
       <Text style={styles.translationGroupTitle}>{title}</Text>
       {items.map((item, index) => (
         <View key={`${title}-${item.english}-${index}`} style={styles.translationRow}>
-          <Text style={styles.translationEnglish}>{item.english}</Text>
+          <MathText style={styles.translationEnglish}>{item.english}</MathText>
           <View style={styles.translationLocalWrap}>
-            <Text style={styles.translationLocal}>{item.local}</Text>
+            <MathText style={styles.translationLocal}>{item.local}</MathText>
             {showPronunciation && item.pronunciation ? (
-              <Text style={styles.translationPronunciation}>{item.pronunciation}</Text>
+              <MathText style={styles.translationPronunciation}>{item.pronunciation}</MathText>
             ) : null}
           </View>
         </View>
@@ -219,11 +221,11 @@ function VisualAidBlock({ visualAid }: { visualAid: LessonVisualAid }) {
   return (
     <View style={styles.visualBlock}>
       <Text style={styles.visualLabel}>Visual Aid{visualAid.phase ? ` - Phase ${visualAid.phase}` : ''}</Text>
-      <Text style={styles.visualTitle}>{visualAid.title}</Text>
-      {visualAid.purpose ? <Text style={styles.visualPurpose}>{visualAid.purpose}</Text> : null}
-      {visualAid.activityLink ? <Text style={styles.visualActivity}>{visualAid.activityLink}</Text> : null}
+      <MathText style={styles.visualTitle}>{visualAid.title}</MathText>
+      {visualAid.purpose ? <MathText style={styles.visualPurpose}>{visualAid.purpose}</MathText> : null}
+      {visualAid.activityLink ? <MathText style={styles.visualActivity}>{visualAid.activityLink}</MathText> : null}
       <VisualAidFigure visualAid={visualAid} />
-      {visualAid.caption ? <Text style={styles.visualCaption}>{visualAid.caption}</Text> : null}
+      {visualAid.caption ? <MathText style={styles.visualCaption}>{visualAid.caption}</MathText> : null}
     </View>
   );
 }
@@ -238,7 +240,7 @@ function VisualAidFigure({ visualAid }: { visualAid: LessonVisualAid }) {
   }
 
   if (visualAid.status === 'failed') {
-    return <Text style={styles.visualError}>{visualAid.error || 'Diagram could not be generated.'}</Text>;
+    return <MathText style={styles.visualError}>{visualAid.error || 'Diagram could not be generated.'}</MathText>;
   }
 
   if (visualAid.type === 'bar_chart' && visualAid.data?.length) {
@@ -247,7 +249,7 @@ function VisualAidFigure({ visualAid }: { visualAid: LessonVisualAid }) {
       <View style={styles.chart}>
         {visualAid.data.slice(0, 5).map((item, index) => (
           <View key={`${item.label}-${index}`} style={styles.barRow}>
-            <Text style={styles.barLabel}>{item.label}</Text>
+            <MathText style={styles.barLabel}>{item.label}</MathText>
             <View style={styles.barTrack}>
               <View style={[styles.barFill, { width: `${Math.max(8, (item.value / maxValue) * 100)}%` }]} />
             </View>
@@ -264,7 +266,7 @@ function VisualAidFigure({ visualAid }: { visualAid: LessonVisualAid }) {
         {visualAid.steps.slice(0, 6).map((step, index) => (
           <View key={`${step}-${index}`} style={styles.stepItem}>
             <Text style={styles.stepIndex}>{index + 1}</Text>
-            <Text style={styles.stepText}>{step}</Text>
+            <MathText style={styles.stepText}>{step}</MathText>
           </View>
         ))}
       </View>
@@ -276,8 +278,8 @@ function VisualAidFigure({ visualAid }: { visualAid: LessonVisualAid }) {
       <View style={styles.visualTable}>
         {visualAid.rows.slice(0, 5).map((row, index) => (
           <View key={`${row.label}-${index}`} style={[styles.visualTableRow, index % 2 === 1 && styles.infoRowAlt]}>
-            <Text style={styles.visualTableLabel}>{row.label}</Text>
-            <Text style={styles.visualTableValue}>{row.value}</Text>
+            <MathText style={styles.visualTableLabel}>{row.label}</MathText>
+            <MathText style={styles.visualTableValue}>{row.value}</MathText>
           </View>
         ))}
       </View>
@@ -288,7 +290,7 @@ function VisualAidFigure({ visualAid }: { visualAid: LessonVisualAid }) {
   return (
     <View style={styles.labelGrid}>
       {labels?.slice(0, 6).map((label, index) => (
-        <Text key={`${label}-${index}`} style={styles.labelChip}>{label}</Text>
+        <MathText key={`${label}-${index}`} style={styles.labelChip}>{label}</MathText>
       ))}
     </View>
   );
@@ -307,10 +309,10 @@ function InfoCell({
 function InlineCellText({ label, value }: { label: string; value?: string | number | null }) {
   const separator = label.trim().endsWith(':') ? ' ' : ': ';
   return (
-    <Text style={styles.cellBody}>
-      <Text style={styles.cellLabel}>{label}{separator}</Text>
-      {value ?? ''}
-    </Text>
+      <Text style={styles.cellBody}>
+        <Text style={styles.cellLabel}>{label}{separator}</Text>
+        {formatMathText(value)}
+      </Text>
   );
 }
 
@@ -320,23 +322,23 @@ function PhaseRow({ phase, alt, visualAids }: { phase: LessonPhase; alt: boolean
       {/* Phase / Duration column */}
       <View style={[styles.cellWrap, { flex: 0.45 }]}>
         <Text style={styles.phaseLabel}>PHASE {phase.phase}:</Text>
-        <Text style={styles.phaseTitle}>{phase.title}</Text>
+        <MathText style={styles.phaseTitle}>{phase.title}</MathText>
         {phase.duration ? (
-          <Text style={styles.phaseDuration}>{phase.duration}</Text>
+          <MathText style={styles.phaseDuration}>{phase.duration}</MathText>
         ) : null}
       </View>
 
       {/* Learners Activities column */}
       <View style={[styles.cellWrap, { flex: 2.8 }]}>
         {phase.activities.map((act, i) => (
-          <Text key={i} style={styles.activityText}>{act}</Text>
+          <MathText key={i} style={styles.activityText}>{act}</MathText>
         ))}
         {/* Assessment embedded in Phase 2 */}
         {phase.assessment?.length ? (
           <View style={styles.assessmentBlock}>
             <Text style={styles.assessmentTitle}>Assessment</Text>
             {phase.assessment.map((q, i) => (
-              <Text key={i} style={styles.assessmentQ}>{`${i + 1}. ${q}`}</Text>
+              <MathText key={i} style={styles.assessmentQ}>{`${i + 1}. ${q}`}</MathText>
             ))}
           </View>
         ) : null}
@@ -348,7 +350,7 @@ function PhaseRow({ phase, alt, visualAids }: { phase: LessonPhase; alt: boolean
       {/* Resources column */}
       <View style={[styles.cellWrap, { flex: 0.45 }, styles.lastCell]}>
         {phase.resources?.map((r, i) => (
-          <Text key={i} style={styles.resourceText}>{r}</Text>
+          <MathText key={i} style={styles.resourceText}>{r}</MathText>
         ))}
       </View>
     </View>
