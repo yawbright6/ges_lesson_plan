@@ -247,6 +247,8 @@ Rules:
 - When no scheme context is provided, infer the weekly focus from the NaCCA curriculum and the term position:
   Term 1 = beginning of the curriculum sequence, Term 2 = middle sequence, Term 3 = later/end sequence.
 - Use Ghanaian English spelling.
+- Write the lesson plan in English during normal lesson generation. For Ghanaian Language lessons, write an English lesson plan about teaching the selected Ghanaian-language content; do not translate the whole lesson into Twi, Akan, Ewe, Hausa, Ga, Dagbani, or any other local language unless the separate translation endpoint is explicitly called.
+- Do not include translationLanguage, translatedFrom, translationStatus, or localLanguageSupport in normal lesson generation.
 - Use culturally relevant Ghanaian examples.
 - Make activities age-appropriate.
 - Phase 2 must include exactly 3 assessment questions.
@@ -775,56 +777,67 @@ export function normalizeLessonPlanResponse(
   payload: Record<string, unknown>,
   body: LessonGenerationBody,
 ) {
+  const {
+    localLanguageSupport: _localLanguageSupport,
+    translationLanguage: _translationLanguage,
+    translatedFrom: _translatedFrom,
+    translationStatus: _translationStatus,
+    ...lessonPayload
+  } = payload;
   const selectedWeek = body?.schemeContext?.selectedWeek;
   const primaryEntry =
     Array.isArray(selectedWeek?.entries) && selectedWeek.entries.length
       ? selectedWeek.entries[0]
       : null;
   const termLabel = cleanText(body?.term) || cleanText(body?.schemeContext?.term) || 'Term';
-  const subject = cleanText(payload?.subject) || cleanText(body?.subject);
-  const classLevel = cleanText(payload?.classLevel) || cleanText(body?.classLevel);
+  const subject = cleanText(lessonPayload?.subject) || cleanText(body?.subject);
+  const classLevel = cleanText(lessonPayload?.classLevel) || cleanText(body?.classLevel);
   const sessionIndex = Number(body?.sessionIndex) || undefined;
   const sessionsPerWeek = Number(body?.sessionsPerWeek) || undefined;
 
   return {
-    ...payload,
+    ...lessonPayload,
     subject,
     classLevel,
-    week: Number(payload?.week) || Number(body?.week) || 1,
-    weekTitle: cleanText(payload?.weekTitle) || `WEEK ${Number(body?.week) || 1}`,
-    date: cleanText(payload?.date) || cleanText(body?.weekEnding),
-    duration: cleanText(body?.duration) || cleanText(payload?.duration) || '60 mins',
-    classSize: cleanText(body?.classSize) || cleanText(payload?.classSize),
+    week: Number(lessonPayload?.week) || Number(body?.week) || 1,
+    weekTitle: cleanText(lessonPayload?.weekTitle) || `WEEK ${Number(body?.week) || 1}`,
+    date: cleanText(lessonPayload?.date) || cleanText(body?.weekEnding),
+    duration: cleanText(body?.duration) || cleanText(lessonPayload?.duration) || '60 mins',
+    classSize: cleanText(body?.classSize) || cleanText(lessonPayload?.classSize),
     termTitle:
-      cleanText(payload?.termTitle) ||
+      cleanText(lessonPayload?.termTitle) ||
       `${termLabel.toUpperCase()} LESSON PLAN`,
     subjectClassTitle:
-      cleanText(payload?.subjectClassTitle) ||
+      cleanText(lessonPayload?.subjectClassTitle) ||
       `${subject.toUpperCase()} - ${classLevel.toUpperCase()}`,
     lessonNumber:
-      cleanText(payload?.lessonNumber) ||
+      cleanText(lessonPayload?.lessonNumber) ||
       (sessionIndex && sessionsPerWeek ? `${sessionIndex} of ${sessionsPerWeek}` : ''),
     sessionIndex,
     sessionsPerWeek,
-    strand: selectedWeek?.strand || cleanText(primaryEntry?.strand) || cleanText(payload?.strand),
+    strand: selectedWeek?.strand || cleanText(primaryEntry?.strand) || cleanText(lessonPayload?.strand),
     subStrand:
-      selectedWeek?.subStrand || cleanText(primaryEntry?.subStrand) || cleanText(payload?.subStrand),
-    topic: selectedWeek?.topic || cleanText(primaryEntry?.topic) || cleanText(payload?.topic),
+      selectedWeek?.subStrand || cleanText(primaryEntry?.subStrand) || cleanText(lessonPayload?.subStrand),
+    topic: selectedWeek?.topic || cleanText(primaryEntry?.topic) || cleanText(lessonPayload?.topic),
     contentStandard:
       selectedWeek?.contentStandard ||
       cleanText(primaryEntry?.contentStandard) ||
-      cleanText(payload?.contentStandard),
+      cleanText(lessonPayload?.contentStandard),
     indicator:
-      selectedWeek?.indicator || cleanText(primaryEntry?.indicator) || cleanText(payload?.indicator),
+      selectedWeek?.indicator || cleanText(primaryEntry?.indicator) || cleanText(lessonPayload?.indicator),
     references:
-      cleanText(payload?.references) ||
+      cleanText(lessonPayload?.references) ||
       (selectedWeek?.topic ? `Scheme topic: ${selectedWeek.topic}` : ''),
     visualAids: body.structuredVisualsEnabled === false
       ? []
-      : normalizeVisualAids(payload?.visualAids, body.visualGenerationEnabled !== false),
+      : normalizeVisualAids(lessonPayload?.visualAids, body.visualGenerationEnabled !== false),
     teacherName: cleanText(body?.teacherName),
     schoolName: cleanText(body?.schoolName),
     schoolDistrict: cleanText(body?.schoolDistrict),
+    localLanguageSupport: undefined,
+    translationLanguage: undefined,
+    translatedFrom: undefined,
+    translationStatus: undefined,
   };
 }
 
