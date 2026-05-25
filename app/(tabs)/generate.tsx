@@ -40,6 +40,7 @@ import {
   TERM_OPTIONS,
   LOCAL_LANGUAGE_OPTIONS,
 } from '@/lib/options';
+import { DEFAULT_PDF_ACTIVITY_FONT_SIZE, PDF_ACTIVITY_FONT_SIZE_OPTIONS } from '@/lib/pdfOptions';
 import { findMatchingScheme, loadMatchingSchemes } from '@/lib/schemeStore';
 import {
   getLessonsPerWeekForSubject,
@@ -76,6 +77,7 @@ export default function GenerateScreen() {
   const [shareModalOpen, setShareModalOpen] = useState(false);
   const [previewLocalLanguage, setPreviewLocalLanguage] = useState('');
   const [previewTranslating, setPreviewTranslating] = useState(false);
+  const [pdfActivityFontSize, setPdfActivityFontSize] = useState(DEFAULT_PDF_ACTIVITY_FONT_SIZE);
 
   const subjectOptions = useMemo(
     () => getSubjectOptionsForClassLevel(classLevel),
@@ -322,16 +324,16 @@ export default function GenerateScreen() {
     const canTranslatePreview = generatedPlans.every((plan) => isGhanaianLanguageSubject(plan.subject));
     const shareGeneratedPlans = () => {
       if (singlePlan) {
-        shareLessonPlan(singlePlan);
+        shareLessonPlan(singlePlan, { activityFontSize: Number(pdfActivityFontSize) });
       } else {
-        shareLessonPlans(generatedPlans);
+        shareLessonPlans(generatedPlans, { activityFontSize: Number(pdfActivityFontSize) });
       }
     };
     const saveGeneratedPlansAsPdf = () => {
       if (singlePlan) {
-        exportLessonPlanPdf(singlePlan);
+        exportLessonPlanPdf(singlePlan, { activityFontSize: Number(pdfActivityFontSize) });
       } else {
-        exportLessonPlansPdf(generatedPlans);
+        exportLessonPlansPdf(generatedPlans, { activityFontSize: Number(pdfActivityFontSize) });
       }
     };
     const translateGeneratedPlans = async () => {
@@ -366,6 +368,7 @@ export default function GenerateScreen() {
             setSavedBundleId(null);
             setShareModalOpen(false);
             setPreviewLocalLanguage('');
+            setPdfActivityFontSize(DEFAULT_PDF_ACTIVITY_FONT_SIZE);
           }}
           onShare={shareGeneratedPlans}
         />
@@ -381,6 +384,15 @@ export default function GenerateScreen() {
             />
           </View>
         ) : null}
+        <View style={styles.pdfOptions}>
+          <SelectField
+            label="PDF activity font size"
+            value={pdfActivityFontSize}
+            options={PDF_ACTIVITY_FONT_SIZE_OPTIONS}
+            onChange={setPdfActivityFontSize}
+            compact
+          />
+        </View>
         <PreviewActions>
           {canTranslatePreview ? (
             <PreviewActionButton
@@ -625,6 +637,14 @@ const styles = StyleSheet.create({
   previewContainer: { flex: 1, backgroundColor: colors.bg },
   translatePanel: {
     padding: spacing[5],
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+    backgroundColor: colors.surface,
+  },
+  pdfOptions: {
+    paddingHorizontal: spacing[5],
+    paddingTop: spacing[4],
+    paddingBottom: spacing[2],
     borderTopWidth: 1,
     borderTopColor: colors.border,
     backgroundColor: colors.surface,

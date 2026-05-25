@@ -31,7 +31,7 @@ export async function shareLessonPlan(plan: LessonPlan, options?: { activityFont
   await exportLessonPlanPdf(plan, options);
 }
 
-export async function shareLessonPlans(plans: LessonPlan[]) {
+export async function shareLessonPlans(plans: LessonPlan[], options?: { activityFontSize?: number }) {
   if (!plans.length) return;
   const first = plans[0];
   if (Platform.OS === 'web') {
@@ -40,7 +40,7 @@ export async function shareLessonPlans(plans: LessonPlan[]) {
     );
     return;
   }
-  await exportLessonPlansPdf(plans);
+  await exportLessonPlansPdf(plans, options);
 }
 
 export async function shareScheme(scheme: SchemeOfWork) {

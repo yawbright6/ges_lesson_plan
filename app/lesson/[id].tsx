@@ -15,16 +15,9 @@ import { reportClientError } from '@/lib/logger';
 import { goBackOrReplace } from '@/lib/navigation';
 import { getShareForLesson } from '@/lib/shareStore';
 import { LOCAL_LANGUAGE_OPTIONS } from '@/lib/options';
+import { DEFAULT_PDF_ACTIVITY_FONT_SIZE, PDF_ACTIVITY_FONT_SIZE_OPTIONS } from '@/lib/pdfOptions';
 import { colors } from '@/theme/colors';
 import type { LessonPlan, LessonShare } from '@/types/lessonPlan';
-
-const PDF_FONT_SIZE_OPTIONS = [
-  { label: 'Small (11pt)', value: '11' },
-  { label: 'Medium (13pt)', value: '13' },
-  { label: 'Large (16pt) – default', value: '16' },
-  { label: 'X-Large (18pt)', value: '18' },
-  { label: 'XX-Large (20pt)', value: '20' },
-];
 
 export default function LessonDetailScreen() {
   const { showToast } = useToast();
@@ -34,7 +27,7 @@ export default function LessonDetailScreen() {
   const [shareModalOpen, setShareModalOpen] = useState(false);
   const [localLanguage, setLocalLanguage] = useState('');
   const [translating, setTranslating] = useState(false);
-  const [pdfActivityFontSize, setPdfActivityFontSize] = useState('16');
+  const [pdfActivityFontSize, setPdfActivityFontSize] = useState(DEFAULT_PDF_ACTIVITY_FONT_SIZE);
 
   useEffect(() => {
     async function load() {
@@ -107,7 +100,7 @@ export default function LessonDetailScreen() {
         <SelectField
           label="PDF activity font size"
           value={pdfActivityFontSize}
-          options={PDF_FONT_SIZE_OPTIONS}
+          options={PDF_ACTIVITY_FONT_SIZE_OPTIONS}
           onChange={setPdfActivityFontSize}
           compact
         />

@@ -14,6 +14,7 @@ import { getLessonPlanBundleById, getLessonPlanById, saveLessonPlanBundle } from
 import { reportClientError } from '@/lib/logger';
 import { goBackOrReplace } from '@/lib/navigation';
 import { LOCAL_LANGUAGE_OPTIONS } from '@/lib/options';
+import { DEFAULT_PDF_ACTIVITY_FONT_SIZE, PDF_ACTIVITY_FONT_SIZE_OPTIONS } from '@/lib/pdfOptions';
 import { getShareForLesson } from '@/lib/shareStore';
 import { colors } from '@/theme/colors';
 import type { LessonPlan, LessonPlanBundle, LessonShare } from '@/types/lessonPlan';
@@ -27,6 +28,7 @@ export default function LessonWeekDetailScreen() {
   const [shareModalOpen, setShareModalOpen] = useState(false);
   const [localLanguage, setLocalLanguage] = useState('');
   const [translating, setTranslating] = useState(false);
+  const [pdfActivityFontSize, setPdfActivityFontSize] = useState(DEFAULT_PDF_ACTIVITY_FONT_SIZE);
   const lessonIds = useMemo(
     () => (ids ?? '').split(',').map((id) => id.trim()).filter(Boolean),
     [ids],
@@ -100,7 +102,7 @@ export default function LessonWeekDetailScreen() {
         subtitle={shareBundle.editedAt ? 'Edited' : undefined}
         onBack={() => goBackOrReplace()}
         onEdit={bundleId ? () => router.push(`/(tabs)/lesson/week/edit?bundleId=${encodeURIComponent(bundleId)}`) : undefined}
-        onShare={() => shareLessonPlans(plans)}
+        onShare={() => shareLessonPlans(plans, { activityFontSize: Number(pdfActivityFontSize) })}
       />
       <LessonPlanStack plans={plans} />
       {share ? <ShareFeedbackDisplay share={share} /> : null}
@@ -115,6 +117,15 @@ export default function LessonWeekDetailScreen() {
             />
         </View>
       ) : null}
+      <View style={styles.pdfOptions}>
+        <SelectField
+          label="PDF activity font size"
+          value={pdfActivityFontSize}
+          options={PDF_ACTIVITY_FONT_SIZE_OPTIONS}
+          onChange={setPdfActivityFontSize}
+          compact
+        />
+      </View>
       <PreviewActions>
         {canTranslate ? (
           <PreviewActionButton
@@ -159,7 +170,7 @@ export default function LessonWeekDetailScreen() {
           span={canTranslate ? 'half' : 'full'}
           onPress={() => setShareModalOpen(true)}
         />
-        <PreviewActionButton title="PDF" icon="document-text-outline" onPress={() => exportLessonPlansPdf(plans)} />
+        <PreviewActionButton title="PDF" icon="document-text-outline" onPress={() => exportLessonPlansPdf(plans, { activityFontSize: Number(pdfActivityFontSize) })} />
         <PreviewActionButton
           title="Teaching Notes"
           variant="secondary"
@@ -221,6 +232,14 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.bg },
   translatePanel: {
     padding: 16,
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+    backgroundColor: colors.surface,
+  },
+  pdfOptions: {
+    paddingHorizontal: 16,
+    paddingTop: 10,
+    paddingBottom: 4,
     borderTopWidth: 1,
     borderTopColor: colors.border,
     backgroundColor: colors.surface,
