@@ -18,6 +18,14 @@ import { LOCAL_LANGUAGE_OPTIONS } from '@/lib/options';
 import { colors } from '@/theme/colors';
 import type { LessonPlan, LessonShare } from '@/types/lessonPlan';
 
+const PDF_FONT_SIZE_OPTIONS = [
+  { label: 'Small (11pt)', value: '11' },
+  { label: 'Medium (13pt)', value: '13' },
+  { label: 'Large (16pt) – default', value: '16' },
+  { label: 'X-Large (18pt)', value: '18' },
+  { label: 'XX-Large (20pt)', value: '20' },
+];
+
 export default function LessonDetailScreen() {
   const { showToast } = useToast();
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -26,6 +34,7 @@ export default function LessonDetailScreen() {
   const [shareModalOpen, setShareModalOpen] = useState(false);
   const [localLanguage, setLocalLanguage] = useState('');
   const [translating, setTranslating] = useState(false);
+  const [pdfActivityFontSize, setPdfActivityFontSize] = useState('16');
 
   useEffect(() => {
     async function load() {
@@ -94,6 +103,15 @@ export default function LessonDetailScreen() {
             />
         </View>
       ) : null}
+      <View style={styles.pdfOptions}>
+        <SelectField
+          label="PDF activity font size"
+          value={pdfActivityFontSize}
+          options={PDF_FONT_SIZE_OPTIONS}
+          onChange={setPdfActivityFontSize}
+          compact
+        />
+      </View>
       <PreviewActions>
         {canTranslate ? (
           <PreviewActionButton
@@ -131,7 +149,7 @@ export default function LessonDetailScreen() {
           span={canTranslate ? 'half' : 'full'}
           onPress={() => setShareModalOpen(true)} 
         />
-        <PreviewActionButton title="PDF" icon="document-text-outline" onPress={() => exportLessonPlanPdf(plan)} />
+        <PreviewActionButton title="PDF" icon="document-text-outline" onPress={() => exportLessonPlanPdf(plan, { activityFontSize: Number(pdfActivityFontSize) })} />
         <PreviewActionButton title="Teaching Notes" icon="reader-outline" variant="secondary" onPress={() => router.push(`/tools/teaching-notes?lessonPlanId=${encodeURIComponent(plan.id ?? '')}`)} />
       </PreviewActions>
       
@@ -179,6 +197,14 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.bg },
   translatePanel: {
     padding: 16,
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+    backgroundColor: colors.surface,
+  },
+  pdfOptions: {
+    paddingHorizontal: 16,
+    paddingTop: 10,
+    paddingBottom: 4,
     borderTopWidth: 1,
     borderTopColor: colors.border,
     backgroundColor: colors.surface,

@@ -17,8 +17,8 @@ import type { CompiledTestCompilation, CompiledTestPaper } from '@/types/testIte
 import { formatMathText } from './mathText';
 import { buildTestItemsHeading, buildTestItemsWeekLine } from './testItemCompiler';
 
-export async function exportLessonPlanPdf(plan: LessonPlan) {
-  const html = pageHtml(buildLessonPlanContent(plan), 'lesson');
+export async function exportLessonPlanPdf(plan: LessonPlan, options?: { activityFontSize?: number }) {
+  const html = pageHtml(buildLessonPlanContent(plan), 'lesson', options);
   const fileName = `${slugify(plan.subject)}-${plan.classLevel}-week-${plan.week}.pdf`;
   await exportHtmlAsPdf(html, fileName);
 }
@@ -51,13 +51,14 @@ export async function shareScheme(scheme: SchemeOfWork) {
   await exportSchemePdf(scheme);
 }
 
-export async function exportLessonPlansPdf(plans: LessonPlan[]) {
+export async function exportLessonPlansPdf(plans: LessonPlan[], options?: { activityFontSize?: number }) {
   if (!plans.length) return;
   const html = pageHtml(
     plans
       .map((plan, index) => `<section class="lesson-page${index > 0 ? ' page-break' : ''}">${buildLessonPlanContent(plan)}</section>`)
       .join(''),
     'lesson',
+    options,
   );
   const first = plans[0];
   const fileName = `${slugify(first.subject)}-${first.classLevel}-week-${first.week}-all-lessons.pdf`;
@@ -690,7 +691,7 @@ function buildBarChartHtml(data: Array<{ label: string; value: number }>) {
     .join('')}</div>`;
 }
 
-function pageHtml(content: string, documentType: 'lesson' | 'scheme' | 'notes' | 'test') {
+function pageHtml(content: string, documentType: 'lesson' | 'scheme' | 'notes' | 'test', options?: { activityFontSize?: number }) {
   const lessonStyles =
     documentType === 'lesson'
       ? `
@@ -709,7 +710,7 @@ function pageHtml(content: string, documentType: 'lesson' | 'scheme' | 'notes' |
         .phase-cell strong { font-size: 10px; }
         .phase-cell span { font-size: 11px; }
         .phase-cell small { font-size: 10px; }
-        .activity-cell { font-size: 16px; }
+        .activity-cell { font-size: ${options?.activityFontSize ?? 16}px; }
         .activity-cell div { margin-bottom: 6px; line-height: 1.24; }
         .resource-cell { font-size: 13px; line-height: 1.2; }
         .assessment { margin-top: 5px; padding-top: 5px; border-top-color: #e2e2dc; }
