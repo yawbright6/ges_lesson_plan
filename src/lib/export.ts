@@ -23,12 +23,12 @@ export async function exportLessonPlanPdf(plan: LessonPlan, options?: { activity
   await exportHtmlAsPdf(html, fileName);
 }
 
-export async function shareLessonPlan(plan: LessonPlan) {
+export async function shareLessonPlan(plan: LessonPlan, options?: { activityFontSize?: number }) {
   if (Platform.OS === 'web') {
     await shareText(`Lesson plan: ${plan.subject} ${plan.classLevel} Week ${plan.week}`);
     return;
   }
-  await exportLessonPlanPdf(plan);
+  await exportLessonPlanPdf(plan, options);
 }
 
 export async function shareLessonPlans(plans: LessonPlan[]) {

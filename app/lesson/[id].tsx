@@ -70,7 +70,7 @@ export default function LessonDetailScreen() {
         subtitle={plan.editedAt ? 'Edited' : undefined}
         onBack={() => goBackOrReplace()}
         onEdit={() => router.push(`/lesson/edit/${encodeURIComponent(plan.id ?? '')}`)}
-        onShare={() => shareLessonPlan(plan)}
+        onShare={() => shareLessonPlan(plan, { activityFontSize: Number(pdfActivityFontSize) })}
         onDelete={async () => {
           const confirmed = await confirmRemoval(
             'Delete lesson plan',
