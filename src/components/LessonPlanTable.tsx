@@ -260,7 +260,23 @@ function VisualAidFigure({ visualAid }: { visualAid: LessonVisualAid }) {
     );
   }
 
-  if ((visualAid.type === 'flowchart' || visualAid.type === 'timeline') && visualAid.steps?.length) {
+  if (visualAid.type === 'line_graph' && visualAid.data?.length) {
+    const maxValue = Math.max(...visualAid.data.map((item) => item.value), 1);
+    return (
+      <View style={styles.lineGraph}>
+        {visualAid.data.slice(0, 6).map((item, index) => (
+          <View key={`${item.label}-${index}`} style={styles.linePointColumn}>
+            <View style={styles.linePointTrack}>
+              <View style={[styles.linePoint, { bottom: `${Math.max(4, (item.value / maxValue) * 86)}%` }]} />
+            </View>
+            <MathText style={styles.linePointLabel}>{item.label}</MathText>
+          </View>
+        ))}
+      </View>
+    );
+  }
+
+  if (visualAid.type === 'timeline' && visualAid.steps?.length) {
     return (
       <View style={styles.stepList}>
         {visualAid.steps.slice(0, 6).map((step, index) => (
@@ -286,6 +302,41 @@ function VisualAidFigure({ visualAid }: { visualAid: LessonVisualAid }) {
     );
   }
 
+  if (isMatrixTableVisual(visualAid) && (visualAid.cells?.length || visualAid.rows?.length)) {
+    return <VisualMatrixTable visualAid={visualAid} />;
+  }
+
+  if (visualAid.type === 'number_line') {
+    return <NumberLineVisual visualAid={visualAid} />;
+  }
+
+  if (visualAid.type === 'coordinate_grid') {
+    return <CoordinateGridVisual visualAid={visualAid} />;
+  }
+
+  if (visualAid.type === 'geometry_shape' || visualAid.type === 'angle_diagram') {
+    return <ShapeVisual visualAid={visualAid} />;
+  }
+
+  if (visualAid.type === 'fraction_model') {
+    return <FractionModelVisual visualAid={visualAid} />;
+  }
+
+  if (visualAid.type === 'venn_diagram') {
+    return <VennVisual visualAid={visualAid} />;
+  }
+
+  if (visualAid.type === 'cycle_diagram') return <CycleVisual visualAid={visualAid} />;
+  if (visualAid.type === 'process_diagram' || visualAid.type === 'block_diagram' || visualAid.type === 'flowchart') {
+    return <ProcessVisual visualAid={visualAid} />;
+  }
+  if (visualAid.type === 'classification_chart') return <ClassificationVisual visualAid={visualAid} />;
+  if (visualAid.type === 'experiment_setup') return <ExperimentSetupVisual visualAid={visualAid} />;
+  if (visualAid.type === 'circuit_diagram') return <CircuitVisual visualAid={visualAid} />;
+  if (visualAid.type === 'network_diagram') return <NetworkVisual visualAid={visualAid} />;
+  if (visualAid.type === 'interface_mockup') return <InterfaceMockupVisual visualAid={visualAid} />;
+  if (visualAid.type === 'story_map') return <StoryMapVisual visualAid={visualAid} />;
+
   const labels = visualAid.labels?.length ? visualAid.labels : visualAid.steps;
   return (
     <View style={styles.labelGrid}>
@@ -294,6 +345,294 @@ function VisualAidFigure({ visualAid }: { visualAid: LessonVisualAid }) {
       ))}
     </View>
   );
+}
+
+function VisualMatrixTable({ visualAid }: { visualAid: LessonVisualAid }) {
+  const rows = visualAid.cells?.length
+    ? visualAid.cells
+    : visualAid.rows?.map((row) => [row.label, row.value]) ?? [];
+  const columns = visualAid.columns?.length
+    ? visualAid.columns
+    : visualAid.rows?.length
+      ? ['Item', 'Value']
+      : [];
+
+  return (
+    <View style={styles.matrixTable}>
+      {columns.length ? (
+        <View style={[styles.matrixRow, styles.matrixHeader]}>
+          {columns.map((column) => <MathText key={column} style={styles.matrixHeaderCell}>{column}</MathText>)}
+        </View>
+      ) : null}
+      {rows.slice(0, 8).map((row, rowIndex) => (
+        <View key={rowIndex} style={[styles.matrixRow, rowIndex % 2 === 1 && styles.infoRowAlt]}>
+          {row.slice(0, 6).map((cell, cellIndex) => (
+            <MathText key={`${rowIndex}-${cellIndex}`} style={styles.matrixCell}>{cell}</MathText>
+          ))}
+        </View>
+      ))}
+    </View>
+  );
+}
+
+function NumberLineVisual({ visualAid }: { visualAid: LessonVisualAid }) {
+  const min = Number.isFinite(visualAid.min) ? Number(visualAid.min) : 0;
+  const max = Number.isFinite(visualAid.max) && Number(visualAid.max) > min ? Number(visualAid.max) : min + 10;
+  const points = visualAid.points?.length ? visualAid.points : [];
+  const ticks = Array.from({ length: 6 }, (_, index) => min + ((max - min) * index) / 5);
+
+  return (
+    <View style={styles.numberLineBox}>
+      <View style={styles.numberLine}>
+        {points.map((point, index) => {
+          const percent = Math.max(0, Math.min(100, ((point.value - min) / (max - min)) * 100));
+          return (
+            <View key={`${point.value}-${index}`} style={[styles.numberLinePoint, { left: `${percent}%` }]}>
+              <Text style={styles.numberLineDot} />
+              <MathText style={styles.numberLinePointLabel}>{point.label || point.value}</MathText>
+            </View>
+          );
+        })}
+      </View>
+      <View style={styles.numberLineTicks}>
+        {ticks.map((tick) => <MathText key={tick} style={styles.numberLineTick}>{Math.round(tick * 10) / 10}</MathText>)}
+      </View>
+    </View>
+  );
+}
+
+function CoordinateGridVisual({ visualAid }: { visualAid: LessonVisualAid }) {
+  return (
+    <View style={styles.gridBox}>
+      {Array.from({ length: 5 }).map((_, index) => <View key={`h-${index}`} style={[styles.gridLineH, { top: `${index * 25}%` }]} />)}
+      {Array.from({ length: 5 }).map((_, index) => <View key={`v-${index}`} style={[styles.gridLineV, { left: `${index * 25}%` }]} />)}
+      {(visualAid.points ?? []).slice(0, 8).map((point, index) => (
+        <View
+          key={`${point.x}-${point.y}-${index}`}
+          style={[
+            styles.gridPoint,
+            {
+              left: `${Math.max(0, Math.min(95, Number(point.x ?? point.value) * 10))}%`,
+              bottom: `${Math.max(0, Math.min(95, Number(point.y ?? 0) * 10))}%`,
+            },
+          ]}
+        >
+          <Text style={styles.gridPointDot} />
+          {point.label ? <MathText style={styles.gridPointLabel}>{point.label}</MathText> : null}
+        </View>
+      ))}
+    </View>
+  );
+}
+
+function ShapeVisual({ visualAid }: { visualAid: LessonVisualAid }) {
+  const shape = (visualAid.shape || '').toLowerCase();
+  const shapeStyle =
+    shape.includes('circle') ? styles.shapeCircle :
+      shape.includes('triangle') ? styles.shapeTriangle :
+        shape.includes('square') ? styles.shapeSquare :
+          styles.shapeRectangle;
+
+  return (
+    <View style={styles.shapeBox}>
+      <View style={[styles.shapeBase, shapeStyle]} />
+      <View style={styles.labelGrid}>
+        {(visualAid.labels ?? visualAid.items ?? []).slice(0, 6).map((label, index) => (
+          <MathText key={`${label}-${index}`} style={styles.labelChip}>{label}</MathText>
+        ))}
+      </View>
+    </View>
+  );
+}
+
+function FractionModelVisual({ visualAid }: { visualAid: LessonVisualAid }) {
+  const segments = Math.max(1, Math.min(12, Number(visualAid.segments) || 4));
+  const shaded = Math.max(0, Math.min(segments, Number(visualAid.shadedSegments) || 0));
+  return (
+    <View style={styles.fractionBar}>
+      {Array.from({ length: segments }).map((_, index) => (
+        <View key={index} style={[styles.fractionSegment, index < shaded && styles.fractionSegmentShaded]} />
+      ))}
+    </View>
+  );
+}
+
+function VennVisual({ visualAid }: { visualAid: LessonVisualAid }) {
+  return (
+    <View style={styles.vennBox}>
+      <View style={[styles.vennCircle, styles.vennLeft]} />
+      <View style={[styles.vennCircle, styles.vennRight]} />
+      <View style={styles.labelGrid}>
+        {(visualAid.labels ?? visualAid.items ?? []).slice(0, 6).map((label, index) => (
+          <MathText key={`${label}-${index}`} style={styles.labelChip}>{label}</MathText>
+        ))}
+      </View>
+    </View>
+  );
+}
+
+function visualItems(visualAid: LessonVisualAid, limit = 6) {
+  return (visualAid.steps?.length ? visualAid.steps : visualAid.items?.length ? visualAid.items : visualAid.labels ?? [])
+    .filter(Boolean)
+    .slice(0, limit);
+}
+
+function ProcessVisual({ visualAid }: { visualAid: LessonVisualAid }) {
+  const items = visualItems(visualAid, 6);
+  return (
+    <View style={styles.processFlow}>
+      {items.map((item, index) => (
+        <View key={`${item}-${index}`} style={styles.processPair}>
+          <View style={styles.processNode}>
+            <MathText style={styles.processText}>{item}</MathText>
+          </View>
+          {index < items.length - 1 ? <Text style={styles.processArrow}>{'>'}</Text> : null}
+        </View>
+      ))}
+    </View>
+  );
+}
+
+function CycleVisual({ visualAid }: { visualAid: LessonVisualAid }) {
+  const items = visualItems(visualAid, 5);
+  return (
+    <View style={styles.cycleBox}>
+      {items.map((item, index) => (
+        <View key={`${item}-${index}`} style={styles.cycleNode}>
+          <MathText style={styles.cycleText}>{item}</MathText>
+          {index < items.length - 1 ? <Text style={styles.cycleArrow}>{'>'}</Text> : null}
+        </View>
+      ))}
+      {items.length > 2 ? <Text style={styles.cycleReturn}>returns to start</Text> : null}
+    </View>
+  );
+}
+
+function ClassificationVisual({ visualAid }: { visualAid: LessonVisualAid }) {
+  const groups = visualAid.groups?.length
+    ? visualAid.groups
+    : visualItems(visualAid, 4).map((item) => ({ label: item, items: [] }));
+  return (
+    <View style={styles.classificationGrid}>
+      {groups.slice(0, 4).map((group, index) => (
+        <View key={`${group.label}-${index}`} style={styles.classificationCard}>
+          <MathText style={styles.classificationTitle}>{group.label}</MathText>
+          {(group.items ?? []).slice(0, 4).map((item, itemIndex) => (
+            <MathText key={`${item}-${itemIndex}`} style={styles.classificationItem}>{item}</MathText>
+          ))}
+        </View>
+      ))}
+    </View>
+  );
+}
+
+function ExperimentSetupVisual({ visualAid }: { visualAid: LessonVisualAid }) {
+  const items = visualItems(visualAid, 5);
+  return (
+    <View style={styles.experimentBox}>
+      <View style={styles.experimentBench} />
+      <View style={styles.apparatusRow}>
+        {items.map((item, index) => (
+          <View key={`${item}-${index}`} style={styles.apparatusBlock}>
+            <MathText style={styles.apparatusText}>{item}</MathText>
+          </View>
+        ))}
+      </View>
+    </View>
+  );
+}
+
+function CircuitVisual({ visualAid }: { visualAid: LessonVisualAid }) {
+  const items = visualItems(visualAid, 4);
+  const labels = items.length ? items : ['Cell', 'Switch', 'Lamp', 'Wire'];
+  return (
+    <View style={styles.circuitBox}>
+      <View style={styles.circuitWireTop} />
+      <View style={styles.circuitWireRight} />
+      <View style={styles.circuitWireBottom} />
+      <View style={styles.circuitWireLeft} />
+      {labels.slice(0, 4).map((label, index) => (
+        <View key={`${label}-${index}`} style={[styles.circuitComponent, circuitComponentStyle(index)]}>
+          <MathText style={styles.circuitText}>{label}</MathText>
+        </View>
+      ))}
+    </View>
+  );
+}
+
+function circuitComponentStyle(index: number) {
+  return [styles.circuitTop, styles.circuitRight, styles.circuitBottom, styles.circuitLeft][index] ?? styles.circuitTop;
+}
+
+function NetworkVisual({ visualAid }: { visualAid: LessonVisualAid }) {
+  const center = visualAid.centralNode || visualAid.items?.[0] || 'Hub';
+  const nodes = (visualAid.nodes?.length ? visualAid.nodes : visualAid.items?.slice(1) ?? visualAid.labels ?? [])
+    .filter(Boolean)
+    .slice(0, 5);
+  const visibleNodes = nodes.length ? nodes : ['Device 1', 'Device 2', 'Device 3', 'Device 4'];
+  return (
+    <View style={styles.networkBox}>
+      <View style={[styles.networkLine, styles.networkLineTop]} />
+      <View style={[styles.networkLine, styles.networkLineRight]} />
+      <View style={[styles.networkLine, styles.networkLineBottom]} />
+      <View style={[styles.networkLine, styles.networkLineLeft]} />
+      <View style={styles.networkCenter}>
+        <MathText style={styles.networkCenterText}>{center}</MathText>
+      </View>
+      {visibleNodes.slice(0, 4).map((node, index) => (
+        <View key={`${node}-${index}`} style={[styles.networkNode, networkNodeStyle(index)]}>
+          <MathText style={styles.networkNodeText}>{node}</MathText>
+        </View>
+      ))}
+    </View>
+  );
+}
+
+function networkNodeStyle(index: number) {
+  return [styles.networkTop, styles.networkRight, styles.networkBottom, styles.networkLeft][index] ?? styles.networkTop;
+}
+
+function InterfaceMockupVisual({ visualAid }: { visualAid: LessonVisualAid }) {
+  const items = visualItems(visualAid, 5);
+  return (
+    <View style={styles.interfaceBox}>
+      <View style={styles.interfaceTitleBar}>
+        <View style={styles.interfaceDot} />
+        <MathText style={styles.interfaceTitle}>{visualAid.title}</MathText>
+      </View>
+      {items.map((item, index) => (
+        <View key={`${item}-${index}`} style={styles.interfaceRow}>
+          <View style={styles.interfaceIcon} />
+          <MathText style={styles.interfaceText}>{item}</MathText>
+        </View>
+      ))}
+    </View>
+  );
+}
+
+function StoryMapVisual({ visualAid }: { visualAid: LessonVisualAid }) {
+  const items = visualItems(visualAid, 5);
+  return (
+    <View style={styles.storyMap}>
+      {items.map((item, index) => (
+        <View key={`${item}-${index}`} style={styles.storyCard}>
+          <Text style={styles.storyIndex}>{index + 1}</Text>
+          <MathText style={styles.storyText}>{item}</MathText>
+        </View>
+      ))}
+    </View>
+  );
+}
+
+function isMatrixTableVisual(visualAid: LessonVisualAid) {
+  return [
+    'frequency_table',
+    'tally_table',
+    'place_value_table',
+    'observation_table',
+    'algorithm_trace_table',
+    'data_table',
+  ].includes(visualAid.type);
 }
 
 function InfoCell({
@@ -317,6 +656,7 @@ function InlineCellText({ label, value }: { label: string; value?: string | numb
 }
 
 function PhaseRow({ phase, alt, visualAids }: { phase: LessonPhase; alt: boolean; visualAids: LessonVisualAid[] }) {
+  const placements = placeVisualAidsWithActivities(phase.activities, visualAids);
   return (
     <View style={[styles.infoRow, alt && styles.infoRowAlt]}>
       {/* Phase / Duration column */}
@@ -331,7 +671,15 @@ function PhaseRow({ phase, alt, visualAids }: { phase: LessonPhase; alt: boolean
       {/* Learners Activities column */}
       <View style={[styles.cellWrap, { flex: 2.8 }]}>
         {phase.activities.map((act, i) => (
-          <MathText key={i} style={styles.activityText}>{act}</MathText>
+          <View key={`${i}-${act}`}>
+            <MathText style={styles.activityText}>{act}</MathText>
+            {placements.byActivity[i]?.map((visualAid, index) => (
+              <VisualAidBlock key={visualAid.id ?? `${visualAid.title}-${index}`} visualAid={visualAid} />
+            ))}
+          </View>
+        ))}
+        {placements.unmatched.map((visualAid, index) => (
+          <VisualAidBlock key={visualAid.id ?? `${visualAid.title}-${index}`} visualAid={visualAid} />
         ))}
         {/* Assessment embedded in Phase 2 */}
         {phase.assessment?.length ? (
@@ -342,9 +690,6 @@ function PhaseRow({ phase, alt, visualAids }: { phase: LessonPhase; alt: boolean
             ))}
           </View>
         ) : null}
-        {visualAids.map((visualAid, index) => (
-          <VisualAidBlock key={visualAid.id ?? `${visualAid.title}-${index}`} visualAid={visualAid} />
-        ))}
       </View>
 
       {/* Resources column */}
@@ -355,6 +700,52 @@ function PhaseRow({ phase, alt, visualAids }: { phase: LessonPhase; alt: boolean
       </View>
     </View>
   );
+}
+
+function placeVisualAidsWithActivities(activities: string[], visualAids: LessonVisualAid[]) {
+  const byActivity: Record<number, LessonVisualAid[]> = {};
+  const unmatched: LessonVisualAid[] = [];
+
+  for (const visualAid of visualAids) {
+    const index = findActivityIndex(activities, visualAid.activityLink);
+    if (index >= 0) {
+      byActivity[index] = [...(byActivity[index] ?? []), visualAid];
+    } else {
+      unmatched.push(visualAid);
+    }
+  }
+
+  return { byActivity, unmatched };
+}
+
+function findActivityIndex(activities: string[], activityLink?: string) {
+  const link = normalizeMatchText(activityLink);
+  if (!link) return -1;
+  let bestIndex = -1;
+  let bestScore = 0;
+
+  activities.forEach((activity, index) => {
+    const text = normalizeMatchText(activity);
+    if (!text) return;
+    let score = 0;
+    if (text === link) score = 100;
+    else if (text.includes(link) || link.includes(text)) score = 80;
+    else {
+      const linkWords = link.split(' ').filter((word) => word.length > 3);
+      const matches = linkWords.filter((word) => text.includes(word)).length;
+      score = linkWords.length ? (matches / linkWords.length) * 60 : 0;
+    }
+    if (score > bestScore) {
+      bestScore = score;
+      bestIndex = index;
+    }
+  });
+
+  return bestScore >= 35 ? bestIndex : -1;
+}
+
+function normalizeMatchText(value?: string) {
+  return (value ?? '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
 }
 
 const styles = StyleSheet.create({
@@ -511,6 +902,133 @@ const styles = StyleSheet.create({
     color: colors.text,
     backgroundColor: colors.tableRowAlt,
   },
+  lineGraph: {
+    height: 112,
+    borderLeftWidth: 1,
+    borderBottomWidth: 1,
+    borderColor: colors.borderStrong,
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    gap: 6,
+    paddingHorizontal: 8,
+    paddingTop: 8,
+    marginTop: 8,
+    backgroundColor: '#fff',
+  },
+  linePointColumn: { flex: 1, height: '100%', alignItems: 'center' },
+  linePointTrack: { flex: 1, width: '100%', position: 'relative' },
+  linePoint: {
+    position: 'absolute',
+    width: 9,
+    height: 9,
+    borderRadius: 5,
+    backgroundColor: colors.primary,
+    alignSelf: 'center',
+  },
+  linePointLabel: { fontSize: 9, color: colors.textMuted, textAlign: 'center', minHeight: 18 },
+  matrixTable: { marginTop: 8, borderWidth: 1, borderColor: colors.border, borderRadius: 6, overflow: 'hidden' },
+  matrixRow: { flexDirection: 'row', borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.border },
+  matrixHeader: { backgroundColor: colors.tableHeader },
+  matrixHeaderCell: { flex: 1, padding: 6, color: colors.tableHeaderText, fontSize: 10, fontWeight: '800' },
+  matrixCell: { flex: 1, padding: 6, color: colors.text, fontSize: 11, lineHeight: 16 },
+  numberLineBox: { marginTop: 8, paddingTop: 20, paddingHorizontal: 8, backgroundColor: '#fff', borderRadius: 6 },
+  numberLine: { height: 2, backgroundColor: colors.primary, position: 'relative' },
+  numberLinePoint: { position: 'absolute', top: -16, alignItems: 'center', transform: [{ translateX: -8 }] },
+  numberLineDot: { width: 12, height: 12, borderRadius: 6, backgroundColor: colors.primary },
+  numberLinePointLabel: { fontSize: 9, color: colors.text, marginTop: 2 },
+  numberLineTicks: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 8 },
+  numberLineTick: { fontSize: 9, color: colors.textMuted },
+  gridBox: { height: 140, marginTop: 8, backgroundColor: '#fff', borderWidth: 1, borderColor: colors.border, position: 'relative' },
+  gridLineH: { position: 'absolute', left: 0, right: 0, height: StyleSheet.hairlineWidth, backgroundColor: colors.border },
+  gridLineV: { position: 'absolute', top: 0, bottom: 0, width: StyleSheet.hairlineWidth, backgroundColor: colors.border },
+  gridPoint: { position: 'absolute', alignItems: 'center' },
+  gridPointDot: { width: 10, height: 10, borderRadius: 5, backgroundColor: colors.primary },
+  gridPointLabel: { fontSize: 9, color: colors.text },
+  shapeBox: { marginTop: 8, alignItems: 'center', gap: 8, backgroundColor: '#fff', borderRadius: 6, padding: 10 },
+  shapeBase: { borderWidth: 2, borderColor: colors.primary, backgroundColor: colors.primarySoft },
+  shapeCircle: { width: 80, height: 80, borderRadius: 40 },
+  shapeRectangle: { width: 112, height: 64, borderRadius: 4 },
+  shapeSquare: { width: 78, height: 78, borderRadius: 4 },
+  shapeTriangle: {
+    width: 0,
+    height: 0,
+    borderLeftWidth: 44,
+    borderRightWidth: 44,
+    borderBottomWidth: 78,
+    borderLeftColor: 'transparent',
+    borderRightColor: 'transparent',
+    borderBottomColor: colors.primarySoft,
+    backgroundColor: 'transparent',
+  },
+  fractionBar: { marginTop: 8, flexDirection: 'row', borderWidth: 1, borderColor: colors.primary, minHeight: 34 },
+  fractionSegment: { flex: 1, borderRightWidth: StyleSheet.hairlineWidth, borderRightColor: colors.primary, backgroundColor: '#fff' },
+  fractionSegmentShaded: { backgroundColor: colors.primarySoft },
+  vennBox: { marginTop: 8, minHeight: 130, alignItems: 'center', justifyContent: 'center', backgroundColor: '#fff', borderRadius: 6, paddingBottom: 8 },
+  vennCircle: { position: 'absolute', top: 12, width: 86, height: 86, borderRadius: 43, borderWidth: 2, borderColor: colors.primary, backgroundColor: 'rgba(15,76,58,0.08)' },
+  vennLeft: { left: '24%' },
+  vennRight: { right: '24%' },
+  processFlow: { marginTop: 8, gap: 5 },
+  processPair: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  processNode: {
+    flex: 1,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 6,
+    padding: 7,
+    backgroundColor: '#fff',
+  },
+  processText: { fontSize: 11, color: colors.text, lineHeight: 16 },
+  processArrow: { width: 18, color: colors.primary, fontWeight: '900', textAlign: 'center' },
+  cycleBox: { marginTop: 8, flexDirection: 'row', flexWrap: 'wrap', gap: 6, alignItems: 'center' },
+  cycleNode: { maxWidth: 116, borderWidth: 1, borderColor: colors.primary, borderRadius: 32, paddingVertical: 7, paddingHorizontal: 9, backgroundColor: colors.primarySoft, flexDirection: 'row', alignItems: 'center', gap: 5 },
+  cycleText: { fontSize: 10, color: colors.text, lineHeight: 14 },
+  cycleArrow: { color: colors.primary, fontWeight: '900' },
+  cycleReturn: { width: '100%', fontSize: 9, color: colors.textMuted, textAlign: 'center', marginTop: 2 },
+  classificationGrid: { marginTop: 8, flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
+  classificationCard: { width: '48%', minHeight: 68, borderWidth: 1, borderColor: colors.border, borderRadius: 6, backgroundColor: '#fff', padding: 7 },
+  classificationTitle: { fontSize: 11, fontWeight: '800', color: colors.primary, marginBottom: 4 },
+  classificationItem: { fontSize: 10, color: colors.text, lineHeight: 14 },
+  experimentBox: { marginTop: 8, minHeight: 108, backgroundColor: '#fff', borderWidth: 1, borderColor: colors.border, borderRadius: 6, padding: 8, justifyContent: 'flex-end' },
+  experimentBench: { height: 5, backgroundColor: colors.borderStrong, borderRadius: 3, marginBottom: 8 },
+  apparatusRow: { flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'center', gap: 6, flexWrap: 'wrap' },
+  apparatusBlock: { minWidth: 54, minHeight: 36, borderWidth: 1, borderColor: colors.primary, borderRadius: 5, backgroundColor: colors.primarySoft, padding: 5, justifyContent: 'center' },
+  apparatusText: { fontSize: 9, color: colors.text, textAlign: 'center', lineHeight: 12 },
+  circuitBox: { marginTop: 8, height: 150, backgroundColor: '#fff', borderRadius: 6, position: 'relative' },
+  circuitWireTop: { position: 'absolute', left: '23%', right: '23%', top: 32, height: 2, backgroundColor: colors.primary },
+  circuitWireRight: { position: 'absolute', right: '20%', top: 32, bottom: 32, width: 2, backgroundColor: colors.primary },
+  circuitWireBottom: { position: 'absolute', left: '23%', right: '23%', bottom: 32, height: 2, backgroundColor: colors.primary },
+  circuitWireLeft: { position: 'absolute', left: '20%', top: 32, bottom: 32, width: 2, backgroundColor: colors.primary },
+  circuitComponent: { position: 'absolute', minWidth: 56, maxWidth: 82, borderWidth: 1, borderColor: colors.primary, borderRadius: 6, backgroundColor: colors.primarySoft, padding: 5 },
+  circuitText: { fontSize: 9, color: colors.text, textAlign: 'center' },
+  circuitTop: { top: 16, left: '38%' },
+  circuitRight: { right: 8, top: 62 },
+  circuitBottom: { bottom: 16, left: '38%' },
+  circuitLeft: { left: 8, top: 62 },
+  networkBox: { marginTop: 8, height: 168, backgroundColor: '#fff', borderRadius: 6, position: 'relative' },
+  networkLine: { position: 'absolute', backgroundColor: colors.borderStrong },
+  networkLineTop: { left: '50%', top: 36, width: 2, height: 48 },
+  networkLineRight: { right: '23%', top: 84, width: '27%', height: 2 },
+  networkLineBottom: { left: '50%', bottom: 36, width: 2, height: 48 },
+  networkLineLeft: { left: '23%', top: 84, width: '27%', height: 2 },
+  networkCenter: { position: 'absolute', left: '38%', top: 62, width: '24%', minHeight: 44, borderRadius: 8, backgroundColor: colors.primary, padding: 6, justifyContent: 'center' },
+  networkCenterText: { color: '#fff', fontWeight: '800', fontSize: 10, textAlign: 'center' },
+  networkNode: { position: 'absolute', width: '30%', minHeight: 34, borderWidth: 1, borderColor: colors.border, borderRadius: 7, backgroundColor: colors.primarySoft, padding: 5, justifyContent: 'center' },
+  networkNodeText: { fontSize: 9, color: colors.text, textAlign: 'center' },
+  networkTop: { top: 8, left: '35%' },
+  networkRight: { right: 2, top: 67 },
+  networkBottom: { bottom: 8, left: '35%' },
+  networkLeft: { left: 2, top: 67 },
+  interfaceBox: { marginTop: 8, borderWidth: 1, borderColor: colors.border, borderRadius: 7, overflow: 'hidden', backgroundColor: '#fff' },
+  interfaceTitleBar: { minHeight: 28, backgroundColor: colors.tableHeader, flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 8 },
+  interfaceDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: colors.primary },
+  interfaceTitle: { flex: 1, color: colors.tableHeaderText, fontSize: 10, fontWeight: '800' },
+  interfaceRow: { flexDirection: 'row', alignItems: 'center', gap: 7, padding: 7, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.border },
+  interfaceIcon: { width: 18, height: 18, borderRadius: 4, backgroundColor: colors.primarySoft, borderWidth: 1, borderColor: colors.border },
+  interfaceText: { flex: 1, fontSize: 11, color: colors.text, lineHeight: 15 },
+  storyMap: { marginTop: 8, gap: 6 },
+  storyCard: { borderLeftWidth: 3, borderLeftColor: colors.primary, backgroundColor: '#fff', borderRadius: 6, padding: 7, flexDirection: 'row', gap: 7, alignItems: 'flex-start' },
+  storyIndex: { width: 18, height: 18, borderRadius: 9, backgroundColor: colors.primary, color: '#fff', textAlign: 'center', fontSize: 10, fontWeight: '800', lineHeight: 18 },
+  storyText: { flex: 1, fontSize: 11, color: colors.text, lineHeight: 16 },
   teacherDetails: {
     borderWidth: 1,
     borderColor: colors.border,

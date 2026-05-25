@@ -10,7 +10,7 @@ import {
   getWeekSubStrandSummary,
   getWeekTopic,
 } from '@/lib/schemeWeek';
-import type { LessonPlan } from '@/types/lessonPlan';
+import type { LessonPlan, LessonVisualAid, LessonVisualAidType } from '@/types/lessonPlan';
 import type { SchemeOfWork } from '@/types/scheme';
 import type { TeachingNoteVisual, TeachingNotes } from '@/types/teachingNotes';
 import type { CompiledTestCompilation, CompiledTestPaper } from '@/types/testItemCompiler';
@@ -191,7 +191,7 @@ function buildLessonPlanContent(plan: LessonPlan) {
             <small>${escapeHtml(phase.duration ?? '')}</small>
           </td>
           <td class="activity-cell">
-            ${phase.activities.map((item) => `<div>${escapeHtml(item)}</div>`).join('')}
+            ${buildActivityVisualHtml(phase.activities, (plan.visualAids ?? []).filter((visualAid) => visualAid.phase === phase.phase))}
             ${
               phase.assessment?.length
                 ? `<div class="assessment"><strong>Assessment</strong>${phase.assessment
@@ -199,10 +199,6 @@ function buildLessonPlanContent(plan: LessonPlan) {
                     .join('')}</div>`
                 : ''
             }
-            ${(plan.visualAids ?? [])
-              .filter((visualAid) => visualAid.phase === phase.phase)
-              .map(buildVisualAidHtml)
-              .join('')}
           </td>
           <td class="resource-cell">${(phase.resources ?? []).map((item) => `<div>${escapeHtml(item)}</div>`).join('')}</td>
         </tr>
@@ -419,14 +415,17 @@ function buildAnswerKeyHtml(paper: CompiledTestPaper) {
 
 function buildTestQuestionHtml(question: CompiledTestPaper['sections'][number]['questions'][number]) {
   const parsed = parseMultipleChoiceText(question.text);
+  const visuals = question.visuals?.length
+    ? `<div class="test-question-visuals">${question.visuals.map(buildVisualAidHtml).join('')}</div>`
+    : '';
   if (!parsed || (question.mode && question.mode !== 'multiple_choice' && !hasOptionMarkers(question.text))) {
-    return `<span>${escapeHtml(question.text)}</span>`;
+    return `<span>${escapeHtml(question.text)}</span>${visuals}`;
   }
 
   return `<span>${escapeHtml(parsed.stem)}</span>
     <div class="mcq-options">
       ${orderMultipleChoiceOptions(parsed.options).map((option) => `<div class="mcq-option"><strong>${escapeHtml(option.label)}.</strong> ${escapeHtml(option.text)}</div>`).join('')}
-    </div>`;
+    </div>${visuals}`;
 }
 
 function parseMultipleChoiceText(text: string) {
@@ -506,30 +505,60 @@ function listHtml(items: string[]) {
 }
 
 function buildVisualHtml(visual: TeachingNoteVisual) {
-  const rows = visual.rows?.length
-    ? `<table class="visual-table">${visual.rows
-        .map((row, rowIndex) => `<tr class="${rowIndex === 0 ? 'head' : ''}">${row
-          .map((cell) => `<td>${escapeHtml(cell)}</td>`)
-          .join('')}</tr>`)
-        .join('')}</table>`
-    : '';
-  const structuredItems = visual.steps ?? visual.labels?.map((item) => item.label) ?? (visual.prompt ? [visual.prompt] : []);
   return `
     <div class="visual-block">
       <h4>${escapeHtml(visual.title)}</h4>
-      ${visual.imageUrl ? `<img class="visual-image" src="${escapeHtml(visual.imageUrl)}" alt="${escapeHtml(visual.altText ?? visual.title)}" />` : ''}
-      ${structuredItems.length ? `<ol>${structuredItems.map((item) => `<li>${escapeHtml(item)}</li>`).join('')}</ol>` : ''}
-      ${rows}
+      ${buildTeachingNoteVisualFigureHtml(visual)}
       ${visual.caption ? `<p class="caption">${escapeHtml(visual.caption)}</p>` : ''}
       ${visual.attribution ? `<p class="attribution">${escapeHtml(visual.attribution)}</p>` : ''}
     </div>
   `;
 }
 
+function buildTeachingNoteVisualFigureHtml(visual: TeachingNoteVisual) {
+  const type = visual.type ?? inferTeachingNoteVisualType(visual);
+  const labels = visual.labels?.map((item) => item.description ? `${item.label}: ${item.description}` : item.label);
+  const aid: LessonVisualAid = {
+    id: visual.id,
+    type,
+    title: visual.title,
+    imageUrl: visual.imageUrl,
+    prompt: visual.prompt,
+    labels,
+    steps: visual.steps,
+    data: visual.data,
+    columns: visual.columns,
+    cells: visual.cells ?? visual.rows,
+    min: visual.min,
+    max: visual.max,
+    points: visual.points,
+    shape: visual.shape,
+    segments: visual.segments,
+    shadedSegments: visual.shadedSegments,
+    items: visual.items,
+    centralNode: visual.centralNode,
+    nodes: visual.nodes,
+    groups: visual.groups,
+    caption: visual.caption,
+  };
+  return buildVisualFigureHtml(aid);
+}
+
+function inferTeachingNoteVisualType(visual: TeachingNoteVisual): LessonVisualAidType {
+  if (visual.data?.length) return 'bar_chart';
+  if (visual.rows?.length || visual.cells?.length) return 'comparison_table';
+  if (visual.kind === 'process' || visual.steps?.length) return 'process_diagram';
+  return 'labelled_diagram';
+}
+
 function buildTeachingNoteBlockHtml(block: NonNullable<TeachingNotes['contentBlocks']>[number]) {
+  if (isTeachingNoteStructuredVisualBlock(block.type)) {
+    return buildVisualHtml(teachingNoteBlockToVisual(block));
+  }
   if (block.type === 'generated_visual') {
     return buildVisualHtml({
       id: block.id,
+      type: 'labelled_diagram',
       kind: block.visualKind ?? 'generated_image',
       source: 'generated',
       title: block.title ?? 'Generated diagram',
@@ -579,6 +608,67 @@ function buildTeachingNoteBlockHtml(block: NonNullable<TeachingNotes['contentBlo
   return block.text
     ? `<div class="note-block">${block.title ? `<h4>${escapeHtml(block.title)}</h4>` : ''}<p>${escapeHtml(block.text)}</p></div>`
     : '';
+}
+
+function isTeachingNoteStructuredVisualBlock(type: string) {
+  return [
+    'labelled_diagram',
+    'process_steps',
+    'process_diagram',
+    'block_diagram',
+    'flowchart',
+    'timeline',
+    'comparison_table',
+    'bar_chart',
+    'line_graph',
+    'frequency_table',
+    'tally_table',
+    'place_value_table',
+    'observation_table',
+    'algorithm_trace_table',
+    'number_line',
+    'coordinate_grid',
+    'geometry_shape',
+    'fraction_model',
+    'venn_diagram',
+    'angle_diagram',
+    'cycle_diagram',
+    'classification_chart',
+    'experiment_setup',
+    'circuit_diagram',
+    'network_diagram',
+    'interface_mockup',
+    'data_table',
+    'story_map',
+  ].includes(type);
+}
+
+function teachingNoteBlockToVisual(block: NonNullable<TeachingNotes['contentBlocks']>[number]): TeachingNoteVisual {
+  const fallbackType = block.type === 'process_steps' ? 'process_diagram' : block.type as LessonVisualAidType;
+  return {
+    id: block.id,
+    type: block.visualType ?? fallbackType,
+    kind: block.visualKind ?? (block.type.includes('table') ? 'table' : block.type.includes('chart') ? 'chart' : 'diagram'),
+    source: 'structured',
+    title: block.title ?? 'Diagram',
+    caption: block.caption,
+    labels: block.labels,
+    rows: block.rows,
+    steps: block.steps,
+    data: block.data,
+    columns: block.columns,
+    cells: block.cells,
+    min: block.min,
+    max: block.max,
+    points: block.points,
+    shape: block.shape,
+    segments: block.segments,
+    shadedSegments: block.shadedSegments,
+    items: block.items,
+    centralNode: block.centralNode,
+    nodes: block.nodes,
+    groups: block.groups,
+  };
 }
 
 function buildRowsTableHtml(rows: string[][]) {
@@ -643,7 +733,68 @@ function pageHtml(content: string, documentType: 'lesson' | 'scheme' | 'notes' |
         .label-chip { border: 1px solid #e2e2dc; background: #F4F1EA; border-radius: 5px; padding: 3px 5px; font-size: 11px; }
         .visual-table { border: 1px solid #e2e2dc; border-collapse: collapse; margin-top: 6px; }
         .visual-table td { border: 1px solid #e2e2dc; padding: 4px; font-size: 12px; }
+        .visual-table .head td { background: #edf3f0; color: #0F4C3A; font-weight: 700; }
         .visual-table .visual-row-label { color: #0F4C3A; font-weight: 700; width: 35%; }
+        .line-graph { height: 92px; border-left: 1px solid #0F4C3A; border-bottom: 1px solid #0F4C3A; display: flex; align-items: flex-end; gap: 8px; padding: 6px 8px 16px; }
+        .line-point-wrap { flex: 1; height: 100%; position: relative; text-align: center; }
+        .line-point { position: absolute; left: 50%; width: 8px; height: 8px; border-radius: 50%; background: #0F4C3A; }
+        .line-label { position: absolute; left: 0; right: 0; bottom: -16px; font-size: 9px; color: #666; }
+        .number-line { margin-top: 8px; padding: 14px 8px 4px; }
+        .number-line-base { height: 2px; background: #0F4C3A; position: relative; }
+        .number-line-point { position: absolute; top: -12px; transform: translateX(-50%); text-align: center; font-size: 9px; }
+        .number-line-point b { display: block; width: 9px; height: 9px; border-radius: 50%; background: #0F4C3A; margin: 0 auto 2px; }
+        .number-line-point em { font-style: normal; }
+        .number-line-ends { display: flex; justify-content: space-between; color: #666; font-size: 9px; margin-top: 8px; }
+        .coordinate-grid { height: 120px; border: 1px solid #e2e2dc; background-image: linear-gradient(#e2e2dc 1px, transparent 1px), linear-gradient(90deg, #e2e2dc 1px, transparent 1px); background-size: 25% 25%; position: relative; }
+        .grid-point { position: absolute; width: 10px; height: 10px; border-radius: 50%; background: #0F4C3A; color: #0F4C3A; font-size: 9px; }
+        .shape-visual { text-align: center; margin-top: 8px; }
+        .shape { display: inline-block; border: 2px solid #0F4C3A; background: #edf3f0; width: 86px; height: 54px; }
+        .shape.circle { border-radius: 50%; width: 70px; height: 70px; }
+        .shape.square { width: 68px; height: 68px; }
+        .fraction-model { display: flex; min-height: 28px; border: 1px solid #0F4C3A; margin-top: 8px; }
+        .fraction-model span { flex: 1; border-right: 1px solid #0F4C3A; }
+        .fraction-model .shaded { background: #cfe4da; }
+        .venn-visual { min-height: 106px; position: relative; text-align: center; }
+        .venn { position: absolute; top: 8px; width: 72px; height: 72px; border: 2px solid #0F4C3A; border-radius: 50%; background: rgba(15,76,58,0.08); }
+        .venn.left { left: 32%; }
+        .venn.right { right: 32%; }
+        .process-flow { display: grid; gap: 5px; }
+        .process-node { border: 1px solid #e2e2dc; border-radius: 6px; background: #fff; padding: 6px; font-size: 11px; }
+        .process-arrow { color: #0F4C3A; font-weight: 700; text-align: center; }
+        .cycle-visual { display: flex; flex-wrap: wrap; align-items: center; gap: 5px; }
+        .cycle-node { border: 1px solid #0F4C3A; border-radius: 18px; background: #edf3f0; padding: 5px 8px; font-size: 10px; }
+        .classification-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+        .classification-card { border: 1px solid #e2e2dc; border-radius: 6px; background: #fff; padding: 6px; }
+        .classification-card strong { color: #0F4C3A; display: block; margin-bottom: 3px; }
+        .experiment-setup { border: 1px solid #e2e2dc; border-radius: 6px; background: #fff; padding: 8px; }
+        .experiment-bench { height: 5px; background: #777; border-radius: 3px; margin: 28px 0 8px; }
+        .apparatus-row { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px; }
+        .apparatus { border: 1px solid #0F4C3A; border-radius: 5px; background: #edf3f0; padding: 6px; min-width: 56px; text-align: center; font-size: 10px; }
+        .circuit-diagram, .network-diagram { height: 140px; position: relative; background: #fff; border-radius: 6px; }
+        .circuit-wire.top { position: absolute; left: 22%; right: 22%; top: 30px; height: 2px; background: #0F4C3A; }
+        .circuit-wire.right { position: absolute; right: 20%; top: 30px; bottom: 30px; width: 2px; background: #0F4C3A; }
+        .circuit-wire.bottom { position: absolute; left: 22%; right: 22%; bottom: 30px; height: 2px; background: #0F4C3A; }
+        .circuit-wire.left { position: absolute; left: 20%; top: 30px; bottom: 30px; width: 2px; background: #0F4C3A; }
+        .circuit-part { position: absolute; border: 1px solid #0F4C3A; border-radius: 6px; background: #edf3f0; padding: 5px; font-size: 9px; text-align: center; min-width: 54px; }
+        .circuit-part.p0 { top: 12px; left: 39%; }
+        .circuit-part.p1 { top: 58px; right: 4px; }
+        .circuit-part.p2 { bottom: 12px; left: 39%; }
+        .circuit-part.p3 { top: 58px; left: 4px; }
+        .network-line.vtop { position: absolute; left: 50%; top: 32px; width: 2px; height: 42px; background: #777; }
+        .network-line.hright { position: absolute; right: 22%; top: 70px; width: 28%; height: 2px; background: #777; }
+        .network-line.vbottom { position: absolute; left: 50%; bottom: 32px; width: 2px; height: 42px; background: #777; }
+        .network-line.hleft { position: absolute; left: 22%; top: 70px; width: 28%; height: 2px; background: #777; }
+        .network-center { position: absolute; left: 39%; top: 50px; width: 22%; border-radius: 7px; background: #0F4C3A; color: #fff; padding: 7px; text-align: center; font-size: 10px; font-weight: 700; }
+        .network-node { position: absolute; width: 30%; border: 1px solid #e2e2dc; border-radius: 6px; background: #edf3f0; padding: 5px; text-align: center; font-size: 9px; }
+        .network-node.n0 { top: 4px; left: 35%; }
+        .network-node.n1 { top: 56px; right: 0; }
+        .network-node.n2 { bottom: 4px; left: 35%; }
+        .network-node.n3 { top: 56px; left: 0; }
+        .interface-mockup { border: 1px solid #e2e2dc; border-radius: 7px; overflow: hidden; background: #fff; }
+        .interface-title { background: #0F4C3A; color: #fff; padding: 6px 8px; font-size: 10px; font-weight: 700; }
+        .interface-row { border-top: 1px solid #e2e2dc; padding: 6px 8px; font-size: 11px; }
+        .story-map { display: grid; gap: 5px; }
+        .story-card { border-left: 3px solid #0F4C3A; border-radius: 6px; background: #fff; padding: 6px; font-size: 11px; }
         .local-language { border: 1px solid #e2e2dc; border-radius: 6px; padding: 7px; margin-top: 7px; break-inside: avoid; page-break-inside: avoid; }
         .local-review { color: #6B6B6B; font-size: 11px; line-height: 1.25; margin-top: 3px; }
         .translation-group { margin-top: 7px; }
@@ -685,6 +836,7 @@ function pageHtml(content: string, documentType: 'lesson' | 'scheme' | 'notes' |
         .activity-cell div { margin-bottom: 3px; line-height: 1.45; }
         .assessment { margin-top: 8px; padding-top: 8px; border-top: 1px solid #d8d8d2; }
         .teacher-details { border: 1px solid #d8d8d2; border-radius: 6px; padding: 8px; margin-top: 8px; font-size: 12px; line-height: 1.45; }
+        ${visualExportStyles()}
         ${lessonStyles}
         ${documentType === 'notes' ? notesStyles() : ''}
         ${documentType === 'test' ? testStyles() : ''}
@@ -709,6 +861,8 @@ function testStyles() {
     .test-list { margin: 0; padding-left: 20px; }
     .test-list li { font-size: 15px; line-height: 1.5; margin-bottom: 8px; }
     .test-list strong { color: #0F4C3A; margin-left: 6px; white-space: nowrap; }
+    .test-question-visuals { margin-top: 8px; }
+    .test-question-visuals .visual-aid { margin-top: 6px; }
     .mcq-options { display: grid; grid-template-columns: 1fr 1fr; column-gap: 28px; row-gap: 7px; margin-top: 8px; margin-bottom: 4px; }
     .mcq-option { display: block; padding-left: 4px; line-height: 1.45; }
     .mcq-option strong { margin-left: 0; margin-right: 6px; color: #0F4C3A; }
@@ -826,7 +980,18 @@ function buildVisualFigureHtml(visualAid: NonNullable<LessonPlan['visualAids']>[
       .join('')}</div>`;
   }
 
-  if ((visualAid.type === 'flowchart' || visualAid.type === 'timeline') && visualAid.steps?.length) {
+  if (visualAid.type === 'line_graph' && visualAid.data?.length) {
+    const maxValue = Math.max(...visualAid.data.map((item) => item.value), 1);
+    return `<div class="visual-figure line-graph">${visualAid.data
+      .slice(0, 6)
+      .map((item) => {
+        const height = Math.max(8, Math.round((item.value / maxValue) * 86));
+        return `<div class="line-point-wrap"><span class="line-point" style="bottom:${height}%"></span><span class="line-label">${escapeHtml(item.label)}</span></div>`;
+      })
+      .join('')}</div>`;
+  }
+
+  if (visualAid.type === 'timeline' && visualAid.steps?.length) {
     return `<div class="visual-figure step-list">${visualAid.steps
       .slice(0, 6)
       .map((step, index) => `<div class="step-item"><span class="step-index">${index + 1}</span><span>${escapeHtml(step)}</span></div>`)
@@ -840,12 +1005,278 @@ function buildVisualFigureHtml(visualAid: NonNullable<LessonPlan['visualAids']>[
       .join('')}</table>`;
   }
 
+  if (isMatrixTableVisual(visualAid) && (visualAid.cells?.length || visualAid.rows?.length)) {
+    const columns = visualAid.columns?.length ? visualAid.columns : visualAid.rows?.length ? ['Item', 'Value'] : [];
+    const rows = visualAid.cells?.length ? visualAid.cells : visualAid.rows?.map((row) => [row.label, row.value]) ?? [];
+    return `<table class="visual-table">${columns.length ? `<tr class="head">${columns.map((column) => `<td>${escapeHtml(column)}</td>`).join('')}</tr>` : ''}${rows
+      .slice(0, 8)
+      .map((row) => `<tr>${row.slice(0, 6).map((cell) => `<td>${escapeHtml(cell)}</td>`).join('')}</tr>`)
+      .join('')}</table>`;
+  }
+
+  if (visualAid.type === 'number_line') {
+    const min = Number.isFinite(visualAid.min) ? Number(visualAid.min) : 0;
+    const max = Number.isFinite(visualAid.max) && Number(visualAid.max) > min ? Number(visualAid.max) : min + 10;
+    const points = visualAid.points ?? [];
+    return `<div class="number-line"><div class="number-line-base">${points
+      .map((point) => {
+        const left = Math.max(0, Math.min(100, ((point.value - min) / (max - min)) * 100));
+        return `<span class="number-line-point" style="left:${left}%"><b></b><em>${escapeHtml(point.label || String(point.value))}</em></span>`;
+      })
+      .join('')}</div><div class="number-line-ends"><span>${min}</span><span>${max}</span></div></div>`;
+  }
+
+  if (visualAid.type === 'coordinate_grid') {
+    return `<div class="coordinate-grid">${(visualAid.points ?? []).slice(0, 8).map((point) => `<span class="grid-point" style="left:${Math.max(0, Math.min(95, Number(point.x ?? point.value) * 10))}%;bottom:${Math.max(0, Math.min(95, Number(point.y ?? 0) * 10))}%">${escapeHtml(point.label ?? '')}</span>`).join('')}</div>`;
+  }
+
+  if (visualAid.type === 'geometry_shape' || visualAid.type === 'angle_diagram') {
+    return `<div class="shape-visual"><div class="shape ${escapeHtml(visualAid.shape || 'rectangle')}"></div>${buildLabelListHtml(visualAid.labels ?? visualAid.items)}</div>`;
+  }
+
+  if (visualAid.type === 'fraction_model') {
+    const segments = Math.max(1, Math.min(12, Number(visualAid.segments) || 4));
+    const shaded = Math.max(0, Math.min(segments, Number(visualAid.shadedSegments) || 0));
+    return `<div class="fraction-model">${Array.from({ length: segments }).map((_, index) => `<span class="${index < shaded ? 'shaded' : ''}"></span>`).join('')}</div>`;
+  }
+
+  if (visualAid.type === 'venn_diagram') {
+    return `<div class="venn-visual"><span class="venn left"></span><span class="venn right"></span>${buildLabelListHtml(visualAid.labels ?? visualAid.items)}</div>`;
+  }
+
+  if (visualAid.type === 'flowchart' || visualAid.type === 'process_diagram' || visualAid.type === 'block_diagram') {
+    return buildProcessVisualHtml(visualAid);
+  }
+
+  if (visualAid.type === 'cycle_diagram') return buildCycleVisualHtml(visualAid);
+  if (visualAid.type === 'classification_chart') return buildClassificationVisualHtml(visualAid);
+  if (visualAid.type === 'experiment_setup') return buildExperimentSetupHtml(visualAid);
+  if (visualAid.type === 'circuit_diagram') return buildCircuitVisualHtml(visualAid);
+  if (visualAid.type === 'network_diagram') return buildNetworkVisualHtml(visualAid);
+  if (visualAid.type === 'interface_mockup') return buildInterfaceMockupHtml(visualAid);
+  if (visualAid.type === 'story_map') return buildStoryMapHtml(visualAid);
+
   const labels = visualAid.labels?.length ? visualAid.labels : visualAid.steps;
   if (!labels?.length) return '';
   return `<div class="visual-figure label-grid">${labels
     .slice(0, 6)
     .map((label) => `<span class="label-chip">${escapeHtml(label)}</span>`)
     .join('')}</div>`;
+}
+
+function visualExportStyles() {
+  return `
+    .visual-figure { margin-top: 6px; }
+    .visual-image { max-width: 100%; max-height: 240px; object-fit: contain; display: block; margin: 6px auto; background: #fff; }
+    .visual-table { border: 1px solid #e2e2dc; border-collapse: collapse; margin-top: 6px; }
+    .visual-table td { border: 1px solid #e2e2dc; padding: 4px; font-size: 12px; }
+    .visual-table .head td { background: #edf3f0; color: #0F4C3A; font-weight: 700; }
+    .visual-table .visual-row-label { color: #0F4C3A; font-weight: 700; width: 35%; }
+    .label-grid { display: flex; flex-wrap: wrap; gap: 5px; }
+    .label-chip { border: 1px solid #e2e2dc; background: #F4F1EA; border-radius: 5px; padding: 3px 5px; font-size: 11px; }
+    .bar-row { display: flex; align-items: center; gap: 6px; margin-top: 4px; }
+    .bar-label { width: 90px; font-size: 11px; }
+    .bar-track { flex: 1; height: 10px; background: #F4F1EA; border-radius: 4px; overflow: hidden; }
+    .bar-fill { height: 10px; background: #0F4C3A; }
+    .bar-value { width: 28px; font-size: 11px; text-align: right; color: #6B6B6B; }
+    .step-list { display: grid; gap: 4px; }
+    .step-item { display: flex; gap: 6px; align-items: flex-start; font-size: 12px; line-height: 1.25; }
+    .step-index { min-width: 16px; height: 16px; border-radius: 8px; background: #0F4C3A; color: #fff; text-align: center; font-size: 10px; font-weight: 700; line-height: 16px; }
+    .line-graph { height: 92px; border-left: 1px solid #0F4C3A; border-bottom: 1px solid #0F4C3A; display: flex; align-items: flex-end; gap: 8px; padding: 6px 8px 16px; }
+    .line-point-wrap { flex: 1; height: 100%; position: relative; text-align: center; }
+    .line-point { position: absolute; left: 50%; width: 8px; height: 8px; border-radius: 50%; background: #0F4C3A; }
+    .line-label { position: absolute; left: 0; right: 0; bottom: -16px; font-size: 9px; color: #666; }
+    .number-line { margin-top: 8px; padding: 14px 8px 4px; }
+    .number-line-base { height: 2px; background: #0F4C3A; position: relative; }
+    .number-line-point { position: absolute; top: -12px; transform: translateX(-50%); text-align: center; font-size: 9px; }
+    .number-line-point b { display: block; width: 9px; height: 9px; border-radius: 50%; background: #0F4C3A; margin: 0 auto 2px; }
+    .number-line-point em { font-style: normal; }
+    .number-line-ends { display: flex; justify-content: space-between; color: #666; font-size: 9px; margin-top: 8px; }
+    .coordinate-grid { height: 120px; border: 1px solid #e2e2dc; background-image: linear-gradient(#e2e2dc 1px, transparent 1px), linear-gradient(90deg, #e2e2dc 1px, transparent 1px); background-size: 25% 25%; position: relative; }
+    .grid-point { position: absolute; width: 10px; height: 10px; border-radius: 50%; background: #0F4C3A; color: #0F4C3A; font-size: 9px; }
+    .shape-visual { text-align: center; margin-top: 8px; }
+    .shape { display: inline-block; border: 2px solid #0F4C3A; background: #edf3f0; width: 86px; height: 54px; }
+    .shape.circle { border-radius: 50%; width: 70px; height: 70px; }
+    .shape.square { width: 68px; height: 68px; }
+    .fraction-model { display: flex; min-height: 28px; border: 1px solid #0F4C3A; margin-top: 8px; }
+    .fraction-model span { flex: 1; border-right: 1px solid #0F4C3A; }
+    .fraction-model .shaded { background: #cfe4da; }
+    .venn-visual { min-height: 106px; position: relative; text-align: center; }
+    .venn { position: absolute; top: 8px; width: 72px; height: 72px; border: 2px solid #0F4C3A; border-radius: 50%; background: rgba(15,76,58,0.08); }
+    .venn.left { left: 32%; }
+    .venn.right { right: 32%; }
+    .process-flow { display: grid; gap: 5px; }
+    .process-node { border: 1px solid #e2e2dc; border-radius: 6px; background: #fff; padding: 6px; font-size: 11px; }
+    .process-arrow { color: #0F4C3A; font-weight: 700; text-align: center; }
+    .cycle-visual { display: flex; flex-wrap: wrap; align-items: center; gap: 5px; }
+    .cycle-node { border: 1px solid #0F4C3A; border-radius: 18px; background: #edf3f0; padding: 5px 8px; font-size: 10px; }
+    .classification-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+    .classification-card { border: 1px solid #e2e2dc; border-radius: 6px; background: #fff; padding: 6px; }
+    .classification-card strong { color: #0F4C3A; display: block; margin-bottom: 3px; }
+    .experiment-setup { border: 1px solid #e2e2dc; border-radius: 6px; background: #fff; padding: 8px; }
+    .experiment-bench { height: 5px; background: #777; border-radius: 3px; margin: 28px 0 8px; }
+    .apparatus-row { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px; }
+    .apparatus { border: 1px solid #0F4C3A; border-radius: 5px; background: #edf3f0; padding: 6px; min-width: 56px; text-align: center; font-size: 10px; }
+    .circuit-diagram, .network-diagram { height: 140px; position: relative; background: #fff; border-radius: 6px; }
+    .circuit-wire.top { position: absolute; left: 22%; right: 22%; top: 30px; height: 2px; background: #0F4C3A; }
+    .circuit-wire.right { position: absolute; right: 20%; top: 30px; bottom: 30px; width: 2px; background: #0F4C3A; }
+    .circuit-wire.bottom { position: absolute; left: 22%; right: 22%; bottom: 30px; height: 2px; background: #0F4C3A; }
+    .circuit-wire.left { position: absolute; left: 20%; top: 30px; bottom: 30px; width: 2px; background: #0F4C3A; }
+    .circuit-part { position: absolute; border: 1px solid #0F4C3A; border-radius: 6px; background: #edf3f0; padding: 5px; font-size: 9px; text-align: center; min-width: 54px; }
+    .circuit-part.p0 { top: 12px; left: 39%; }
+    .circuit-part.p1 { top: 58px; right: 4px; }
+    .circuit-part.p2 { bottom: 12px; left: 39%; }
+    .circuit-part.p3 { top: 58px; left: 4px; }
+    .network-line.vtop { position: absolute; left: 50%; top: 32px; width: 2px; height: 42px; background: #777; }
+    .network-line.hright { position: absolute; right: 22%; top: 70px; width: 28%; height: 2px; background: #777; }
+    .network-line.vbottom { position: absolute; left: 50%; bottom: 32px; width: 2px; height: 42px; background: #777; }
+    .network-line.hleft { position: absolute; left: 22%; top: 70px; width: 28%; height: 2px; background: #777; }
+    .network-center { position: absolute; left: 39%; top: 50px; width: 22%; border-radius: 7px; background: #0F4C3A; color: #fff; padding: 7px; text-align: center; font-size: 10px; font-weight: 700; }
+    .network-node { position: absolute; width: 30%; border: 1px solid #e2e2dc; border-radius: 6px; background: #edf3f0; padding: 5px; text-align: center; font-size: 9px; }
+    .network-node.n0 { top: 4px; left: 35%; }
+    .network-node.n1 { top: 56px; right: 0; }
+    .network-node.n2 { bottom: 4px; left: 35%; }
+    .network-node.n3 { top: 56px; left: 0; }
+    .interface-mockup { border: 1px solid #e2e2dc; border-radius: 7px; overflow: hidden; background: #fff; }
+    .interface-title { background: #0F4C3A; color: #fff; padding: 6px 8px; font-size: 10px; font-weight: 700; }
+    .interface-row { border-top: 1px solid #e2e2dc; padding: 6px 8px; font-size: 11px; }
+    .story-map { display: grid; gap: 5px; }
+    .story-card { border-left: 3px solid #0F4C3A; border-radius: 6px; background: #fff; padding: 6px; font-size: 11px; }
+  `;
+}
+
+function visualItems(visualAid: NonNullable<LessonPlan['visualAids']>[number], limit = 6) {
+  return (visualAid.steps?.length ? visualAid.steps : visualAid.items?.length ? visualAid.items : visualAid.labels ?? [])
+    .filter(Boolean)
+    .slice(0, limit);
+}
+
+function buildProcessVisualHtml(visualAid: NonNullable<LessonPlan['visualAids']>[number]) {
+  const items = visualItems(visualAid, 6);
+  return `<div class="visual-figure process-flow">${items
+    .map((item, index) => `<div class="process-node">${escapeHtml(item)}</div>${index < items.length - 1 ? '<div class="process-arrow">&gt;</div>' : ''}`)
+    .join('')}</div>`;
+}
+
+function buildCycleVisualHtml(visualAid: NonNullable<LessonPlan['visualAids']>[number]) {
+  const items = visualItems(visualAid, 5);
+  return `<div class="visual-figure cycle-visual">${items
+    .map((item, index) => `<span class="cycle-node">${escapeHtml(item)}</span>${index < items.length - 1 ? '<span class="process-arrow">&gt;</span>' : ''}`)
+    .join('')}${items.length > 2 ? '<span class="process-arrow">back to start</span>' : ''}</div>`;
+}
+
+function buildClassificationVisualHtml(visualAid: NonNullable<LessonPlan['visualAids']>[number]) {
+  const groups = visualAid.groups?.length
+    ? visualAid.groups
+    : visualItems(visualAid, 4).map((item) => ({ label: item, items: [] }));
+  return `<div class="visual-figure classification-grid">${groups
+    .slice(0, 4)
+    .map((group) => `<div class="classification-card"><strong>${escapeHtml(group.label)}</strong>${(group.items ?? [])
+      .slice(0, 4)
+      .map((item) => `<div>${escapeHtml(item)}</div>`)
+      .join('')}</div>`)
+    .join('')}</div>`;
+}
+
+function buildExperimentSetupHtml(visualAid: NonNullable<LessonPlan['visualAids']>[number]) {
+  const items = visualItems(visualAid, 5);
+  return `<div class="visual-figure experiment-setup"><div class="experiment-bench"></div><div class="apparatus-row">${items
+    .map((item) => `<span class="apparatus">${escapeHtml(item)}</span>`)
+    .join('')}</div></div>`;
+}
+
+function buildCircuitVisualHtml(visualAid: NonNullable<LessonPlan['visualAids']>[number]) {
+  const items = visualItems(visualAid, 4);
+  const labels = items.length ? items : ['Cell', 'Switch', 'Lamp', 'Wire'];
+  return `<div class="visual-figure circuit-diagram">
+    <span class="circuit-wire top"></span><span class="circuit-wire right"></span><span class="circuit-wire bottom"></span><span class="circuit-wire left"></span>
+    ${labels.slice(0, 4).map((label, index) => `<span class="circuit-part p${index}">${escapeHtml(label)}</span>`).join('')}
+  </div>`;
+}
+
+function buildNetworkVisualHtml(visualAid: NonNullable<LessonPlan['visualAids']>[number]) {
+  const center = visualAid.centralNode || visualAid.items?.[0] || 'Hub';
+  const nodes = (visualAid.nodes?.length ? visualAid.nodes : visualAid.items?.slice(1) ?? visualAid.labels ?? [])
+    .filter(Boolean)
+    .slice(0, 4);
+  const visibleNodes = nodes.length ? nodes : ['Device 1', 'Device 2', 'Device 3', 'Device 4'];
+  return `<div class="visual-figure network-diagram">
+    <span class="network-line vtop"></span><span class="network-line hright"></span><span class="network-line vbottom"></span><span class="network-line hleft"></span>
+    <span class="network-center">${escapeHtml(center)}</span>
+    ${visibleNodes.slice(0, 4).map((node, index) => `<span class="network-node n${index}">${escapeHtml(node)}</span>`).join('')}
+  </div>`;
+}
+
+function buildInterfaceMockupHtml(visualAid: NonNullable<LessonPlan['visualAids']>[number]) {
+  const items = visualItems(visualAid, 5);
+  return `<div class="visual-figure interface-mockup"><div class="interface-title">${escapeHtml(visualAid.title)}</div>${items
+    .map((item) => `<div class="interface-row">${escapeHtml(item)}</div>`)
+    .join('')}</div>`;
+}
+
+function buildStoryMapHtml(visualAid: NonNullable<LessonPlan['visualAids']>[number]) {
+  return `<div class="visual-figure story-map">${visualItems(visualAid, 5)
+    .map((item, index) => `<div class="story-card"><strong>${index + 1}.</strong> ${escapeHtml(item)}</div>`)
+    .join('')}</div>`;
+}
+
+function buildActivityVisualHtml(
+  activities: string[],
+  visualAids: NonNullable<LessonPlan['visualAids']>,
+) {
+  const placements = placeVisualAidsWithActivities(activities, visualAids);
+  return `${activities
+    .map((item, index) => `<div>${escapeHtml(item)}</div>${(placements.byActivity[index] ?? []).map(buildVisualAidHtml).join('')}`)
+    .join('')}${placements.unmatched.map(buildVisualAidHtml).join('')}`;
+}
+
+function placeVisualAidsWithActivities(
+  activities: string[],
+  visualAids: NonNullable<LessonPlan['visualAids']>,
+) {
+  const byActivity: Record<number, NonNullable<LessonPlan['visualAids']>> = {};
+  const unmatched: NonNullable<LessonPlan['visualAids']> = [];
+  for (const visualAid of visualAids) {
+    const index = findActivityIndex(activities, visualAid.activityLink);
+    if (index >= 0) byActivity[index] = [...(byActivity[index] ?? []), visualAid];
+    else unmatched.push(visualAid);
+  }
+  return { byActivity, unmatched };
+}
+
+function findActivityIndex(activities: string[], activityLink?: string) {
+  const link = normalizeMatchText(activityLink);
+  if (!link) return -1;
+  let bestIndex = -1;
+  let bestScore = 0;
+  activities.forEach((activity, index) => {
+    const text = normalizeMatchText(activity);
+    let score = 0;
+    if (text === link) score = 100;
+    else if (text.includes(link) || link.includes(text)) score = 80;
+    else {
+      const words = link.split(' ').filter((word) => word.length > 3);
+      const matches = words.filter((word) => text.includes(word)).length;
+      score = words.length ? (matches / words.length) * 60 : 0;
+    }
+    if (score > bestScore) {
+      bestIndex = index;
+      bestScore = score;
+    }
+  });
+  return bestScore >= 35 ? bestIndex : -1;
+}
+
+function normalizeMatchText(value?: string) {
+  return (value ?? '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+}
+
+function isMatrixTableVisual(visualAid: NonNullable<LessonPlan['visualAids']>[number]) {
+  return ['frequency_table', 'tally_table', 'place_value_table', 'observation_table', 'algorithm_trace_table', 'data_table'].includes(visualAid.type);
+}
+
+function buildLabelListHtml(labels?: string[]) {
+  return labels?.length ? `<div class="label-grid">${labels.slice(0, 6).map((label) => `<span class="label-chip">${escapeHtml(label)}</span>`).join('')}</div>` : '';
 }
 
 function buildLocalLanguageHtml(plan: LessonPlan) {

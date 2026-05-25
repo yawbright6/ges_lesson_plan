@@ -4,12 +4,37 @@ import type {
   TeachingNoteVisual,
   TeachingNotes,
 } from '@/types/teachingNotes';
+import type { LessonVisualAidType } from '@/types/lessonPlan';
 
 export const STRUCTURED_TEACHING_NOTE_BLOCK_TYPES = new Set<TeachingNoteContentBlockType>([
   'labelled_diagram',
   'process_steps',
+  'process_diagram',
+  'block_diagram',
+  'flowchart',
+  'timeline',
   'comparison_table',
   'bar_chart',
+  'line_graph',
+  'frequency_table',
+  'tally_table',
+  'place_value_table',
+  'observation_table',
+  'algorithm_trace_table',
+  'number_line',
+  'coordinate_grid',
+  'geometry_shape',
+  'fraction_model',
+  'venn_diagram',
+  'angle_diagram',
+  'cycle_diagram',
+  'classification_chart',
+  'experiment_setup',
+  'circuit_diagram',
+  'network_diagram',
+  'interface_mockup',
+  'data_table',
+  'story_map',
 ]);
 
 export const GENERATED_TEACHING_NOTE_BLOCK_TYPES = new Set<TeachingNoteContentBlockType>([
@@ -77,6 +102,7 @@ export function hasPendingTeachingNoteVisuals(
 export function contentBlockToVisual(block: TeachingNoteContentBlock): TeachingNoteVisual {
   return {
     id: block.id,
+    type: block.visualType ?? teachingBlockTypeToVisualType(block.type),
     kind: block.visualKind ?? (block.type === 'bar_chart' ? 'chart' : 'diagram'),
     source: block.type === 'generated_visual' ? 'generated' : 'structured',
     title: block.title ?? 'Diagram',
@@ -88,7 +114,25 @@ export function contentBlockToVisual(block: TeachingNoteContentBlock): TeachingN
     rows: block.rows,
     steps: block.steps,
     data: block.data,
+    columns: block.columns,
+    cells: block.cells,
+    min: block.min,
+    max: block.max,
+    points: block.points,
+    shape: block.shape,
+    segments: block.segments,
+    shadedSegments: block.shadedSegments,
+    items: block.items,
+    centralNode: block.centralNode,
+    nodes: block.nodes,
+    groups: block.groups,
   };
+}
+
+function teachingBlockTypeToVisualType(type: TeachingNoteContentBlockType): LessonVisualAidType {
+  if (type === 'process_steps') return 'process_diagram';
+  const allowed = STRUCTURED_TEACHING_NOTE_BLOCK_TYPES.has(type) && !GENERATED_TEACHING_NOTE_BLOCK_TYPES.has(type);
+  return allowed ? type as LessonVisualAidType : 'labelled_diagram';
 }
 
 function legacyVisualToContentBlock(visual: TeachingNoteVisual): TeachingNoteContentBlock {

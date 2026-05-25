@@ -33,9 +33,31 @@ export interface LessonPhase {
 export type LessonVisualAidType =
   | 'labelled_diagram'
   | 'bar_chart'
+  | 'line_graph'
   | 'flowchart'
   | 'timeline'
-  | 'comparison_table';
+  | 'comparison_table'
+  | 'frequency_table'
+  | 'tally_table'
+  | 'place_value_table'
+  | 'observation_table'
+  | 'algorithm_trace_table'
+  | 'number_line'
+  | 'coordinate_grid'
+  | 'geometry_shape'
+  | 'fraction_model'
+  | 'venn_diagram'
+  | 'angle_diagram'
+  | 'cycle_diagram'
+  | 'process_diagram'
+  | 'block_diagram'
+  | 'classification_chart'
+  | 'experiment_setup'
+  | 'circuit_diagram'
+  | 'network_diagram'
+  | 'interface_mockup'
+  | 'data_table'
+  | 'story_map';
 
 export interface LessonVisualAid {
   id?: string;
@@ -53,6 +75,18 @@ export interface LessonVisualAid {
   steps?: string[];
   data?: { label: string; value: number }[];
   rows?: { label: string; value: string }[];
+  columns?: string[];
+  cells?: string[][];
+  min?: number;
+  max?: number;
+  points?: { value: number; label?: string; x?: number; y?: number }[];
+  shape?: 'circle' | 'rectangle' | 'square' | 'triangle' | 'polygon' | string;
+  segments?: number;
+  shadedSegments?: number;
+  items?: string[];
+  centralNode?: string;
+  nodes?: string[];
+  groups?: { label: string; items: string[] }[];
   caption?: string;
 }
 

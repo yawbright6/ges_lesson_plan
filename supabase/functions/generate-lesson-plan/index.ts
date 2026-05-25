@@ -46,7 +46,10 @@ Deno.serve(async (req) => {
       metadata,
       async run() {
         const plan = await callClaudeJson<Record<string, unknown>>({
-          system: getLessonPlanSystemPrompt(body.visualGenerationEnabled !== false),
+          system: getLessonPlanSystemPrompt({
+            structuredVisualsEnabled: body.structuredVisualsEnabled !== false,
+            visualGenerationEnabled: body.visualGenerationEnabled !== false,
+          }),
           user: buildLessonPrompt(body),
         });
         return normalizeLessonPlanResponse(plan, body);

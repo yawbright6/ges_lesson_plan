@@ -42,6 +42,7 @@ export interface LessonGenerationBody {
   schoolDistrict?: string;
   classSize?: string;
   schemeContext?: SchemeContext;
+  structuredVisualsEnabled?: boolean;
   visualGenerationEnabled?: boolean;
 }
 
@@ -61,6 +62,7 @@ export interface SchemeGenerationBody {
 
 export interface TeachingNotesGenerationBody {
   lessonPlan: Record<string, unknown>;
+  structuredVisualsEnabled?: boolean;
   visualGenerationEnabled?: boolean;
 }
 
@@ -69,6 +71,7 @@ export interface TestItemRewriteBody {
   subject: string;
   classLevel: string;
   termTitle?: string;
+  structuredVisualsEnabled?: boolean;
   items: Array<{
     id?: string;
     week?: number;
@@ -91,6 +94,36 @@ export interface TestItemRewriteBody {
 }
 
 const TEACHING_NOTE_GENERATED_BLOCK_TYPES = new Set(['generated_visual', 'image_grid']);
+const TEACHING_NOTE_STRUCTURED_BLOCK_TYPES = new Set([
+  'labelled_diagram',
+  'process_steps',
+  'process_diagram',
+  'block_diagram',
+  'flowchart',
+  'timeline',
+  'comparison_table',
+  'bar_chart',
+  'line_graph',
+  'frequency_table',
+  'tally_table',
+  'place_value_table',
+  'observation_table',
+  'algorithm_trace_table',
+  'number_line',
+  'coordinate_grid',
+  'geometry_shape',
+  'fraction_model',
+  'venn_diagram',
+  'angle_diagram',
+  'cycle_diagram',
+  'classification_chart',
+  'experiment_setup',
+  'circuit_diagram',
+  'network_diagram',
+  'interface_mockup',
+  'data_table',
+  'story_map',
+]);
 
 export const lessonPlanSystemPrompt = `You are an expert curriculum designer for the Ghanaian Basic and Senior High
 School standards-based curriculum (NaCCA / GES). You write lesson plans that match
@@ -143,7 +176,12 @@ Always respond with a single JSON object only, no markdown or commentary, with t
   ],
   "visualAids": [
     {
-      "type": "labelled_diagram" | "bar_chart" | "flowchart" | "timeline" | "comparison_table",
+      "type": "labelled_diagram" | "bar_chart" | "line_graph" | "flowchart" | "timeline" | "comparison_table" |
+        "frequency_table" | "tally_table" | "place_value_table" | "observation_table" | "algorithm_trace_table" |
+        "number_line" | "coordinate_grid" | "geometry_shape" | "fraction_model" | "venn_diagram" |
+        "angle_diagram" | "cycle_diagram" | "process_diagram" | "classification_chart" |
+        "block_diagram" | "experiment_setup" | "circuit_diagram" | "network_diagram" | "interface_mockup" |
+        "data_table" | "story_map",
       "title": string,
       "purpose": string,
       "phase": 1 | 2 | 3,
@@ -154,6 +192,18 @@ Always respond with a single JSON object only, no markdown or commentary, with t
       "steps": string[],
       "data": [{ "label": string, "value": number }],
       "rows": [{ "label": string, "value": string }],
+      "columns": string[],
+      "cells": string[][],
+      "min": number,
+      "max": number,
+      "points": [{ "value": number, "label": string, "x": number, "y": number }],
+      "shape": string,
+      "segments": number,
+      "shadedSegments": number,
+      "items": string[],
+      "centralNode": string,
+      "nodes": string[],
+      "groups": [{ "label": string, "items": string[] }],
       "caption": string
     }
   ]
@@ -200,22 +250,38 @@ Rules:
 - Use culturally relevant Ghanaian examples.
 - Make activities age-appropriate.
 - Phase 2 must include exactly 3 assessment questions.
-- Include at most two visual aids when they genuinely support a classroom activity. If no visual is useful, return "visualAids": [].
-- Prefer at least one structured visual aid (bar_chart, flowchart, timeline, comparison_table, or labelled_diagram) when the topic benefits from a chart, process, table, or labelled explanation.
+- Include at most two visual aids when structured visuals are enabled and they genuinely support a classroom activity. If no visual is useful, return "visualAids": [].
+- Prefer subject-appropriate structured visual aids when the topic benefits from one:
+  Mathematics: frequency_table, tally_table, place_value_table, number_line, coordinate_grid, geometry_shape, fraction_model, venn_diagram, angle_diagram, bar_chart, line_graph.
+  Science: labelled_diagram, process_diagram, cycle_diagram, classification_chart, experiment_setup, observation_table, circuit_diagram, bar_chart, line_graph, comparison_table.
+  Computing: flowchart, algorithm_trace_table, block_diagram, process_diagram, network_diagram, interface_mockup, data_table, comparison_table, place_value_table for binary.
+  English/languages: story_map, timeline, comparison_table, process_diagram, vocabulary/sentence tables.
+  Social Studies/History/RME: timeline, comparison_table, classification_chart, process_diagram, story_map, bar_chart.
+  Creative Arts/Career Tech/PE: process_diagram, geometry_shape, comparison_table, timeline, labelled_diagram, flowchart.
 - MANDATORY: Every visualAid MUST have a phase (1, 2, or 3). Set phase to the lesson phase where the visual is most helpful. If not set, the visual will appear as a separate section instead of inline.
 - MANDATORY: Set activityLink to the specific activity text that this visual supports (copy a phrase from the activities array).
 - Visual aids render inline within the phase activities only when phase is correctly set.
-- Use labelled_diagram with labels; flowchart/timeline with steps; bar_chart with data [{ label, value }]; comparison_table with rows.
+- Use labelled_diagram with labels; flowchart/timeline/cycle/process/block/story_map with steps; bar_chart/line_graph with data; comparison_table with rows; table types with columns and cells; number_line with min, max, points; geometry_shape with shape and labels; fraction_model with segments and shadedSegments; network_diagram with centralNode and nodes; classification_chart with groups; experiment_setup/circuit_diagram/interface_mockup with items.
 - For visual aids that would benefit from a generated image, include a clear Gemini-ready prompt and set status to "pending". Do not include imageUrl, markdown, SVG, or base64.
 - Keep prompts simple, classroom-friendly, culturally appropriate, and labelled where useful. Avoid copyrighted characters, brand names, and unnecessary people.
 - Return JSON only.`;
 
 export const lessonPlanNoGeminiVisualRules = `
 - AI image generation is turned OFF. Do not include prompt, status, imageUrl, or pending image placeholders on any visualAid.
-- Still include structured visualAids (bar_chart, flowchart, timeline, comparison_table, labelled_diagram) when they support the lesson.
-- Use only data the app can render as charts, tables, steps, or labels.`;
+- Still include structured visualAids when they support the lesson.
+- Use only data the app can render as charts, tables, steps, labels, simple shapes, number lines, grids and diagrams.`;
 
-export function getLessonPlanSystemPrompt(visualGenerationEnabled = true) {
+export const lessonPlanNoStructuredVisualRules = `
+- Structured classroom visuals are turned OFF. Return "visualAids": [].
+- Do not include charts, tables, flowcharts, diagrams, visual placeholders, prompts, or generated image fields.`;
+
+export function getLessonPlanSystemPrompt(options: boolean | {
+  structuredVisualsEnabled?: boolean;
+  visualGenerationEnabled?: boolean;
+} = true) {
+  const visualGenerationEnabled = typeof options === 'boolean' ? options : options.visualGenerationEnabled !== false;
+  const structuredVisualsEnabled = typeof options === 'boolean' ? true : options.structuredVisualsEnabled !== false;
+  if (!structuredVisualsEnabled) return `${lessonPlanSystemPrompt}\n${lessonPlanNoStructuredVisualRules}`;
   if (visualGenerationEnabled) return lessonPlanSystemPrompt;
   return `${lessonPlanSystemPrompt}\n${lessonPlanNoGeminiVisualRules}`;
 }
@@ -338,7 +404,20 @@ Always respond with a single JSON object only, no markdown or commentary, with t
   "contentBlocks": [
     {
       "id": string,
-      "type": "heading" | "paragraph" | "bullet_list" | "worked_example" | "practice_questions" | "comparison_table" | "bar_chart" | "process_steps" | "labelled_diagram" | "generated_visual" | "image_grid" | "teacher_tip",
+      "type": "heading" | "paragraph" | "bullet_list" | "worked_example" | "practice_questions" |
+        "comparison_table" | "bar_chart" | "line_graph" | "frequency_table" | "tally_table" |
+        "place_value_table" | "observation_table" | "algorithm_trace_table" | "number_line" |
+        "coordinate_grid" | "geometry_shape" | "fraction_model" | "venn_diagram" | "angle_diagram" |
+        "cycle_diagram" | "flowchart" | "process_steps" | "process_diagram" | "block_diagram" |
+        "classification_chart" | "experiment_setup" | "circuit_diagram" | "network_diagram" |
+        "interface_mockup" | "data_table" | "story_map" | "labelled_diagram" |
+        "generated_visual" | "image_grid" | "teacher_tip",
+      "visualType": "labelled_diagram" | "bar_chart" | "line_graph" | "flowchart" | "timeline" | "comparison_table" |
+        "frequency_table" | "tally_table" | "place_value_table" | "observation_table" | "algorithm_trace_table" |
+        "number_line" | "coordinate_grid" | "geometry_shape" | "fraction_model" | "venn_diagram" |
+        "angle_diagram" | "cycle_diagram" | "process_diagram" | "classification_chart" |
+        "block_diagram" | "experiment_setup" | "circuit_diagram" | "network_diagram" | "interface_mockup" |
+        "data_table" | "story_map",
       "title": string,
       "text": string,
       "items": string[],
@@ -346,6 +425,17 @@ Always respond with a single JSON object only, no markdown or commentary, with t
       "rows": string[][],
       "steps": string[],
       "data": [{ "label": string, "value": number }],
+      "columns": string[],
+      "cells": string[][],
+      "min": number,
+      "max": number,
+      "points": [{ "value": number, "label": string, "x": number, "y": number }],
+      "shape": string,
+      "segments": number,
+      "shadedSegments": number,
+      "centralNode": string,
+      "nodes": string[],
+      "groups": [{ "label": string, "items": string[] }],
       "visualKind": "diagram" | "chart" | "process" | "table" | "board_sketch" | "generated_image",
       "prompt": string,
       "caption": string,
@@ -372,9 +462,10 @@ Always respond with a single JSON object only, no markdown or commentary, with t
   - For Mathematics, include definitions, place-value tables, worked examples, comparison/ordering steps, and practice items.
   - All diagrams and illustrations must appear only inside contentBlocks, placed exactly where they support the nearby explanation, worked example, or activity.
   - Do not use a separate top-level visuals array. Always return "visuals": [].
-  - Include structured visual blocks when they help learners understand the topic (tables, steps, labels, bar charts). Prefer at least one structured block when the subject benefits from a chart, comparison, process, or labelled explanation.
+  - Include structured visual blocks when they help learners understand the topic. Prefer at least one structured block when the subject benefits from a chart, comparison, process, or labelled explanation.
+  - Use only visual types the app can render properly: tables, bar_chart, line_graph, number_line, coordinate_grid, geometry_shape, fraction_model, venn_diagram, flowchart/process/block diagrams, cycle_diagram, classification_chart, experiment_setup, circuit_diagram, network_diagram, interface_mockup, story_map, and labelled_diagram.
   - Include visual blocks only when they directly match the subject and topic. Never include examples from another subject.
-  - Use bar_chart with data [{ label, value }] for numeric comparisons; comparison_table with rows for side-by-side facts; process_steps with steps for sequences; labelled_diagram with labels for parts or vocabulary.
+  - Use bar_chart/line_graph with data; comparison_table/table types with rows or columns+cells; process_steps/flowchart/process_diagram/block_diagram/cycle_diagram/story_map with steps; labelled_diagram with labels; number_line with min/max/points; geometry_shape with shape and labels; fraction_model with segments and shadedSegments; network_diagram with centralNode and nodes; classification_chart with groups; experiment_setup/circuit_diagram/interface_mockup with items.
   - Use generated_visual with visualKind "generated_image" only when a custom illustration is needed; include prompt, status: "pending", and do not include imageUrl.
   - Each generated_visual block must include id, title, visualKind, prompt, caption, status: "pending", and brief text explaining why it supports the nearby content.
   - Include at most two generated_visual blocks per note.
@@ -389,7 +480,17 @@ export const teachingNotesNoGeminiVisualRules = `
   - Still include structured blocks (bar_chart, comparison_table, process_steps, labelled_diagram) when they support the lesson.
   - Do not mention missing images, diagrams to generate later, or illustration prompts.`;
 
-export function getTeachingNotesSystemPrompt(visualGenerationEnabled = true) {
+export const teachingNotesNoStructuredVisualRules = `
+  - Structured classroom visuals are turned OFF for this school.
+  - Do not include structured visual blocks, charts, tables, diagrams, sketch placeholders, generated_visual, image_grid, prompts, or image placeholders.`;
+
+export function getTeachingNotesSystemPrompt(options: boolean | {
+  structuredVisualsEnabled?: boolean;
+  visualGenerationEnabled?: boolean;
+} = true) {
+  const visualGenerationEnabled = typeof options === 'boolean' ? options : options.visualGenerationEnabled !== false;
+  const structuredVisualsEnabled = typeof options === 'boolean' ? true : options.structuredVisualsEnabled !== false;
+  if (!structuredVisualsEnabled) return `${teachingNotesSystemPrompt}\n${teachingNotesNoStructuredVisualRules}`;
   if (visualGenerationEnabled) return teachingNotesSystemPrompt;
   return `${teachingNotesSystemPrompt}\n${teachingNotesNoGeminiVisualRules}`;
 }
@@ -414,7 +515,36 @@ Always respond with a single JSON object only, no markdown or commentary, with t
           "text": string,
           "marks": number,
           "mode": "multiple_choice" | "fill_in_blank" | "essay",
-          "sourceItemIds": string[]
+          "sourceItemIds": string[],
+          "visuals": [
+            {
+              "type": "labelled_diagram" | "bar_chart" | "line_graph" | "flowchart" | "timeline" | "comparison_table" |
+                "frequency_table" | "tally_table" | "place_value_table" | "observation_table" | "algorithm_trace_table" |
+                "number_line" | "coordinate_grid" | "geometry_shape" | "fraction_model" | "venn_diagram" |
+                "angle_diagram" | "cycle_diagram" | "process_diagram" | "classification_chart" |
+                "block_diagram" | "experiment_setup" | "circuit_diagram" | "network_diagram" | "interface_mockup" |
+                "data_table" | "story_map",
+              "title": string,
+              "purpose": string,
+              "labels": string[],
+              "steps": string[],
+              "data": [{ "label": string, "value": number }],
+              "rows": [{ "label": string, "value": string }],
+              "columns": string[],
+              "cells": string[][],
+              "min": number,
+              "max": number,
+              "points": [{ "value": number, "label": string, "x": number, "y": number }],
+              "shape": string,
+              "segments": number,
+              "shadedSegments": number,
+              "items": string[],
+              "centralNode": string,
+              "nodes": string[],
+              "groups": [{ "label": string, "items": string[] }],
+              "caption": string
+            }
+          ]
         }
       ]
     }
@@ -447,6 +577,10 @@ Rules:
   essay questions into concept-description prompts unless the source item itself explicitly asks for an explanation.
 - For Mathematics, prefer precise notation such as \frac{3}{4}, \sqrt{18}, x^{2}, \vec{AB}, inequalities, equations,
   tables, diagrams, and multi-step word problems that demand an answer with working.
+- When a question genuinely requires a visual, attach it in that question's visuals array and make the question text refer to it clearly, e.g. "Use the diagram below...".
+- Use question-level visuals for number lines, fraction models, geometry shapes, coordinate grids, Venn diagrams, bar/line charts, frequency/tally/place-value tables, circuits, flowcharts, algorithm trace tables, network diagrams, timelines, and labelled diagrams when they improve assessment quality.
+- Do not include generated image prompts or image placeholders in test papers. Use only structured visual data the app can render.
+- If structured visuals are turned off, return "visuals": [] for every question and write text-only questions.
 - Do not include any instruction about silent electronic calculators.
 - If workings are needed, use exactly this instruction: "All workings in Section B must be shown clearly."
 - Improve clarity and test-paper wording, but keep the same skill or knowledge demand as the source prompt.
@@ -465,6 +599,7 @@ export function buildTestItemRewritePrompt(body: TestItemRewriteBody): string {
     (body.termTitle ? `- Term: ${body.termTitle}\n` : '') +
     (body.options?.totalMarks ? `- Required total marks: ${body.options.totalMarks}\n` : '- Total marks: AI may decide\n') +
     `- Requested test modes: ${formatTestModeOptions(body.options?.modes)}\n` +
+    `- Structured question visuals: ${body.structuredVisualsEnabled === false ? 'OFF. Return visuals: [] on all questions.' : 'ON. Add question-level visuals only when they improve the assessment.'}\n` +
     `- Source items JSON:\n${JSON.stringify(items)}\n\n` +
     `Return the JSON object only.`
   );
@@ -494,6 +629,9 @@ export function normalizeTestItemRewriteResponse(
               marks,
               mode: cleanText(questionRecord.mode),
               sourceItemIds: cleanStringList(questionRecord.sourceItemIds, 20),
+              visuals: body.structuredVisualsEnabled === false
+                ? []
+                : normalizeVisualAids(questionRecord.visuals, false),
             };
           })
           .filter((question) => question.text)
@@ -681,7 +819,9 @@ export function normalizeLessonPlanResponse(
     references:
       cleanText(payload?.references) ||
       (selectedWeek?.topic ? `Scheme topic: ${selectedWeek.topic}` : ''),
-    visualAids: normalizeVisualAids(payload?.visualAids, body.visualGenerationEnabled !== false),
+    visualAids: body.structuredVisualsEnabled === false
+      ? []
+      : normalizeVisualAids(payload?.visualAids, body.visualGenerationEnabled !== false),
     teacherName: cleanText(body?.teacherName),
     schoolName: cleanText(body?.schoolName),
     schoolDistrict: cleanText(body?.schoolDistrict),
@@ -775,7 +915,35 @@ function normalizeTranslatedPhases(value: unknown, fallback: unknown) {
 
 function normalizeVisualAids(value: unknown, includeGeneratedImages = true) {
   if (!Array.isArray(value)) return [];
-  const allowedTypes = new Set(['labelled_diagram', 'bar_chart', 'flowchart', 'timeline', 'comparison_table']);
+  const allowedTypes = new Set([
+    'labelled_diagram',
+    'bar_chart',
+    'line_graph',
+    'flowchart',
+    'timeline',
+    'comparison_table',
+    'frequency_table',
+    'tally_table',
+    'place_value_table',
+    'observation_table',
+    'algorithm_trace_table',
+    'number_line',
+    'coordinate_grid',
+    'geometry_shape',
+    'fraction_model',
+    'venn_diagram',
+    'angle_diagram',
+    'cycle_diagram',
+    'process_diagram',
+    'block_diagram',
+    'classification_chart',
+    'experiment_setup',
+    'circuit_diagram',
+    'network_diagram',
+    'interface_mockup',
+    'data_table',
+    'story_map',
+  ]);
 
   return value
     .slice(0, 2)
@@ -797,6 +965,18 @@ function normalizeVisualAids(value: unknown, includeGeneratedImages = true) {
         steps: cleanStringList(visual?.steps, 6),
         data: cleanChartData(visual?.data),
         rows: cleanVisualRows(visual?.rows),
+        columns: cleanStringList(visual?.columns, 6),
+        cells: cleanCellRows(visual?.cells),
+        min: finiteNumber(visual?.min),
+        max: finiteNumber(visual?.max),
+        points: cleanVisualPoints(visual?.points),
+        shape: cleanText(visual?.shape),
+        segments: finiteNumber(visual?.segments),
+        shadedSegments: finiteNumber(visual?.shadedSegments),
+        items: cleanStringList(visual?.items, 8),
+        centralNode: cleanText(visual?.centralNode),
+        nodes: cleanStringList(visual?.nodes, 8),
+        groups: cleanVisualGroups(visual?.groups),
         caption: cleanText(visual?.caption),
         id: cleanText(visual?.id) || `visual-${slugify(title)}-${Date.now()}`,
         prompt,
@@ -807,6 +987,54 @@ function normalizeVisualAids(value: unknown, includeGeneratedImages = true) {
       };
     })
     .filter(Boolean);
+}
+
+function cleanCellRows(value: unknown) {
+  if (!Array.isArray(value)) return [];
+  return value
+    .filter((row) => Array.isArray(row))
+    .map((row) => (row as unknown[]).map((cell) => cleanText(cell)).slice(0, 6))
+    .filter((row) => row.some(Boolean))
+    .slice(0, 8);
+}
+
+function cleanVisualPoints(value: unknown) {
+  if (!Array.isArray(value)) return [];
+  return value
+    .map((item) => {
+      const point = item as Record<string, unknown>;
+      const value = finiteNumber(point?.value);
+      const x = finiteNumber(point?.x);
+      const y = finiteNumber(point?.y);
+      if (value == null && (x == null || y == null)) return null;
+      return {
+        value: value ?? 0,
+        label: cleanText(point?.label),
+        x: x ?? undefined,
+        y: y ?? undefined,
+      };
+    })
+    .filter(Boolean)
+    .slice(0, 10);
+}
+
+function cleanVisualGroups(value: unknown) {
+  if (!Array.isArray(value)) return [];
+  return value
+    .map((item) => {
+      const group = item as Record<string, unknown>;
+      const label = cleanText(group?.label);
+      const items = cleanStringList(group?.items, 6);
+      if (!label && !items.length) return null;
+      return { label: label || 'Group', items };
+    })
+    .filter(Boolean)
+    .slice(0, 4);
+}
+
+function finiteNumber(value: unknown) {
+  const numericValue = Number(value);
+  return Number.isFinite(numericValue) ? numericValue : undefined;
 }
 
 function cleanStringList(value: unknown, limit: number) {
@@ -907,12 +1135,15 @@ export function normalizeTeachingNotesResponse(
     classroomManagement: arrayOfText(payload?.classroomManagement),
     boardSummary: arrayOfText(payload?.boardSummary),
     homework: arrayOfText(payload?.homework),
-    contentBlocks: filterTeachingNoteGeneratedBlocks(
+    contentBlocks: filterTeachingNoteVisualBlocks(
       normalizeTeachingNoteBlocks(
         payload?.contentBlocks,
         body.visualGenerationEnabled === false ? [] : payload?.visuals,
       ),
-      body.visualGenerationEnabled !== false,
+      {
+        includeStructuredVisuals: body.structuredVisualsEnabled !== false,
+        includeGeneratedVisuals: body.visualGenerationEnabled !== false,
+      },
     ),
     visuals: [],
     sourceLessonPlan: {
@@ -933,12 +1164,16 @@ function arrayOfText(value: unknown) {
   return Array.isArray(value) ? value.map((item) => cleanText(item)).filter(Boolean) : [];
 }
 
-function filterTeachingNoteGeneratedBlocks<T extends { type?: string; prompt?: string; imageUrl?: string; status?: string }>(
+function filterTeachingNoteVisualBlocks<T extends { type?: string; prompt?: string; imageUrl?: string; status?: string }>(
   blocks: T[],
-  includeGeneratedVisuals: boolean,
+  options: { includeStructuredVisuals: boolean; includeGeneratedVisuals: boolean },
 ) {
-  if (includeGeneratedVisuals) return blocks;
-  return blocks.filter((block) => !TEACHING_NOTE_GENERATED_BLOCK_TYPES.has(cleanText(block.type)));
+  return blocks.filter((block) => {
+    const type = cleanText(block.type);
+    if (!options.includeStructuredVisuals && TEACHING_NOTE_STRUCTURED_BLOCK_TYPES.has(type)) return false;
+    if (!options.includeGeneratedVisuals && TEACHING_NOTE_GENERATED_BLOCK_TYPES.has(type)) return false;
+    return true;
+  });
 }
 
 function normalizeTeachingNoteBlocks(value: unknown, legacyVisuals: unknown = []) {
@@ -966,6 +1201,7 @@ function normalizeTeachingNoteBlock(block: Record<string, unknown>, index: numbe
   return {
     id: cleanText(block.id) || `block-${index + 1}`,
     type: cleanText(block.type) || 'paragraph',
+    visualType: cleanText(block.visualType),
     title: cleanText(block.title),
     text: cleanText(block.text),
     items: arrayOfText(block.items),
@@ -977,6 +1213,17 @@ function normalizeTeachingNoteBlock(block: Record<string, unknown>, index: numbe
       : [],
     steps: arrayOfText(block.steps),
     data: cleanChartData(block.data),
+    columns: cleanStringList(block.columns, 6),
+    cells: cleanCellRows(block.cells),
+    min: finiteNumber(block.min),
+    max: finiteNumber(block.max),
+    points: cleanVisualPoints(block.points),
+    shape: cleanText(block.shape),
+    segments: finiteNumber(block.segments),
+    shadedSegments: finiteNumber(block.shadedSegments),
+    centralNode: cleanText(block.centralNode),
+    nodes: cleanStringList(block.nodes, 8),
+    groups: cleanVisualGroups(block.groups),
     labels: Array.isArray(block.labels)
       ? block.labels
           .filter((label) => label && typeof label === 'object')
@@ -1050,6 +1297,18 @@ function legacyVisualToContentBlock(visual: Record<string, unknown>) {
       rows,
       steps,
       data: cleanChartData(visual.data),
+      columns: cleanStringList(visual.columns, 6),
+      cells: cleanCellRows(visual.cells),
+      min: finiteNumber(visual.min),
+      max: finiteNumber(visual.max),
+      points: cleanVisualPoints(visual.points),
+      shape: cleanText(visual.shape),
+      segments: finiteNumber(visual.segments),
+      shadedSegments: finiteNumber(visual.shadedSegments),
+      items: cleanStringList(visual.items, 8),
+      centralNode: cleanText(visual.centralNode),
+      nodes: cleanStringList(visual.nodes, 8),
+      groups: cleanVisualGroups(visual.groups),
     };
   }
 

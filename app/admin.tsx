@@ -287,6 +287,7 @@ export default function AdminScreen() {
           provider: appSettingsDraft.translationProvider || 'anthropic',
         },
         visual_generation: {
+          structured_visuals_enabled: appSettingsDraft.structuredVisualsEnabled,
           enabled: appSettingsDraft.visualGenerationEnabled,
           auto_generate: appSettingsDraft.visualAutoGenerate,
           provider: appSettingsDraft.visualProvider || 'gemini',

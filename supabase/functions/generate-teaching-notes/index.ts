@@ -47,7 +47,10 @@ Deno.serve(async (req) => {
       metadata,
       async run() {
         const rawNotes = await callClaudeJson<Record<string, unknown>>({
-          system: getTeachingNotesSystemPrompt(body.visualGenerationEnabled !== false),
+          system: getTeachingNotesSystemPrompt({
+            structuredVisualsEnabled: body.structuredVisualsEnabled !== false,
+            visualGenerationEnabled: body.visualGenerationEnabled !== false,
+          }),
           user: buildTeachingNotesPrompt(body),
           maxTokens: 12000,
         });

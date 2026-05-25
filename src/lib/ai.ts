@@ -118,9 +118,11 @@ export async function generateLessonPlan(
   });
 
   const settings = await loadRuntimeAppSettingsOrDefault();
+  const structuredVisualsEnabled = settings.visualGeneration.structuredVisualsEnabled;
   const visualGenerationEnabled = settings.visualGeneration.enabled;
   const requestBody = {
     ...input,
+    structuredVisualsEnabled,
     visualGenerationEnabled,
     schemeContext: {
       ...schemeContext,
@@ -131,20 +133,29 @@ export async function generateLessonPlan(
   if (useLocalAi) {
     try {
       const data = await postLocal<LessonPlan>('/generate-lesson-plan', requestBody, options);
-      return validateLessonPlan(visualGenerationEnabled ? data : stripLessonPlanGeminiVisuals(data));
+      return validateLessonPlan(normalizeLessonVisuals(data, {
+        structuredVisualsEnabled,
+        visualGenerationEnabled,
+      }));
     } catch (err) {
       console.warn('[ai] Local lesson generation failed; using fallback lesson plan.', err);
       const fallback = buildFallbackLessonPlan(input, groundingScheme);
       return {
         ...fallback,
-        visualAids: visualGenerationEnabled ? fallback.visualAids : [],
+        visualAids: structuredVisualsEnabled ? normalizeLessonVisuals(fallback, {
+          structuredVisualsEnabled,
+          visualGenerationEnabled,
+        }).visualAids : [],
         references: `${fallback.references}. Local AI fallback reason: ${getErrorMessage(err)}`,
       };
     }
   }
 
   const data = await invokeEdgeFunctionJson<LessonPlan>('generate-lesson-plan', requestBody, options);
-  return validateLessonPlan(visualGenerationEnabled ? data : stripLessonPlanGeminiVisuals(data));
+  return validateLessonPlan(normalizeLessonVisuals(data, {
+    structuredVisualsEnabled,
+    visualGenerationEnabled,
+  }));
 }
 
 export async function generateSchemeOfWork(
@@ -208,14 +219,18 @@ export async function generateTeachingNotes(
   options: AiRequestOptions = {},
 ): Promise<TeachingNotes> {
   const settings = await loadRuntimeAppSettingsOrDefault();
+  const structuredVisualsEnabled = settings.visualGeneration.structuredVisualsEnabled;
   const visualGenerationEnabled = settings.visualGeneration.enabled;
-  const requestBody = { lessonPlan: plan, visualGenerationEnabled };
+  const requestBody = { lessonPlan: plan, structuredVisualsEnabled, visualGenerationEnabled };
 
   if (useLocalAi) {
     try {
       const data = await postLocal<TeachingNotes>('/generate-teaching-notes', requestBody, options);
       return validateTeachingNotes(
-        visualGenerationEnabled ? data : stripGeneratedTeachingNoteVisuals(data),
+        stripTeachingNotesForVisualSettings(data, {
+          structuredVisualsEnabled,
+          visualGenerationEnabled,
+        }),
       );
     } catch (err) {
       console.warn('[ai] Local teaching notes generation failed; using fallback teaching notes.', err);
@@ -229,7 +244,10 @@ export async function generateTeachingNotes(
 
   const data = await invokeEdgeFunctionJson<TeachingNotes>('generate-teaching-notes', requestBody, options);
   return validateTeachingNotes(
-    visualGenerationEnabled ? data : stripGeneratedTeachingNoteVisuals(data),
+    stripTeachingNotesForVisualSettings(data, {
+      structuredVisualsEnabled,
+      visualGenerationEnabled,
+    }),
   );
 }
 
@@ -237,13 +255,18 @@ export async function rewriteTestItems(
   input: TestItemRewriteRequest,
   options: AiRequestOptions = {},
 ): Promise<CompiledTestPaper> {
+  const settings = await loadRuntimeAppSettingsOrDefault();
+  const requestBody = {
+    ...input,
+    structuredVisualsEnabled: input.structuredVisualsEnabled ?? settings.visualGeneration.structuredVisualsEnabled,
+  };
   if (useLocalAi) {
     try {
-      const data = await postLocal<CompiledTestPaper>('/rewrite-test-items', input, options);
+      const data = await postLocal<CompiledTestPaper>('/rewrite-test-items', requestBody, options);
       return validateCompiledTestPaper(data);
     } catch (err) {
       console.warn('[ai] Local test item rewrite failed; using fallback test paper.', err);
-      const fallback = buildFallbackTestPaper(input);
+      const fallback = buildFallbackTestPaper(requestBody);
       return {
         ...fallback,
         instructions: [
@@ -254,12 +277,73 @@ export async function rewriteTestItems(
     }
   }
 
-  const data = await invokeEdgeFunctionJson<CompiledTestPaper>('rewrite-test-items', input, options);
+  const data = await invokeEdgeFunctionJson<CompiledTestPaper>('rewrite-test-items', requestBody, options);
   return validateCompiledTestPaper(data);
 }
 
-function stripLessonPlanGeminiVisuals(plan: LessonPlan): LessonPlan {
-  return { ...plan, visualAids: [] };
+function normalizeLessonVisuals(
+  plan: LessonPlan,
+  settings: { structuredVisualsEnabled: boolean; visualGenerationEnabled: boolean },
+): LessonPlan {
+  if (!settings.structuredVisualsEnabled) return { ...plan, visualAids: [] };
+  if (settings.visualGenerationEnabled) return plan;
+
+  return {
+    ...plan,
+    visualAids: (plan.visualAids ?? []).map((aid) => ({
+      ...aid,
+      prompt: undefined,
+      status: undefined,
+      imageUrl: undefined,
+      storagePath: undefined,
+      error: undefined,
+    })),
+  };
+}
+
+function stripTeachingNotesForVisualSettings(
+  notes: TeachingNotes,
+  settings: { structuredVisualsEnabled: boolean; visualGenerationEnabled: boolean },
+) {
+  const withoutGenerated = settings.visualGenerationEnabled ? notes : stripGeneratedTeachingNoteVisuals(notes);
+  if (settings.structuredVisualsEnabled) return withoutGenerated;
+  return {
+    ...withoutGenerated,
+    contentBlocks: (withoutGenerated.contentBlocks ?? []).filter((block) => {
+      const type = String(block.type ?? '');
+      return ![
+        'labelled_diagram',
+        'process_steps',
+        'process_diagram',
+        'block_diagram',
+        'flowchart',
+        'timeline',
+        'comparison_table',
+        'bar_chart',
+        'line_graph',
+        'frequency_table',
+        'tally_table',
+        'place_value_table',
+        'observation_table',
+        'algorithm_trace_table',
+        'number_line',
+        'coordinate_grid',
+        'geometry_shape',
+        'fraction_model',
+        'venn_diagram',
+        'angle_diagram',
+        'cycle_diagram',
+        'classification_chart',
+        'experiment_setup',
+        'circuit_diagram',
+        'network_diagram',
+        'interface_mockup',
+        'data_table',
+        'story_map',
+      ].includes(type);
+    }),
+    visuals: [],
+  };
 }
 
 export async function translateLessonPlan(

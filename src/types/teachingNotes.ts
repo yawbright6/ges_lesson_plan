@@ -1,4 +1,4 @@
-import type { ClassLevel, LessonPlan } from './lessonPlan';
+import type { ClassLevel, LessonPlan, LessonVisualAidType } from './lessonPlan';
 
 export type TeachingNoteVisualKind =
   | 'diagram'
@@ -15,6 +15,7 @@ export interface TeachingNoteVisual {
   id: string;
   kind: TeachingNoteVisualKind;
   source: TeachingNoteVisualSource;
+  type?: LessonVisualAidType;
   title: string;
   caption?: string;
   altText?: string;
@@ -26,6 +27,18 @@ export interface TeachingNoteVisual {
   rows?: string[][];
   steps?: string[];
   data?: Array<{ label: string; value: number }>;
+  columns?: string[];
+  cells?: string[][];
+  min?: number;
+  max?: number;
+  points?: { value: number; label?: string; x?: number; y?: number }[];
+  shape?: 'circle' | 'rectangle' | 'square' | 'triangle' | 'polygon' | string;
+  segments?: number;
+  shadedSegments?: number;
+  items?: string[];
+  centralNode?: string;
+  nodes?: string[];
+  groups?: { label: string; items: string[] }[];
 }
 
 export interface TeachingNotePhaseGuide {
@@ -42,7 +55,31 @@ export type TeachingNoteContentBlockType =
   | 'practice_questions'
   | 'comparison_table'
   | 'bar_chart'
+  | 'line_graph'
+  | 'frequency_table'
+  | 'tally_table'
+  | 'place_value_table'
+  | 'observation_table'
+  | 'algorithm_trace_table'
+  | 'number_line'
+  | 'coordinate_grid'
+  | 'geometry_shape'
+  | 'fraction_model'
+  | 'venn_diagram'
+  | 'angle_diagram'
+  | 'cycle_diagram'
+  | 'flowchart'
+  | 'timeline'
   | 'process_steps'
+  | 'process_diagram'
+  | 'block_diagram'
+  | 'classification_chart'
+  | 'experiment_setup'
+  | 'circuit_diagram'
+  | 'network_diagram'
+  | 'interface_mockup'
+  | 'data_table'
+  | 'story_map'
   | 'labelled_diagram'
   | 'generated_visual'
   | 'image_grid'
@@ -59,12 +96,24 @@ export interface TeachingNoteImageGridItem {
 export interface TeachingNoteContentBlock {
   id: string;
   type: TeachingNoteContentBlockType;
+  visualType?: LessonVisualAidType;
   title?: string;
   text?: string;
   items?: string[];
   rows?: string[][];
   steps?: string[];
   data?: Array<{ label: string; value: number }>;
+  columns?: string[];
+  cells?: string[][];
+  min?: number;
+  max?: number;
+  points?: { value: number; label?: string; x?: number; y?: number }[];
+  shape?: 'circle' | 'rectangle' | 'square' | 'triangle' | 'polygon' | string;
+  segments?: number;
+  shadedSegments?: number;
+  centralNode?: string;
+  nodes?: string[];
+  groups?: { label: string; items: string[] }[];
   labels?: Array<{ label: string; description?: string }>;
   imageItems?: TeachingNoteImageGridItem[];
   visualKind?: TeachingNoteVisualKind;

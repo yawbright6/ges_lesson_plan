@@ -1,4 +1,5 @@
 import type { ClassLevel } from './lessonPlan';
+import type { LessonVisualAid } from './lessonPlan';
 
 export interface CompiledTestItem {
   id: string;
@@ -32,6 +33,7 @@ export interface CompiledTestQuestion {
   marks: number;
   sourceItemIds: string[];
   mode?: TestItemMode;
+  visuals?: LessonVisualAid[];
 }
 
 export interface CompiledTestSection {
@@ -82,4 +84,5 @@ export interface TestItemRewriteRequest {
   termTitle?: string;
   items: CompiledTestItem[];
   options?: TestItemRewriteOptions;
+  structuredVisualsEnabled?: boolean;
 }

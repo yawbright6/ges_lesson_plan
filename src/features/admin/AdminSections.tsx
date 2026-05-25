@@ -710,11 +710,21 @@ export function SettingsSection(props: {
             <Text style={styles.meta}>Lesson translation currently uses Anthropic. Gemini switching can be wired into this setting later.</Text>
           </View>
           <View style={styles.settingsBox}>
-            <Text style={styles.sectionLabel}>Inline Visual Generation</Text>
+            <Text style={styles.sectionLabel}>Classroom Visuals</Text>
             <View style={styles.switchRow}>
               <View style={{ flex: 1, paddingRight: 10 }}>
-                <Text style={styles.rowTitle}>Enable Gemini diagrams</Text>
-                <Text style={styles.meta}>Allows generated visuals to be inserted inline in lesson plans and teaching notes.</Text>
+                <Text style={styles.rowTitle}>Structured classroom visuals</Text>
+                <Text style={styles.meta}>Allows Claude to add app-rendered tables, charts, diagrams, shapes, number lines and process visuals.</Text>
+              </View>
+              <Switch
+                value={props.appSettings.structuredVisualsEnabled}
+                onValueChange={(value) => props.setAppSettings({ structuredVisualsEnabled: value })}
+              />
+            </View>
+            <View style={styles.switchRow}>
+              <View style={{ flex: 1, paddingRight: 10 }}>
+                <Text style={styles.rowTitle}>AI-generated images</Text>
+                <Text style={styles.meta}>Allows Gemini image prompts and generated image files. Structured visuals do not need this.</Text>
               </View>
               <Switch
                 value={props.appSettings.visualGenerationEnabled}

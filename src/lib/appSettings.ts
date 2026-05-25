@@ -18,6 +18,7 @@ export type RuntimeAppSettings = {
   creditPurchasing: { enabled: boolean };
   translationProvider: { provider: string };
   visualGeneration: {
+    structuredVisualsEnabled: boolean;
     enabled: boolean;
     autoGenerate: boolean;
     provider: string;
@@ -35,6 +36,7 @@ export const defaultRuntimeSettings: RuntimeAppSettings = {
   creditPurchasing: { enabled: false },
   translationProvider: { provider: 'anthropic' },
   visualGeneration: {
+    structuredVisualsEnabled: true,
     enabled: false,
     autoGenerate: false,
     provider: 'gemini',
@@ -118,6 +120,10 @@ async function loadRuntimeAppSettingsUncached(): Promise<RuntimeAppSettings> {
       provider: stringValue(byKey.get('translation_provider')?.provider, defaultRuntimeSettings.translationProvider.provider),
     },
     visualGeneration: {
+      structuredVisualsEnabled: booleanValue(
+        byKey.get('visual_generation')?.structured_visuals_enabled,
+        defaultRuntimeSettings.visualGeneration.structuredVisualsEnabled,
+      ),
       enabled: booleanValue(byKey.get('visual_generation')?.enabled, defaultRuntimeSettings.visualGeneration.enabled),
       autoGenerate: booleanValue(byKey.get('visual_generation')?.auto_generate, defaultRuntimeSettings.visualGeneration.autoGenerate),
       provider: stringValue(byKey.get('visual_generation')?.provider, defaultRuntimeSettings.visualGeneration.provider),
