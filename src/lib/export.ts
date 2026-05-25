@@ -24,23 +24,23 @@ export async function exportLessonPlanPdf(plan: LessonPlan, options?: { activity
 }
 
 export async function shareLessonPlan(plan: LessonPlan, options?: { activityFontSize?: number }) {
-  if (Platform.OS === 'web') {
-    await shareText(`Lesson plan: ${plan.subject} ${plan.classLevel} Week ${plan.week}`);
-    return;
-  }
-  await exportLessonPlanPdf(plan, options);
+  const html = pageHtml(buildLessonPlanContent(plan), 'lesson', options);
+  const fileName = `${slugify(plan.subject)}-${plan.classLevel}-week-${plan.week}.pdf`;
+  await shareHtmlAsPdf(html, fileName);
 }
 
 export async function shareLessonPlans(plans: LessonPlan[], options?: { activityFontSize?: number }) {
   if (!plans.length) return;
   const first = plans[0];
-  if (Platform.OS === 'web') {
-    await shareText(
-      `Lesson plans: ${first.subject} ${first.classLevel} Week ${first.week} (${plans.length} lessons)`,
-    );
-    return;
-  }
-  await exportLessonPlansPdf(plans, options);
+  const html = pageHtml(
+    plans
+      .map((plan, index) => `<section class="lesson-page${index > 0 ? ' page-break' : ''}">${buildLessonPlanContent(plan)}</section>`)
+      .join(''),
+    'lesson',
+    options,
+  );
+  const fileName = `${slugify(first.subject)}-${first.classLevel}-week-${first.week}-all-lessons.pdf`;
+  await shareHtmlAsPdf(html, fileName);
 }
 
 export async function shareScheme(scheme: SchemeOfWork) {
@@ -116,19 +116,53 @@ async function exportHtmlAsPdf(html: string, fileName: string) {
     return;
   }
 
-  const { uri } = await Print.printToFileAsync({ html });
+  const uri = await printHtmlToNamedPdf(html, fileName);
   const canShare = await Sharing.isAvailableAsync();
 
   if (canShare) {
     await Sharing.shareAsync(uri, {
       mimeType: 'application/pdf',
       dialogTitle: fileName,
-      UTI: '.pdf',
+      UTI: 'com.adobe.pdf',
     });
     return;
   }
 
   await Print.printAsync({ uri });
+}
+
+async function shareHtmlAsPdf(html: string, fileName: string) {
+  if (Platform.OS === 'web') {
+    await exportHtmlAsPdf(html, fileName);
+    return;
+  }
+
+  const uri = await printHtmlToNamedPdf(html, fileName);
+  const canShare = await Sharing.isAvailableAsync();
+
+  if (canShare) {
+    await Sharing.shareAsync(uri, {
+      mimeType: 'application/pdf',
+      dialogTitle: fileName,
+      UTI: 'com.adobe.pdf',
+    });
+    return;
+  }
+
+  await Print.printAsync({ uri });
+}
+
+async function printHtmlToNamedPdf(html: string, fileName: string) {
+  const { uri } = await Print.printToFileAsync({ html });
+  const targetUri = `${FileSystem.cacheDirectory}${fileName}`;
+
+  try {
+    await FileSystem.deleteAsync(targetUri, { idempotent: true });
+    await FileSystem.copyAsync({ from: uri, to: targetUri });
+    return targetUri;
+  } catch {
+    return uri;
+  }
 }
 
 async function exportHtmlAsWord(html: string, fileName: string) {
