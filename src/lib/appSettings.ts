@@ -34,7 +34,7 @@ export const defaultRuntimeSettings: RuntimeAppSettings = {
   featureCreditCosts: { lesson_generation: 1, scheme_generation: 1, scheme_parsing: 1, teaching_notes_generation: 1, test_item_rewrite: 1 },
   generatedFileRetention: { days: 15 },
   creditPurchasing: { enabled: false },
-  translationProvider: { provider: 'anthropic' },
+  translationProvider: { provider: 'nllb' },
   visualGeneration: {
     structuredVisualsEnabled: true,
     enabled: false,

@@ -128,7 +128,7 @@ export function emptyAppSettingsDraft(): AppSettingsDraft {
     purchasingEnabled: false,
     paystackMode: 'live',
     parserBackend: 'active',
-    translationProvider: 'anthropic',
+    translationProvider: 'nllb',
     structuredVisualsEnabled: true,
     visualGenerationEnabled: false,
     visualAutoGenerate: false,
@@ -149,7 +149,6 @@ export function settingsToDraft(settings: AdminSetting[]): AppSettingsDraft {
   const purchasing = byKey.get('credit_purchasing') ?? {};
   const paystack = byKey.get('paystack_mode') ?? {};
   const parser = byKey.get('parser_backend') ?? {};
-  const translation = byKey.get('translation_provider') ?? {};
   const visualGeneration = byKey.get('visual_generation') ?? {};
 
   return {
@@ -167,7 +166,7 @@ export function settingsToDraft(settings: AdminSetting[]): AppSettingsDraft {
     purchasingEnabled: booleanSetting(purchasing.enabled, false),
     paystackMode: String(paystack.mode ?? 'live'),
     parserBackend: String(parser.provider ?? 'active'),
-    translationProvider: String(translation.provider ?? 'anthropic'),
+    translationProvider: 'nllb',
     structuredVisualsEnabled: booleanSetting(visualGeneration.structured_visuals_enabled, true),
     visualGenerationEnabled: booleanSetting(visualGeneration.enabled, false),
     visualAutoGenerate: booleanSetting(visualGeneration.auto_generate, false),

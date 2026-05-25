@@ -46,11 +46,6 @@ export interface LessonGenerationBody {
   visualGenerationEnabled?: boolean;
 }
 
-export interface LessonSupportTranslationBody {
-  lessonPlan: Record<string, unknown>;
-  localLanguage: string;
-}
-
 export interface SchemeGenerationBody {
   subject: string;
   classLevel: string;
@@ -287,62 +282,6 @@ export function getLessonPlanSystemPrompt(options: boolean | {
   if (visualGenerationEnabled) return lessonPlanSystemPrompt;
   return `${lessonPlanSystemPrompt}\n${lessonPlanNoGeminiVisualRules}`;
 }
-
-export const lessonPlanTranslationSystemPrompt = `You translate Ghanaian lesson plans into Ghanaian local languages.
-Return a single JSON object only, no markdown or commentary, with this shape:
-{
-  "termTitle": string,
-  "subjectClassTitle": string,
-  "weekTitle": string,
-  "date": string,
-  "period": string,
-  "subject": string,
-  "duration": string,
-  "strand": string,
-  "classLevel": string,
-  "classSize": string,
-  "subStrand": string,
-  "topic": string,
-  "contentStandard": string,
-  "indicator": string,
-  "lessonNumber": string,
-  "performanceIndicator": string,
-  "coreCompetencies": string[],
-  "references": string,
-  "week": number,
-  "phases": [
-    {
-      "phase": 1,
-      "title": string,
-      "duration": string,
-      "activities": string[],
-      "resources": string[]
-    }
-  ],
-  "visualAids": [
-    {
-      "type": "labelled_diagram" | "bar_chart" | "flowchart" | "timeline" | "comparison_table",
-      "title": string,
-      "purpose": string,
-      "phase": 1 | 2 | 3,
-      "activityLink": string,
-      "labels": string[],
-      "steps": string[],
-      "data": [{ "label": string, "value": number }],
-      "rows": [{ "label": string, "value": string }],
-      "caption": string
-    }
-  ]
-}
-
-Rules:
-- Translate the lesson plan itself into the requested Ghanaian language.
-- Keep curriculum codes, week numbers, lesson numbers, class level codes, dates, durations, and numeric values unchanged.
-- Preserve the same JSON structure and all phase/resource/assessment arrays.
-- Translate teacher-visible English text naturally for classroom use, not word-for-word when that sounds unnatural.
-- Keep Ghanaian curriculum and classroom context.
-- Only return a translated lesson plan JSON object.
-- Return JSON only.`;
 
 export const schemeSystemPrompt = `You are an expert Ghanaian curriculum planner.
 Return a single JSON object only with this shape:
@@ -839,91 +778,6 @@ export function normalizeLessonPlanResponse(
     translatedFrom: undefined,
     translationStatus: undefined,
   };
-}
-
-export function buildLessonPlanTranslationPrompt(body: LessonSupportTranslationBody) {
-  const plan = body.lessonPlan;
-
-  return `Translate this English lesson plan into the selected Ghanaian language.
-- Target local language: ${body.localLanguage}
-- Subject: ${cleanText(plan?.subject)}
-- Class Level: ${cleanText(plan?.classLevel)}
-- Topic: ${cleanText(plan?.topic)}
-- Source lesson plan JSON:
-${JSON.stringify(plan)}
-
-Return the JSON object only.`;
-}
-
-export function normalizeLessonPlanTranslationResponse(
-  payload: Record<string, unknown>,
-  body: LessonSupportTranslationBody,
-) {
-  return normalizeTranslatedLessonPlan(payload, body);
-}
-
-function normalizeTranslatedLessonPlan(payload: Record<string, unknown>, body: LessonSupportTranslationBody) {
-  const source = body.lessonPlan ?? {};
-  const language = cleanText(body.localLanguage);
-  const subject = cleanText(payload?.subject) || cleanText(source.subject);
-  const classLevel = cleanText(payload?.classLevel) || cleanText(source.classLevel);
-  const week = Number(payload?.week) || Number(source.week) || 1;
-  const sourceId = cleanText(source.id);
-
-  return {
-    ...source,
-    ...payload,
-    id: `${sourceId || `${slugify(subject)}-${slugify(classLevel)}-${week}`}-translated-${slugify(language)}-${Date.now()}`,
-    subject,
-    classLevel,
-    week,
-    weekTitle: cleanText(payload?.weekTitle) || cleanText(source.weekTitle) || `WEEK ${week}`,
-    termTitle: cleanText(payload?.termTitle) || cleanText(source.termTitle),
-    subjectClassTitle: cleanText(payload?.subjectClassTitle) || cleanText(source.subjectClassTitle) || `${subject.toUpperCase()} - ${classLevel.toUpperCase()}`,
-    date: cleanText(payload?.date) || cleanText(source.date),
-    duration: cleanText(payload?.duration) || cleanText(source.duration),
-    lessonNumber: cleanText(payload?.lessonNumber) || cleanText(source.lessonNumber),
-    strand: cleanText(payload?.strand) || cleanText(source.strand),
-    subStrand: cleanText(payload?.subStrand) || cleanText(source.subStrand),
-    topic: cleanText(payload?.topic) || cleanText(source.topic),
-    contentStandard: cleanText(payload?.contentStandard) || cleanText(source.contentStandard),
-    indicator: cleanText(payload?.indicator) || cleanText(source.indicator),
-    performanceIndicator: cleanText(payload?.performanceIndicator) || cleanText(source.performanceIndicator),
-    coreCompetencies: cleanStringList(payload?.coreCompetencies, 8).length
-      ? cleanStringList(payload?.coreCompetencies, 8)
-      : cleanStringList(source.coreCompetencies, 8),
-    references: cleanText(payload?.references) || cleanText(source.references),
-    phases: normalizeTranslatedPhases(payload?.phases, source.phases),
-    visualAids: normalizeVisualAids(payload?.visualAids),
-    localLanguageSupport: undefined,
-    translationLanguage: language,
-    translatedFrom: cleanText(source.translationLanguage) || 'English',
-    sourceLessonPlanId: sourceId,
-    translationStatus: 'ai_draft',
-    createdAt: new Date().toISOString(),
-    updatedAt: undefined,
-  };
-}
-
-function normalizeTranslatedPhases(value: unknown, fallback: unknown) {
-  const phases = Array.isArray(value) && value.length ? value : fallback;
-  if (!Array.isArray(phases)) return [];
-
-  return phases
-    .filter((item) => item && typeof item === 'object')
-    .map((item, index) => {
-      const phase = item as Record<string, unknown>;
-      const phaseNumber = Number(phase.phase) || (index + 1);
-      return {
-        phase: phaseNumber === 1 || phaseNumber === 2 || phaseNumber === 3 ? phaseNumber : index + 1,
-        title: cleanText(phase.title),
-        duration: cleanText(phase.duration),
-        activities: cleanStringList(phase.activities, 8),
-        resources: cleanStringList(phase.resources, 6),
-        assessment: cleanStringList(phase.assessment, 5),
-      };
-    })
-    .slice(0, 3);
 }
 
 function normalizeVisualAids(value: unknown, includeGeneratedImages = true) {

@@ -284,7 +284,7 @@ export default function AdminScreen() {
           enabled: appSettingsDraft.purchasingEnabled,
         },
         translation_provider: {
-          provider: appSettingsDraft.translationProvider || 'anthropic',
+          provider: 'nllb',
         },
         visual_generation: {
           structured_visuals_enabled: appSettingsDraft.structuredVisualsEnabled,

@@ -706,8 +706,8 @@ export function SettingsSection(props: {
             </View>
             <Field label="Paystack mode" value={props.appSettings.paystackMode} editable={false} />
             <Field label="Parser backend" value={props.appSettings.parserBackend} editable={false} />
-            <Field label="Translation provider" value={props.appSettings.translationProvider} editable={false} />
-            <Text style={styles.meta}>Lesson translation currently uses Anthropic. Gemini switching can be wired into this setting later.</Text>
+            <Field label="Translation engine" value="NLLB (manual only)" editable={false} />
+            <Text style={styles.meta}>Lesson translation runs only when a teacher taps Translate. Normal lesson generation stays in English.</Text>
           </View>
           <View style={styles.settingsBox}>
             <Text style={styles.sectionLabel}>Classroom Visuals</Text>
