@@ -26,7 +26,7 @@ export async function exportLessonPlanPdf(plan: LessonPlan, options?: { activity
 export async function shareLessonPlan(plan: LessonPlan, options?: { activityFontSize?: number }) {
   const html = pageHtml(buildLessonPlanContent(plan), 'lesson', options);
   const fileName = `${slugify(plan.subject)}-${plan.classLevel}-week-${plan.week}.pdf`;
-  await shareHtmlAsPdf(html, fileName);
+  await shareLessonHtml(html, fileName, `Lesson plan: ${plan.subject} ${plan.classLevel} Week ${plan.week}`);
 }
 
 export async function shareLessonPlans(plans: LessonPlan[], options?: { activityFontSize?: number }) {
@@ -40,7 +40,11 @@ export async function shareLessonPlans(plans: LessonPlan[], options?: { activity
     options,
   );
   const fileName = `${slugify(first.subject)}-${first.classLevel}-week-${first.week}-all-lessons.pdf`;
-  await shareHtmlAsPdf(html, fileName);
+  await shareLessonHtml(
+    html,
+    fileName,
+    `Lesson plans: ${first.subject} ${first.classLevel} Week ${first.week} (${plans.length} lessons)`,
+  );
 }
 
 export async function shareScheme(scheme: SchemeOfWork) {
@@ -131,9 +135,9 @@ async function exportHtmlAsPdf(html: string, fileName: string) {
   await Print.printAsync({ uri });
 }
 
-async function shareHtmlAsPdf(html: string, fileName: string) {
+async function shareLessonHtml(html: string, fileName: string, message: string) {
   if (Platform.OS === 'web') {
-    await exportHtmlAsPdf(html, fileName);
+    await shareHtmlFileOnWeb(html, fileName.replace(/\.pdf$/i, '.html'), message);
     return;
   }
 
@@ -150,6 +154,30 @@ async function shareHtmlAsPdf(html: string, fileName: string) {
   }
 
   await Print.printAsync({ uri });
+}
+
+async function shareHtmlFileOnWeb(html: string, fileName: string, message: string) {
+  const webNavigator =
+    typeof navigator !== 'undefined'
+      ? (navigator as Navigator & {
+          canShare?: (data: { files?: File[] }) => boolean;
+          share?: (data: { files?: File[]; text?: string; title?: string }) => Promise<void>;
+        })
+      : undefined;
+
+  if (typeof File !== 'undefined' && webNavigator?.share && webNavigator.canShare) {
+    const file = new File([html], fileName, { type: 'text/html' });
+    if (webNavigator.canShare({ files: [file] })) {
+      await webNavigator.share({
+        files: [file],
+        title: 'GES Lesson Plan',
+        text: message,
+      });
+      return;
+    }
+  }
+
+  await shareText(message);
 }
 
 async function printHtmlToNamedPdf(html: string, fileName: string) {
