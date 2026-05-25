@@ -60,7 +60,7 @@ export default function LessonEditScreen() {
         editedAt: now,
         updatedAt: now,
       });
-      router.replace(`/lesson/${encodeURIComponent(saved.id ?? id ?? '')}`);
+      router.replace(`/(tabs)/lesson/${encodeURIComponent(saved.id ?? id ?? '')}`);
     } catch (err) {
       reportClientError('lesson_edit_save', err, { lessonId: current.id ?? id });
       Alert.alert('Save failed', err instanceof Error ? err.message : 'Could not save lesson edits.');

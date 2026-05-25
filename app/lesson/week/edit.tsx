@@ -72,7 +72,7 @@ export default function WeekLessonEditScreen() {
         editedAt: now,
         updatedAt: now,
       });
-      router.replace(`/lesson/week?bundleId=${encodeURIComponent(saved.id ?? bundleId ?? '')}`);
+      router.replace(`/(tabs)/lesson/week?bundleId=${encodeURIComponent(saved.id ?? bundleId ?? '')}`);
     } catch (err) {
       reportClientError('week_edit_save', err, { bundleId: current.id ?? bundleId });
       Alert.alert('Save failed', err instanceof Error ? err.message : 'Could not save week plan edits.');

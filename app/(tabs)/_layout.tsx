@@ -54,6 +54,19 @@ export default function TabsLayout() {
         }}
       />
       <Tabs.Screen name="generate" options={{ href: null }} />
+      <Tabs.Screen name="tools/lesson-plan" options={{ href: null, headerShown: false }} />
+      <Tabs.Screen name="tools/scheme" options={{ href: null, headerShown: false }} />
+      <Tabs.Screen name="tools/scheme-builder" options={{ href: null, headerShown: false }} />
+      <Tabs.Screen name="tools/teaching-notes" options={{ href: null, headerShown: false }} />
+      <Tabs.Screen name="tools/test-item-compiler" options={{ href: null, headerShown: false }} />
+      <Tabs.Screen name="lesson/[id]" options={{ href: null, headerShown: false }} />
+      <Tabs.Screen name="lesson/edit/[id]" options={{ href: null, headerShown: false }} />
+      <Tabs.Screen name="lesson/week" options={{ href: null, headerShown: false }} />
+      <Tabs.Screen name="lesson/week/edit" options={{ href: null, headerShown: false }} />
+      <Tabs.Screen name="scheme/[id]" options={{ href: null, headerShown: false }} />
+      <Tabs.Screen name="teaching-note/[id]" options={{ href: null, headerShown: false }} />
+      <Tabs.Screen name="test-paper/[id]" options={{ href: null, headerShown: false }} />
+      <Tabs.Screen name="test-paper/edit/[id]" options={{ href: null, headerShown: false }} />
       <Tabs.Screen
         name="library"
         options={{

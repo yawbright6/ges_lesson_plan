@@ -188,7 +188,7 @@ function TestPaperCard({ paper, onDelete }: { paper: CompiledTestPaper; onDelete
       title={`${paper.subject} - ${paper.classLevel} - ${paper.termTitle ?? 'Term'} Test${paper.editedAt ? ' - Edited' : ''}`}
       subtitle={`${paper.totalMarks} marks | ${paper.title}`}
       meta={formatDate(paper.createdAt)}
-      onOpen={() => router.push(`/test-paper/${paper.id}`)}
+      onOpen={() => router.push(`/(tabs)/test-paper/${paper.id}`)}
       actions={<CardActions onDelete={onDelete} />}
     />
   );
@@ -306,10 +306,10 @@ function LessonCard({ work, onDelete }: { work: SavedLessonWork; onDelete: () =>
       meta={formatDate(work.updatedAt ?? work.createdAt)}
       onOpen={() => {
         if (isBundle && work.id) {
-          router.push(`/lesson/week?bundleId=${encodeURIComponent(work.id)}`);
+          router.push(`/(tabs)/lesson/week?bundleId=${encodeURIComponent(work.id)}`);
           return;
         }
-        router.push(`/lesson/${work.id}`);
+        router.push(`/(tabs)/lesson/${work.id}`);
       }}
       actions={<CardActions onDelete={onDelete} />}
     />
@@ -323,7 +323,7 @@ function TeachingNotesCard({ notes, onDelete }: { notes: TeachingNotes; onDelete
       title={`${notes.subject} - ${notes.classLevel} - Week ${notes.week}`}
       subtitle={`Teaching notes v${notes.versionNumber ?? 1} | ${notes.topic || notes.title}`}
       meta={formatDate(notes.updatedAt ?? notes.createdAt)}
-      onOpen={() => router.push(`/teaching-note/${notes.id}`)}
+      onOpen={() => router.push(`/(tabs)/teaching-note/${notes.id}`)}
       actions={<CardActions onDelete={onDelete} />}
     />
   );
@@ -336,7 +336,7 @@ function SchemeCard({ scheme, onDelete }: { scheme: SchemeOfWork; onDelete: () =
       title={`${scheme.subject} - ${scheme.classLevel} - ${scheme.term}`}
       subtitle={`${scheme.weeks.length} weeks | ${scheme.title}`}
       meta={formatDate(scheme.createdAt)}
-      onOpen={() => router.push(`/scheme/${scheme.id}`)}
+      onOpen={() => router.push(`/(tabs)/scheme/${scheme.id}`)}
       actions={<CardActions onDelete={onDelete} />}
     />
   );

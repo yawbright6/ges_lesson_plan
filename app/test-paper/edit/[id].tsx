@@ -70,7 +70,7 @@ export default function TestPaperEditScreen() {
         editedAt: now,
         updatedAt: now,
       } as CompiledTestPaper & { updatedAt: string });
-      router.replace(`/test-paper/${encodeURIComponent(saved.id ?? id ?? '')}`);
+      router.replace(`/(tabs)/test-paper/${encodeURIComponent(saved.id ?? id ?? '')}`);
     } catch (err) {
       reportClientError('test_paper_edit_save', err, { testPaperId: current.id ?? id });
       Alert.alert('Save failed', err instanceof Error ? err.message : 'Could not save test paper edits.');

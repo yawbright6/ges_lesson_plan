@@ -406,8 +406,8 @@ export default function GenerateScreen() {
             onPress={() =>
               router.push(
                 singlePlan
-                  ? `/tools/teaching-notes?lessonPlanId=${encodeURIComponent(singlePlan.id ?? '')}`
-                  : `/tools/teaching-notes?lessonPlanIds=${encodeURIComponent(generatedPlans.map((plan) => plan.id).filter(Boolean).join(','))}`,
+                  ? `/(tabs)/tools/teaching-notes?lessonPlanId=${encodeURIComponent(singlePlan.id ?? '')}`
+                  : `/(tabs)/tools/teaching-notes?lessonPlanIds=${encodeURIComponent(generatedPlans.map((plan) => plan.id).filter(Boolean).join(','))}`,
               )
             }
           />
@@ -587,7 +587,7 @@ export default function GenerateScreen() {
                   <Button
                     title="View full"
                     variant="secondary"
-                    onPress={() => router.push(`/scheme/${scheme.id}`)}
+                    onPress={() => router.push(`/(tabs)/scheme/${scheme.id}`)}
                     style={styles.inlineButton}
                   />
                 </Pressable>

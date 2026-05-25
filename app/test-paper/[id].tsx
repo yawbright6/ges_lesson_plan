@@ -58,7 +58,7 @@ export default function TestPaperDetailScreen() {
         title="Test Paper"
         subtitle={`${paper.subject} - ${paper.classLevel}${paper.termTitle ? ` - ${paper.termTitle}` : ''}${paper.editedAt ? ' - Edited' : ''}`}
         onBack={() => goBackOrReplace()}
-        onEdit={() => router.push(`/test-paper/edit/${encodeURIComponent(paper.id ?? '')}`)}
+        onEdit={() => router.push(`/(tabs)/test-paper/edit/${encodeURIComponent(paper.id ?? '')}`)}
         onShare={() => exportRewrittenTestPaperPdf(paper)}
         onDelete={async () => {
           const confirmed = await confirmRemoval('Delete test paper', `Delete ${paper.title}?`);

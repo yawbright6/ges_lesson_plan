@@ -69,7 +69,7 @@ export default function LessonDetailScreen() {
         title="Lesson Plan"
         subtitle={plan.editedAt ? 'Edited' : undefined}
         onBack={() => goBackOrReplace()}
-        onEdit={() => router.push(`/lesson/edit/${encodeURIComponent(plan.id ?? '')}`)}
+        onEdit={() => router.push(`/(tabs)/lesson/edit/${encodeURIComponent(plan.id ?? '')}`)}
         onShare={() => shareLessonPlan(plan, { activityFontSize: Number(pdfActivityFontSize) })}
         onDelete={async () => {
           const confirmed = await confirmRemoval(
@@ -131,7 +131,7 @@ export default function LessonDetailScreen() {
                 setPlan(saved);
                 showToast({ message: 'Translated lesson plan saved.' });
                 if (saved.id) {
-                  router.replace(`/lesson/${encodeURIComponent(saved.id)}`);
+                  router.replace(`/(tabs)/lesson/${encodeURIComponent(saved.id)}`);
                 }
               } catch (err) {
                 reportClientError('lesson_preview_translate', err, { lessonId: plan.id, language: localLanguage });
@@ -150,7 +150,7 @@ export default function LessonDetailScreen() {
           onPress={() => setShareModalOpen(true)} 
         />
         <PreviewActionButton title="PDF" icon="document-text-outline" onPress={() => exportLessonPlanPdf(plan, { activityFontSize: Number(pdfActivityFontSize) })} />
-        <PreviewActionButton title="Teaching Notes" icon="reader-outline" variant="secondary" onPress={() => router.push(`/tools/teaching-notes?lessonPlanId=${encodeURIComponent(plan.id ?? '')}`)} />
+        <PreviewActionButton title="Teaching Notes" icon="reader-outline" variant="secondary" onPress={() => router.push(`/(tabs)/tools/teaching-notes?lessonPlanId=${encodeURIComponent(plan.id ?? '')}`)} />
       </PreviewActions>
       
       {/* Share with Admin Modal */}

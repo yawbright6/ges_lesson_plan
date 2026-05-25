@@ -99,7 +99,7 @@ export default function LessonWeekDetailScreen() {
         title={`Week Plan (${plans.length})`}
         subtitle={shareBundle.editedAt ? 'Edited' : undefined}
         onBack={() => goBackOrReplace()}
-        onEdit={bundleId ? () => router.push(`/lesson/week/edit?bundleId=${encodeURIComponent(bundleId)}`) : undefined}
+        onEdit={bundleId ? () => router.push(`/(tabs)/lesson/week/edit?bundleId=${encodeURIComponent(bundleId)}`) : undefined}
         onShare={() => shareLessonPlans(plans)}
       />
       <LessonPlanStack plans={plans} />
@@ -136,7 +136,7 @@ export default function LessonWeekDetailScreen() {
                 setBundle(savedBundle);
                 setPlans(savedBundle.plans);
                 if (savedBundle.id) {
-                  router.replace(`/lesson/week?bundleId=${encodeURIComponent(savedBundle.id)}`);
+                  router.replace(`/(tabs)/lesson/week?bundleId=${encodeURIComponent(savedBundle.id)}`);
                 }
                 showToast({ message: 'Translated week plan saved.' });
               } catch (err) {
@@ -164,7 +164,7 @@ export default function LessonWeekDetailScreen() {
           title="Teaching Notes"
           variant="secondary"
           icon="reader-outline"
-          onPress={() => router.push(`/tools/teaching-notes?lessonPlanIds=${encodeURIComponent(plans.map((plan) => plan.id).filter(Boolean).join(','))}`)}
+          onPress={() => router.push(`/(tabs)/tools/teaching-notes?lessonPlanIds=${encodeURIComponent(plans.map((plan) => plan.id).filter(Boolean).join(','))}`)}
         />
       </PreviewActions>
       <ShareWithAdminModal

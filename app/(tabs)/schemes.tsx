@@ -351,7 +351,7 @@ export default function SchemesScreen() {
             <Button
               title="View full"
               variant="secondary"
-              onPress={() => router.push(`/scheme/${latestScheme.id}`)}
+              onPress={() => router.push(`/(tabs)/scheme/${latestScheme.id}`)}
             />
             <Button
               title="PDF"
@@ -382,7 +382,7 @@ export default function SchemesScreen() {
             <Pressable
               key={scheme.id}
               style={styles.savedRow}
-              onPress={() => router.push(`/scheme/${scheme.id}`)}
+              onPress={() => router.push(`/(tabs)/scheme/${scheme.id}`)}
             >
               <View style={{ flex: 1 }}>
                 <Text style={styles.savedTitle}>

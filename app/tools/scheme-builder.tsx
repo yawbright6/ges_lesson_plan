@@ -260,7 +260,7 @@ export default function SchemeBuilderScreen() {
         title: `${subject} Scheme of Work - ${classLevel} ${term}`,
       });
       showToast({ message: 'Scheme builder draft saved.' });
-      router.push(`/scheme/${saved.id}`);
+      router.push(`/(tabs)/scheme/${saved.id}`);
     } catch (error: unknown) {
       reportClientError('scheme_builder_save', error, { subject, classLevel, term, numberOfWeeks });
       Alert.alert('Save failed', error instanceof Error ? error.message : 'Could not save this scheme.');
