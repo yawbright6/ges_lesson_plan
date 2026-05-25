@@ -13,7 +13,6 @@ import {
   subjectsRoughlyMatch,
 } from './scheme-text-parser.mjs';
 import {
-  applyAnnualPlanTopicsToScheme,
   normalizeSchemeResponse,
   reconcileParsedSchemeWithCurriculumBackend,
 } from './scheme-normalizer.mjs';
@@ -125,6 +124,24 @@ const server = createServer(async (req, res) => {
         return;
       }
 
+      if (selectedSection.source === 'annual') {
+        writeJson(res, 200, {
+          scheme: buildAnnualSchemeFromSelectedText({
+            text: relevantText,
+            subject: body.subject,
+            classLevel: body.classLevel,
+            term: body.term,
+            fileName: body.fileName,
+            detectedMetadata,
+            curriculumYearHint: Array.isArray(body.curriculumYearHint)
+              ? body.curriculumYearHint
+              : [],
+          }),
+          detectedMetadata,
+        });
+        return;
+      }
+
       const scheme = await callAnthropicJson({
         system: uploadSchemeParserSystemPrompt,
         user:
@@ -158,13 +175,9 @@ const server = createServer(async (req, res) => {
         numberOfWeeks: detectedWeekCount,
       });
 
-      const annualPreserved = selectedSection.source === 'annual'
-        ? applyAnnualPlanTopicsToScheme(normalized, relevantText)
-        : normalized;
-
       const reconciled = reconcileParsedSchemeWithCurriculumBackend({
         scheme: {
-          ...annualPreserved,
+          ...normalized,
           subject: body.subject,
           classLevel: body.classLevel,
           term: body.term,
@@ -180,10 +193,7 @@ const server = createServer(async (req, res) => {
       });
 
       writeJson(res, 200, {
-        scheme:
-          selectedSection.source === 'annual'
-            ? applyAnnualPlanTopicsToScheme(reconciled, relevantText)
-            : reconciled,
+        scheme: reconciled,
         detectedMetadata,
       });
     } catch (error) {
@@ -198,6 +208,215 @@ const server = createServer(async (req, res) => {
 server.listen(PORT, () => {
   console.log(`Parser service listening on http://localhost:${PORT}`);
 });
+
+function buildAnnualSchemeFromSelectedText(input) {
+  const curriculumEntries = flattenCurriculumEntries(input.curriculumYearHint);
+  const weeks = parseAnnualSelectedWeeks(input.text, curriculumEntries);
+  const now = new Date().toISOString();
+
+  return {
+    id: `${slugify(input.subject)}-${input.classLevel}-${slugify(input.term)}-${Date.now()}`,
+    title: `${input.subject} Scheme of Work - ${input.classLevel} ${input.term}`,
+    subject: input.subject,
+    classLevel: input.classLevel,
+    term: input.term,
+    source: 'uploaded',
+    sourceFileKey: input.fileName,
+    weeks,
+    createdAt: now,
+    parserMetadata: {
+      detectedMetadata: input.detectedMetadata,
+      warnings: [
+        'Parsed from the uploaded annual scheme table. Weekly topics were preserved from the requested term column. Mapped curriculum details were used only to enrich matching uploaded topics.',
+      ],
+      confidence: 0.72,
+    },
+  };
+}
+
+function parseAnnualSelectedWeeks(text, curriculumEntries) {
+  const lines = String(text || '').split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
+  const weeks = [];
+
+  for (let index = 0; index < lines.length; index += 1) {
+    const weekMatch = lines[index].match(/^week\s+(\d{1,2})$/i);
+    if (!weekMatch) continue;
+
+    const topicLines = [];
+    for (let nextIndex = index + 1; nextIndex < lines.length; nextIndex += 1) {
+      if (/^week\s+\d{1,2}$/i.test(lines[nextIndex])) break;
+      topicLines.push(lines[nextIndex]);
+    }
+
+    const topics = topicLines
+      .join('; ')
+      .split(/\s*(?:;|\n| {2,})\s*/)
+      .map((topic) => topic.trim())
+      .filter(Boolean);
+
+    if (!topics.length) continue;
+    const combinedTopic = topics.join('; ');
+    const entries = topics.map((topic) => buildAnnualTopicEntry(topic, curriculumEntries));
+    weeks.push({
+      week: Number(weekMatch[1]),
+      strand: entries[0]?.strand || '',
+      subStrand: combinedTopic,
+      contentStandard: entries[0]?.contentStandard || '',
+      indicator: entries[0]?.indicator || '',
+      topic: combinedTopic,
+      resources: uniqueCleanStrings(entries.flatMap((entry) => entry.resources || [])),
+      uploadedTopic: combinedTopic,
+      entries: topics.length > 1 ? entries : undefined,
+    });
+  }
+
+  return weeks;
+}
+
+function buildAnnualTopicEntry(topic, curriculumEntries) {
+  const match = findBestCurriculumEntry(topic, curriculumEntries);
+  if (!match) {
+    return {
+      strand: '',
+      subStrand: topic,
+      contentStandard: '',
+      indicator: '',
+      topic,
+      resources: [],
+    };
+  }
+
+  return {
+    strand: match.strand || '',
+    subStrand: match.subStrand || topic,
+    contentStandard: match.contentStandard || '',
+    indicator: match.indicator || '',
+    topic,
+    uploadedTopic: topic,
+    mappedTopic: match.topic || '',
+    matchedCurriculumTerm: match.sourceTerm,
+    matchConfidence: match.matchConfidence,
+    resources: Array.isArray(match.resources) ? match.resources : [],
+  };
+}
+
+function flattenCurriculumEntries(curriculumYearHint) {
+  const flattened = [];
+  for (const week of Array.isArray(curriculumYearHint) ? curriculumYearHint : []) {
+    const sourceTerm = typeof week?.sourceTerm === 'string' ? week.sourceTerm : '';
+    const weekEntries = Array.isArray(week?.entries) && week.entries.length
+      ? week.entries
+      : [week];
+
+    for (const entry of weekEntries) {
+      flattened.push({
+        strand: cleanString(entry?.strand ?? week?.strand),
+        subStrand: cleanString(entry?.subStrand ?? week?.subStrand),
+        contentStandard: cleanString(entry?.contentStandard ?? week?.contentStandard),
+        indicator: cleanString(entry?.indicator ?? week?.indicator),
+        topic: cleanString(entry?.topic ?? week?.topic),
+        sourceTerm,
+        resources: Array.isArray(entry?.resources)
+          ? entry.resources.map(cleanString).filter(Boolean)
+          : Array.isArray(week?.resources)
+            ? week.resources.map(cleanString).filter(Boolean)
+            : [],
+      });
+    }
+  }
+  return flattened;
+}
+
+function findBestCurriculumEntry(topic, curriculumEntries) {
+  const topicTokens = tokenizeForMatch(topic);
+  if (!topicTokens.size) return null;
+
+  let best = null;
+  for (const entry of curriculumEntries) {
+    const candidateTokens = tokenizeForMatch([
+      entry.topic,
+      entry.subStrand,
+      entry.strand,
+      entry.contentStandard,
+      entry.indicator,
+    ].join(' '));
+    const shared = countSharedTokens(topicTokens, candidateTokens);
+    const exactBoost = candidateIncludesPhrase(entry, topic) ? 0.35 : 0;
+    const confidence = Number(((shared / Math.max(1, topicTokens.size)) + exactBoost).toFixed(2));
+    if (!best || confidence > best.matchConfidence) {
+      best = { ...entry, matchConfidence: confidence };
+    }
+  }
+
+  return best && best.matchConfidence >= 0.35 ? best : null;
+}
+
+function candidateIncludesPhrase(entry, topic) {
+  const needle = normalizeForCompare(topic);
+  if (!needle) return false;
+  return [entry.topic, entry.subStrand, entry.contentStandard, entry.indicator]
+    .map(normalizeForCompare)
+    .some((value) => value.includes(needle) || needle.includes(value));
+}
+
+function tokenizeForMatch(value) {
+  return new Set(
+    normalizeForCompare(value)
+      .replace(/[^a-z0-9\s]/g, ' ')
+      .split(/\s+/)
+      .map((token) => token.trim())
+      .filter((token) => token.length > 2 && !STOP_WORDS.has(token))
+  );
+}
+
+function normalizeForCompare(value) {
+  return cleanString(value)
+    .toLowerCase()
+    .replace(/\borganize\b/g, 'organise')
+    .replace(/\borganizing\b/g, 'organising')
+    .replace(/\band\b/g, ' ')
+    .replace(/&/g, ' ');
+}
+
+function countSharedTokens(left, right) {
+  let total = 0;
+  left.forEach((token) => {
+    if (right.has(token)) total += 1;
+  });
+  return total;
+}
+
+function uniqueCleanStrings(values) {
+  const seen = new Set();
+  const output = [];
+  for (const value of values) {
+    const cleaned = cleanString(value);
+    const key = cleaned.toLowerCase();
+    if (!cleaned || seen.has(key)) continue;
+    seen.add(key);
+    output.push(cleaned);
+  }
+  return output;
+}
+
+function cleanString(value) {
+  return String(value || '').trim();
+}
+
+function slugify(value) {
+  return String(value || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+}
+
+const STOP_WORDS = new Set([
+  'the',
+  'and',
+  'for',
+  'with',
+  'into',
+  'from',
+  'ideas',
+  'idea',
+]);
 
 const uploadSchemeParserSystemPrompt = `You are an expert at reading Ghanaian school schemes of work and converting them into structured weekly records.
 Return a single JSON object only with this shape:

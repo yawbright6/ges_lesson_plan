@@ -249,6 +249,11 @@ function extractAnnualPlanTermSection(annualPlanText, requestedTerm) {
     .map((line) => cleanText(line))
     .filter(Boolean);
 
+  const tableRows = extractAnnualTableRows(lines, requestedIndex);
+  if (tableRows.length) {
+    return formatAnnualRows(tableRows);
+  }
+
   const weeksHeaderIndex = lines.findIndex((line) => /^weeks?$/i.test(line));
   if (weeksHeaderIndex === -1) {
     return { text: '', weekCount: 0 };
@@ -285,14 +290,11 @@ function extractAnnualPlanTermSection(annualPlanText, requestedTerm) {
   const selectedRows = rows
     .map((row) => ({
       week: row.week,
-      topic: cleanText(row.values[requestedIndex] || ''),
+      topic: selectAnnualFlattenedTopics(row.values, requestedIndex),
     }))
     .filter((row) => row.topic);
 
-  return {
-    text: selectedRows.map((row) => `Week ${row.week}\n${row.topic}`).join('\n'),
-    weekCount: selectedRows.length,
-  };
+  return formatAnnualRows(selectedRows);
 }
 
 function getTermColumnIndex(term) {
@@ -301,6 +303,99 @@ function getTermColumnIndex(term) {
   if (normalized === 'term 2') return 1;
   if (normalized === 'term 3') return 2;
   return -1;
+}
+
+function extractAnnualTableRows(lines, requestedIndex) {
+  const rows = [];
+  let inAnnualTable = false;
+  let currentWeek = null;
+
+  for (const line of lines) {
+    const cells = splitTableCells(line);
+    if (cells.length < 3) {
+      const weekOnlyMatch = line.match(/^(\d{1,2})(?:\b|\s|$)/);
+      if (inAnnualTable && weekOnlyMatch) {
+        currentWeek = Number(weekOnlyMatch[1]);
+        if (!rows.some((row) => row.week === currentWeek)) {
+          rows.push({ week: currentWeek, topics: [] });
+        }
+        continue;
+      }
+      if (inAnnualTable && detectTermFromLine(line) && !/annual/i.test(line)) break;
+      continue;
+    }
+
+    const normalizedCells = cells.map((cell) => cleanText(cell));
+    const hasHeader =
+      /^weeks?$/i.test(normalizedCells[0]) &&
+      normalizedCells.slice(1).some((cell) => normalizeTermLabel(cell) === 'term 1') &&
+      normalizedCells.slice(1).some((cell) => normalizeTermLabel(cell) === 'term 2') &&
+      normalizedCells.slice(1).some((cell) => normalizeTermLabel(cell) === 'term 3');
+
+    if (hasHeader) {
+      inAnnualTable = true;
+      currentWeek = null;
+      continue;
+    }
+
+    if (!inAnnualTable) continue;
+
+    const weekMatch = normalizedCells[0].match(/^(\d{1,2})(?:\b|\s|$)/);
+    if (weekMatch) {
+      currentWeek = Number(weekMatch[1]);
+      if (!rows.some((row) => row.week === currentWeek)) {
+        rows.push({ week: currentWeek, topics: [] });
+      }
+    }
+
+    if (!currentWeek) continue;
+
+    const selectedCell =
+      normalizedCells.length >= 4
+        ? normalizedCells[requestedIndex + 1] || ''
+        : normalizedCells[requestedIndex] || '';
+    const topics = splitAnnualTopicItems(selectedCell);
+    if (!topics.length) continue;
+
+    const target = rows.find((row) => row.week === currentWeek);
+    for (const topic of topics) {
+      if (!target.topics.some((existing) => existing.toLowerCase() === topic.toLowerCase())) {
+        target.topics.push(topic);
+      }
+    }
+  }
+
+  return rows
+    .map((row) => ({ week: row.week, topic: row.topics.join('; ') }))
+    .filter((row) => row.topic);
+}
+
+function splitTableCells(line) {
+  const cells = String(line || '').split('\t').map((cell) => cleanText(cell));
+  return cells.length > 1 ? cells : [];
+}
+
+function selectAnnualFlattenedTopics(values, requestedIndex) {
+  const cleaned = values.map((value) => cleanText(value)).filter(Boolean);
+  if (cleaned.length >= 6) {
+    const groupedTopics = cleaned.filter((_, index) => index % 3 === requestedIndex);
+    if (groupedTopics.length) return groupedTopics.join('; ');
+  }
+  return cleanText(cleaned[requestedIndex] || '');
+}
+
+function splitAnnualTopicItems(value) {
+  return String(value || '')
+    .split(/\s*(?:;|\n| {2,})\s*/)
+    .map((item) => cleanText(item))
+    .filter(Boolean);
+}
+
+function formatAnnualRows(rows) {
+  return {
+    text: rows.map((row) => `Week ${row.week}\n${row.topic}`).join('\n'),
+    weekCount: rows.length,
+  };
 }
 
 function extractDetailedTermSection(text, requestedTerm) {
@@ -360,7 +455,9 @@ function isolateRequestedClassText(text, requestedClassLevel) {
   const targetMarker = markers.find((marker) => marker.classLevel === normalizedClass);
   if (!targetMarker) return text;
 
-  const nextMarker = markers.find((marker) => marker.index > targetMarker.index);
+  const nextMarker = markers.find(
+    (marker) => marker.index > targetMarker.index && marker.classLevel !== normalizedClass
+  );
   const endIndex = nextMarker ? nextMarker.index : lines.length;
   const slice = lines.slice(targetMarker.index, endIndex).join('\n').trim();
   return slice || text;

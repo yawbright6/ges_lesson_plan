@@ -91,12 +91,23 @@ export function applyAnnualPlanTopicsToScheme(scheme, annualText) {
     weeks: (scheme.weeks || []).map((week) => {
       const annualTopic = annualTopics.get(Number(week.week));
       if (!annualTopic) return week;
+      const annualItems = splitAnnualTopicItems(annualTopic);
 
       const next = {
         ...week,
         topic: annualTopic,
         subStrand: annualTopic,
         uploadedTopic: annualTopic,
+        entries: annualItems.length > 1
+          ? annualItems.map((topic) => ({
+              strand: '',
+              subStrand: topic,
+              contentStandard: '',
+              indicator: '',
+              topic,
+              resources: Array.isArray(week.resources) ? week.resources : [],
+            }))
+          : week.entries,
       };
 
       const mappedText = [
@@ -110,7 +121,6 @@ export function applyAnnualPlanTopicsToScheme(scheme, annualText) {
         next.contentStandard = '';
         next.indicator = '';
         next.resources = Array.isArray(week.resources) ? week.resources : [];
-        next.entries = undefined;
         next.matchedCurriculumTerm = undefined;
         next.matchConfidence = undefined;
       }
@@ -298,12 +308,23 @@ function parseAnnualWeekTopics(text) {
   for (let index = 0; index < lines.length; index += 1) {
     const weekMatch = lines[index].match(/^week\s+(\d{1,2})$/i);
     if (!weekMatch) continue;
-    const topic = cleanText(lines[index + 1]);
-    if (!topic || /^week\s+\d{1,2}$/i.test(topic)) continue;
-    topics.set(Number(weekMatch[1]), topic);
+    const topicLines = [];
+    for (let nextIndex = index + 1; nextIndex < lines.length; nextIndex += 1) {
+      if (/^week\s+\d{1,2}$/i.test(lines[nextIndex])) break;
+      topicLines.push(lines[nextIndex]);
+    }
+    const topic = cleanText(topicLines.join('; '));
+    if (topic) topics.set(Number(weekMatch[1]), topic);
   }
 
   return topics;
+}
+
+function splitAnnualTopicItems(value) {
+  return String(value || '')
+    .split(/\s*(?:;|\n| {2,})\s*/)
+    .map((item) => cleanText(item))
+    .filter(Boolean);
 }
 
 function hasMeaningfulTopicOverlap(topic, text) {
