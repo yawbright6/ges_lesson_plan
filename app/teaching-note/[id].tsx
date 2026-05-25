@@ -6,7 +6,7 @@ import { PreviewActionButton, PreviewActions, PreviewHeader } from '@/components
 import { TeachingNotesView } from '@/components/TeachingNotesView';
 import { useToast } from '@/components/ToastProvider';
 import { deleteTeachingNotes, getTeachingNotesById } from '@/lib/teachingNotesStore';
-import { exportTeachingNotesPdf } from '@/lib/export';
+import { exportTeachingNotesPdf, shareTeachingNotes } from '@/lib/export';
 import { goBackOrReplace } from '@/lib/navigation';
 import { colors } from '@/theme/colors';
 import type { TeachingNotes } from '@/types/teachingNotes';
@@ -37,7 +37,7 @@ export default function TeachingNoteDetailScreen() {
       <PreviewHeader
         title="Teaching Notes"
         onBack={() => goBackOrReplace()}
-        onShare={() => exportTeachingNotesPdf(notes)}
+        onShare={() => shareTeachingNotes(notes)}
       />
       <TeachingNotesView notes={notes} />
       <PreviewActions>

@@ -26,7 +26,7 @@ export async function exportLessonPlanPdf(plan: LessonPlan, options?: { activity
 export async function shareLessonPlan(plan: LessonPlan, options?: { activityFontSize?: number }) {
   const html = pageHtml(buildLessonPlanContent(plan), 'lesson', options);
   const fileName = `${slugify(plan.subject)}-${plan.classLevel}-week-${plan.week}.pdf`;
-  await shareLessonHtml(html, fileName, `Lesson plan: ${plan.subject} ${plan.classLevel} Week ${plan.week}`);
+  await shareHtmlDocument(html, fileName, `Lesson plan: ${plan.subject} ${plan.classLevel} Week ${plan.week}`);
 }
 
 export async function shareLessonPlans(plans: LessonPlan[], options?: { activityFontSize?: number }) {
@@ -40,7 +40,7 @@ export async function shareLessonPlans(plans: LessonPlan[], options?: { activity
     options,
   );
   const fileName = `${slugify(first.subject)}-${first.classLevel}-week-${first.week}-all-lessons.pdf`;
-  await shareLessonHtml(
+  await shareHtmlDocument(
     html,
     fileName,
     `Lesson plans: ${first.subject} ${first.classLevel} Week ${first.week} (${plans.length} lessons)`,
@@ -48,11 +48,9 @@ export async function shareLessonPlans(plans: LessonPlan[], options?: { activity
 }
 
 export async function shareScheme(scheme: SchemeOfWork) {
-  if (Platform.OS === 'web') {
-    await shareText(`Scheme of work: ${scheme.subject} ${scheme.classLevel} ${scheme.term}`);
-    return;
-  }
-  await exportSchemePdf(scheme);
+  const html = buildSchemeHtml(scheme);
+  const fileName = `${slugify(scheme.subject)}-${scheme.classLevel}-${slugify(scheme.term)}-scheme.pdf`;
+  await shareHtmlDocument(html, fileName, `Scheme of work: ${scheme.subject} ${scheme.classLevel} ${scheme.term}`);
 }
 
 export async function exportLessonPlansPdf(plans: LessonPlan[], options?: { activityFontSize?: number }) {
@@ -81,10 +79,22 @@ export async function exportTeachingNotesPdf(notes: TeachingNotes) {
   await exportHtmlAsPdf(html, fileName);
 }
 
+export async function shareTeachingNotes(notes: TeachingNotes) {
+  const html = pageHtml(buildTeachingNotesContent(notes), 'notes');
+  const fileName = `${slugify(notes.subject)}-${notes.classLevel}-week-${notes.week}-teaching-notes-v${notes.versionNumber ?? 1}.pdf`;
+  await shareHtmlDocument(html, fileName, `Teaching notes: ${notes.subject} ${notes.classLevel} Week ${notes.week}`);
+}
+
 export async function exportCompiledTestItemsPdf(compilation: CompiledTestCompilation) {
   const html = pageHtml(buildCompiledTestItemsContent(compilation), 'test');
   const fileName = `${slugify(compilation.subject)}-${compilation.classLevel}-${slugify(compilation.termTitle ?? 'term')}-test-items.pdf`;
   await exportHtmlAsPdf(html, fileName);
+}
+
+export async function shareCompiledTestItems(compilation: CompiledTestCompilation) {
+  const html = pageHtml(buildCompiledTestItemsContent(compilation), 'test');
+  const fileName = `${slugify(compilation.subject)}-${compilation.classLevel}-${slugify(compilation.termTitle ?? 'term')}-test-items.pdf`;
+  await shareHtmlDocument(html, fileName, `Test items: ${compilation.subject} ${compilation.classLevel}`);
 }
 
 export async function exportCompiledTestItemsWord(compilation: CompiledTestCompilation) {
@@ -97,6 +107,12 @@ export async function exportRewrittenTestPaperPdf(paper: CompiledTestPaper) {
   const html = pageHtml(buildCompiledTestPaperContent(paper), 'test');
   const fileName = `${slugify(paper.subject)}-${paper.classLevel}-${slugify(paper.termTitle ?? 'term')}-test-paper.pdf`;
   await exportHtmlAsPdf(html, fileName);
+}
+
+export async function shareRewrittenTestPaper(paper: CompiledTestPaper) {
+  const html = pageHtml(buildCompiledTestPaperContent(paper), 'test');
+  const fileName = `${slugify(paper.subject)}-${paper.classLevel}-${slugify(paper.termTitle ?? 'term')}-test-paper.pdf`;
+  await shareHtmlDocument(html, fileName, `Test paper: ${paper.subject} ${paper.classLevel}${paper.termTitle ? ` ${paper.termTitle}` : ''}`);
 }
 
 export async function exportRewrittenTestPaperWord(paper: CompiledTestPaper) {
@@ -135,7 +151,7 @@ async function exportHtmlAsPdf(html: string, fileName: string) {
   await Print.printAsync({ uri });
 }
 
-async function shareLessonHtml(html: string, fileName: string, message: string) {
+async function shareHtmlDocument(html: string, fileName: string, message: string) {
   if (Platform.OS === 'web') {
     await shareHtmlFileOnWeb(html, fileName.replace(/\.pdf$/i, '.html'), message);
     return;

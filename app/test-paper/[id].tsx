@@ -6,7 +6,7 @@ import { Button } from '@/components/Button';
 import { MathText } from '@/components/MathText';
 import { PreviewActionButton, PreviewActions, PreviewHeader } from '@/components/PreviewChrome';
 import { useToast } from '@/components/ToastProvider';
-import { exportRewrittenTestPaperPdf, exportRewrittenTestPaperWord } from '@/lib/export';
+import { exportRewrittenTestPaperPdf, exportRewrittenTestPaperWord, shareRewrittenTestPaper } from '@/lib/export';
 import { goBackOrReplace } from '@/lib/navigation';
 import { deleteTestPaper, getTestPaperById } from '@/lib/testPaperStore';
 import { colors, radii, spacing, typography } from '@/theme/colors';
@@ -59,7 +59,7 @@ export default function TestPaperDetailScreen() {
         subtitle={`${paper.subject} - ${paper.classLevel}${paper.termTitle ? ` - ${paper.termTitle}` : ''}${paper.editedAt ? ' - Edited' : ''}`}
         onBack={() => goBackOrReplace()}
         onEdit={() => router.push(`/(tabs)/test-paper/edit/${encodeURIComponent(paper.id ?? '')}`)}
-        onShare={() => exportRewrittenTestPaperPdf(paper)}
+        onShare={() => shareRewrittenTestPaper(paper)}
         onDelete={async () => {
           const confirmed = await confirmRemoval('Delete test paper', `Delete ${paper.title}?`);
           if (!confirmed || !paper.id) return;

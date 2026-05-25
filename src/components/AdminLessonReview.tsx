@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { exportLessonPlanPdf, exportLessonPlansPdf } from '@/lib/export';
 import { reportClientError } from '@/lib/logger';
 import { updateShareFeedback } from '@/lib/shareStore';
 import { LessonPlanStack, LessonPlanTable } from '@/components/LessonPlanTable';
@@ -35,6 +36,20 @@ export default function AdminLessonReview({ share, onFeedbackUpdated, onBack }: 
     }
   }
 
+  async function handleExportPdf() {
+    try {
+      setError(null);
+      if (isLessonBundle(share.lesson_data)) {
+        await exportLessonPlansPdf(share.lesson_data.plans);
+        return;
+      }
+      await exportLessonPlanPdf(share.lesson_data);
+    } catch (err) {
+      reportClientError('admin_export_shared_lesson_pdf', err, { shareId: share.id });
+      setError(err instanceof Error ? err.message : 'Could not export this shared lesson as PDF');
+    }
+  }
+
   return (
     <View style={styles.stack}>
       <Pressable style={styles.backButton} onPress={onBack}>
@@ -58,6 +73,14 @@ export default function AdminLessonReview({ share, onFeedbackUpdated, onBack }: 
             <Text style={styles.messageText}>{share.teacher_message}</Text>
           </View>
         ) : null}
+        <View style={styles.infoActions}>
+          <Button
+            title="Export PDF"
+            icon="document-text-outline"
+            onPress={handleExportPdf}
+            style={styles.infoActionButton}
+          />
+        </View>
       </View>
 
       <View style={styles.panel}>
@@ -171,6 +194,8 @@ const styles = StyleSheet.create({
   },
   messageLabel: { ...typography.eyebrow, color: colors.primary, marginBottom: spacing[1] },
   messageText: { ...typography.body, color: colors.text, lineHeight: 21 },
+  infoActions: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing[3], justifyContent: 'flex-end' },
+  infoActionButton: { minWidth: 150 },
   panel: {
     borderWidth: 1,
     borderColor: colors.border,
