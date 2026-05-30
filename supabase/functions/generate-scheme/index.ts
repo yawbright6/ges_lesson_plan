@@ -1,4 +1,5 @@
-import { callClaudeJson, corsHeaders } from '../_shared/claude.ts';
+import { corsHeaders } from '../_shared/claude.ts';
+import { callConfiguredTextJson } from '../_shared/ai-provider.ts';
 import {
   buildSchemePrompt,
   normalizeSchemeResponse,
@@ -44,7 +45,7 @@ Deno.serve(async (req) => {
       description: 'Scheme of work generation',
       metadata,
       async run() {
-        const scheme = await callClaudeJson<Record<string, unknown>>({
+        const scheme = await callConfiguredTextJson<Record<string, unknown>>({
           system: schemeSystemPrompt,
           user: buildSchemePrompt(body),
         });

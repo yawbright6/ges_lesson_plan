@@ -1,4 +1,5 @@
-import { callClaudeJson, corsHeaders } from '../_shared/claude.ts';
+import { corsHeaders } from '../_shared/claude.ts';
+import { callConfiguredTextJson } from '../_shared/ai-provider.ts';
 import {
   buildTestItemRewritePrompt,
   normalizeTestItemRewriteResponse,
@@ -45,7 +46,7 @@ Deno.serve(async (req) => {
       description: 'Test item rewrite',
       metadata,
       async run() {
-        const rawPaper = await callClaudeJson<Record<string, unknown>>({
+        const rawPaper = await callConfiguredTextJson<Record<string, unknown>>({
           system: testItemRewriteSystemPrompt,
           user: buildTestItemRewritePrompt(body),
           maxTokens: 10000,

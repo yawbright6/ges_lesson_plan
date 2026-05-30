@@ -51,7 +51,10 @@ export function isRetryableError(err: unknown): boolean {
 
 export function isAiSecretMissingError(err: unknown): boolean {
   const message = getErrorMessage(err).toLowerCase();
-  return message.includes('anthropic_api_key') && message.includes('not configured');
+  return (
+    (message.includes('anthropic_api_key') || message.includes('openai_api_key')) &&
+    message.includes('not configured')
+  );
 }
 
 export function formatAiActionError(err: unknown): string {
@@ -61,7 +64,7 @@ export function formatAiActionError(err: unknown): string {
 
   if (isAiSecretMissingError(err)) {
     return (
-      'AI generation is not configured on Supabase yet. Set the ANTHROPIC_API_KEY secret, ' +
+      'AI generation is not configured on Supabase yet. Set the OPENAI_API_KEY secret, ' +
       'then redeploy the generation functions.'
     );
   }

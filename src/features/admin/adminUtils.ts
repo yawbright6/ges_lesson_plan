@@ -129,11 +129,14 @@ export function emptyAppSettingsDraft(): AppSettingsDraft {
     paystackMode: 'live',
     parserBackend: 'active',
     translationProvider: 'nllb',
+    aiProvider: 'openai',
+    aiTextModel: 'gpt-5.5',
+    openaiApiKey: '',
     structuredVisualsEnabled: true,
     visualGenerationEnabled: false,
     visualAutoGenerate: false,
-    visualProvider: 'gemini',
-    visualModel: 'gemini-3.1-flash-image-preview',
+    visualProvider: 'openai',
+    visualModel: 'gpt-image-2',
     visualMaxPerLesson: '2',
     visualCreditCost: '1',
     geminiApiKey: '',
@@ -149,6 +152,7 @@ export function settingsToDraft(settings: AdminSetting[]): AppSettingsDraft {
   const purchasing = byKey.get('credit_purchasing') ?? {};
   const paystack = byKey.get('paystack_mode') ?? {};
   const parser = byKey.get('parser_backend') ?? {};
+  const aiGeneration = byKey.get('ai_generation') ?? {};
   const visualGeneration = byKey.get('visual_generation') ?? {};
 
   return {
@@ -167,11 +171,14 @@ export function settingsToDraft(settings: AdminSetting[]): AppSettingsDraft {
     paystackMode: String(paystack.mode ?? 'live'),
     parserBackend: String(parser.provider ?? 'active'),
     translationProvider: 'nllb',
+    aiProvider: String(aiGeneration.provider ?? 'openai'),
+    aiTextModel: String(aiGeneration.model ?? 'gpt-5.5'),
+    openaiApiKey: '',
     structuredVisualsEnabled: booleanSetting(visualGeneration.structured_visuals_enabled, true),
     visualGenerationEnabled: booleanSetting(visualGeneration.enabled, false),
     visualAutoGenerate: booleanSetting(visualGeneration.auto_generate, false),
-    visualProvider: String(visualGeneration.provider ?? 'gemini'),
-    visualModel: String(visualGeneration.model ?? 'gemini-3.1-flash-image-preview'),
+    visualProvider: String(visualGeneration.provider ?? 'openai'),
+    visualModel: String(visualGeneration.model ?? 'gpt-image-2'),
     visualMaxPerLesson: String(numberSetting(visualGeneration.max_visuals_per_lesson, 2)),
     visualCreditCost: String(numberSetting(visualGeneration.credit_cost_per_visual, 1)),
     geminiApiKey: '',

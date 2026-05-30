@@ -286,17 +286,24 @@ export default function AdminScreen() {
         translation_provider: {
           provider: 'nllb',
         },
+        ai_generation: {
+          provider: appSettingsDraft.aiProvider || 'openai',
+          model: appSettingsDraft.aiTextModel || 'gpt-5.5',
+        },
         visual_generation: {
           structured_visuals_enabled: appSettingsDraft.structuredVisualsEnabled,
           enabled: appSettingsDraft.visualGenerationEnabled,
           auto_generate: appSettingsDraft.visualAutoGenerate,
-          provider: appSettingsDraft.visualProvider || 'gemini',
-          model: appSettingsDraft.visualModel || 'gemini-3.1-flash-image-preview',
+          provider: appSettingsDraft.visualProvider || 'openai',
+          model: appSettingsDraft.visualModel || 'gpt-image-2',
           max_visuals_per_lesson: Math.max(0, toWhole(appSettingsDraft.visualMaxPerLesson)),
           credit_cost_per_visual: Math.max(0, toWhole(appSettingsDraft.visualCreditCost)),
         },
         ...(appSettingsDraft.geminiApiKey.trim()
           ? { gemini_api_key: { value: appSettingsDraft.geminiApiKey.trim() } }
+          : {}),
+        ...(appSettingsDraft.openaiApiKey.trim()
+          ? { openai_api_key: { value: appSettingsDraft.openaiApiKey.trim() } }
           : {}),
       });
       Alert.alert('Settings saved', 'App settings have been updated.');

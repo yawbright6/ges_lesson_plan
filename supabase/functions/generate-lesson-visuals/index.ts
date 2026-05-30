@@ -1,6 +1,7 @@
 import { corsHeaders } from '../_shared/claude.ts';
 import { createServiceClient, getAuthenticatedUser, HttpError, logEdgeError } from '../_shared/supabase.ts';
 import { consumeCreditsForRequest, refundCredits } from '../_shared/credits.ts';
+import { DEFAULT_OPENAI_IMAGE_MODEL, generateOpenAiImage } from '../_shared/openai.ts';
 
 type VisualInput = {
   id?: string;
@@ -21,7 +22,7 @@ type Body = {
 };
 
 const BUCKET = 'lesson-visuals';
-const DEFAULT_MODEL = 'gemini-3.1-flash-image-preview';
+const DEFAULT_GEMINI_MODEL = 'gemini-3.1-flash-image-preview';
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
@@ -47,11 +48,11 @@ Deno.serve(async (req) => {
     if (!settings.enabled) {
       throw new HttpError(400, 'Visual generation is disabled by admin settings.');
     }
-    if (settings.provider !== 'gemini') {
+    if (!['gemini', 'openai'].includes(settings.provider)) {
       throw new HttpError(400, `Unsupported visual provider: ${settings.provider}`);
     }
 
-    const apiKey = await loadGeminiApiKey(service);
+    const geminiApiKey = settings.provider === 'gemini' ? await loadGeminiApiKey(service) : '';
     const limit = Math.max(0, settings.maxVisualsPerLesson || 0);
     const selected = visuals.slice(0, limit);
     const creditCost = Math.max(0, Math.round(settings.creditCostPerVisual || 0));
@@ -76,11 +77,17 @@ Deno.serve(async (req) => {
     for (const visual of selected) {
       const id = cleanText(visual.id) || crypto.randomUUID();
       try {
-        const image = await generateGeminiImage({
-          apiKey,
-          model: settings.model || DEFAULT_MODEL,
-          prompt: buildPrompt(visual, body),
-        });
+        const prompt = buildPrompt(visual, body);
+        const image = settings.provider === 'openai'
+          ? await generateOpenAiImage({
+              model: settings.model || DEFAULT_OPENAI_IMAGE_MODEL,
+              prompt,
+            })
+          : await generateGeminiImage({
+              apiKey: geminiApiKey,
+              model: settings.model || DEFAULT_GEMINI_MODEL,
+              prompt,
+            });
         const path = `${user.id}/${cleanPath(body.lessonPlanId || 'unsaved')}/${id}-${Date.now()}.${extensionForMime(image.mimeType)}`;
         const { error: uploadError } = await service.storage
           .from(BUCKET)
@@ -144,10 +151,11 @@ async function loadVisualSettings(service: ReturnType<typeof createServiceClient
     .eq('key', 'visual_generation')
     .maybeSingle();
   const value = (data?.value ?? {}) as Record<string, unknown>;
+  const provider = cleanText(value.provider).toLowerCase() || 'gemini';
   return {
     enabled: value.enabled === true,
-    provider: cleanText(value.provider) || 'gemini',
-    model: cleanText(value.model) || DEFAULT_MODEL,
+    provider,
+    model: cleanText(value.model) || (provider === 'openai' ? DEFAULT_OPENAI_IMAGE_MODEL : DEFAULT_GEMINI_MODEL),
     maxVisualsPerLesson: Number(value.max_visuals_per_lesson ?? 2),
     creditCostPerVisual: Number(value.credit_cost_per_visual ?? 1),
   };

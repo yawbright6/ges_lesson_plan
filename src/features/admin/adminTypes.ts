@@ -36,6 +36,9 @@ export type AppSettingsDraft = {
   paystackMode: string;
   parserBackend: string;
   translationProvider: string;
+  aiProvider: string;
+  aiTextModel: string;
+  openaiApiKey: string;
   structuredVisualsEnabled: boolean;
   visualGenerationEnabled: boolean;
   visualAutoGenerate: boolean;

@@ -1,4 +1,5 @@
-import { callClaudeJson, corsHeaders } from '../_shared/claude.ts';
+import { corsHeaders } from '../_shared/claude.ts';
+import { callConfiguredTextJson } from '../_shared/ai-provider.ts';
 import {
   buildTeachingNotesPrompt,
   getTeachingNotesSystemPrompt,
@@ -46,7 +47,7 @@ Deno.serve(async (req) => {
       description: 'Teaching notes generation',
       metadata,
       async run() {
-        const rawNotes = await callClaudeJson<Record<string, unknown>>({
+        const rawNotes = await callConfiguredTextJson<Record<string, unknown>>({
           system: getTeachingNotesSystemPrompt({
             structuredVisualsEnabled: body.structuredVisualsEnabled !== false,
             visualGenerationEnabled: body.visualGenerationEnabled !== false,

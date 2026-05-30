@@ -710,11 +710,35 @@ export function SettingsSection(props: {
             <Text style={styles.meta}>Lesson translation runs only when a teacher taps Translate. Normal lesson generation stays in English.</Text>
           </View>
           <View style={styles.settingsBox}>
+            <Text style={styles.sectionLabel}>AI Generation</Text>
+            <Field
+              label="Text provider"
+              value={props.appSettings.aiProvider}
+              onChangeText={(value) => props.setAppSettings({ aiProvider: value })}
+              autoCapitalize="none"
+            />
+            <Field
+              label="OpenAI text model"
+              value={props.appSettings.aiTextModel}
+              onChangeText={(value) => props.setAppSettings({ aiTextModel: value })}
+              autoCapitalize="none"
+            />
+            <Field
+              label="OpenAI API key"
+              value={props.appSettings.openaiApiKey}
+              onChangeText={(value) => props.setAppSettings({ openaiApiKey: value })}
+              autoCapitalize="none"
+              secureTextEntry
+              placeholder="Paste a new key to save or leave blank to keep existing"
+            />
+            <Text style={styles.meta}>Use openai for lesson plans, schemes, teaching notes, test rewriting and image generation. A Supabase OPENAI_API_KEY secret takes priority over this admin key.</Text>
+          </View>
+          <View style={styles.settingsBox}>
             <Text style={styles.sectionLabel}>Classroom Visuals</Text>
             <View style={styles.switchRow}>
               <View style={{ flex: 1, paddingRight: 10 }}>
                 <Text style={styles.rowTitle}>Structured classroom visuals</Text>
-                <Text style={styles.meta}>Allows Claude to add app-rendered tables, charts, diagrams, shapes, number lines and process visuals.</Text>
+                <Text style={styles.meta}>Allows the text model to add app-rendered tables, charts, diagrams, shapes, number lines and process visuals.</Text>
               </View>
               <Switch
                 value={props.appSettings.structuredVisualsEnabled}
@@ -724,7 +748,7 @@ export function SettingsSection(props: {
             <View style={styles.switchRow}>
               <View style={{ flex: 1, paddingRight: 10 }}>
                 <Text style={styles.rowTitle}>AI-generated images</Text>
-                <Text style={styles.meta}>Allows Gemini image prompts and generated image files. Structured visuals do not need this.</Text>
+                <Text style={styles.meta}>Allows image prompts and generated image files. Structured visuals do not need this.</Text>
               </View>
               <Switch
                 value={props.appSettings.visualGenerationEnabled}
@@ -748,7 +772,7 @@ export function SettingsSection(props: {
               autoCapitalize="none"
             />
             <Field
-              label="Gemini image model"
+              label="Image model"
               value={props.appSettings.visualModel}
               onChangeText={(value) => props.setAppSettings({ visualModel: value })}
               autoCapitalize="none"
