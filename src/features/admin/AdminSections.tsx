@@ -811,15 +811,21 @@ export function SettingsSection(props: {
               onChangeText={(value) => props.setAppSettings({ visualCreditCost: cleanWholeNumber(value) })}
               keyboardType="number-pad"
             />
-            <Field
-              label="Gemini API key"
-              value={props.appSettings.geminiApiKey}
-              onChangeText={(value) => props.setAppSettings({ geminiApiKey: value })}
-              autoCapitalize="none"
-              secureTextEntry
-              placeholder="Paste a new key to save or leave blank to keep existing"
-            />
-            <Text style={styles.meta}>The key is saved for Supabase functions and is not returned to the regular app runtime.</Text>
+            {props.appSettings.visualProvider === 'gemini' ? (
+              <>
+                <Field
+                  label="Gemini API key"
+                  value={props.appSettings.geminiApiKey}
+                  onChangeText={(value) => props.setAppSettings({ geminiApiKey: value })}
+                  autoCapitalize="none"
+                  secureTextEntry
+                  placeholder="Paste a new key to save or leave blank to keep existing"
+                />
+                <Text style={styles.meta}>The Gemini key is saved for Supabase functions and is not returned to the regular app runtime.</Text>
+              </>
+            ) : (
+              <Text style={styles.meta}>OpenAI image generation uses the OpenAI API key in the AI Generation section above.</Text>
+            )}
           </View>
         </View>
         <View style={styles.editActionPanel}>
