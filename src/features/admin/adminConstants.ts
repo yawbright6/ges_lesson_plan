@@ -85,3 +85,38 @@ export const promotionTypeOptions = [
   { label: 'Discount (GHS)', value: 'fixed_discount' },
   { label: 'Custom badge only', value: 'custom' },
 ];
+
+export const aiTextProviderOptions = [
+  { label: 'OpenAI', value: 'openai' },
+  { label: 'Claude / Anthropic', value: 'anthropic' },
+];
+
+export const openAiTextModelOptions = [
+  { label: 'GPT-5.5', value: 'gpt-5.5' },
+  { label: 'GPT-5.4', value: 'gpt-5.4' },
+  { label: 'GPT-5.4 mini', value: 'gpt-5.4-mini' },
+  { label: 'GPT-5.4 nano', value: 'gpt-5.4-nano' },
+  { label: 'GPT-5.2', value: 'gpt-5.2' },
+  { label: 'GPT-5.1', value: 'gpt-5.1' },
+  { label: 'GPT-5', value: 'gpt-5' },
+];
+
+export const claudeTextModelOptions = [
+  { label: 'Claude Sonnet 4.5', value: 'claude-sonnet-4-5' },
+];
+
+export const visualProviderOptions = [
+  { label: 'OpenAI', value: 'openai' },
+  { label: 'Gemini', value: 'gemini' },
+];
+
+export const openAiImageModelOptions = [
+  { label: 'GPT Image 2', value: 'gpt-image-2' },
+  { label: 'GPT Image 1.5', value: 'gpt-image-1.5' },
+  { label: 'GPT Image 1', value: 'gpt-image-1' },
+  { label: 'GPT Image 1 mini', value: 'gpt-image-1-mini' },
+];
+
+export const geminiImageModelOptions = [
+  { label: 'Gemini 3.1 Flash Image Preview', value: 'gemini-3.1-flash-image-preview' },
+];

@@ -3,13 +3,19 @@ import { Button } from '@/components/Button';
 import { Field } from '@/components/Field';
 import { SelectField } from '@/components/SelectField';
 import {
+  aiTextProviderOptions,
+  claudeTextModelOptions,
   creditKindOptions,
+  geminiImageModelOptions,
   logSeverityOptions,
+  openAiImageModelOptions,
+  openAiTextModelOptions,
   paymentStatusOptions,
   phoneSignupStatusOptions,
   promotionTypeOptions,
   referralStatusOptions,
   usageKindOptions,
+  visualProviderOptions,
 } from './adminConstants';
 import { styles } from './adminStyles';
 import type {
@@ -472,6 +478,12 @@ export function SettingsSection(props: {
   savingAppSettings: boolean;
 }) {
   const draft = props.editingPackage ? preparePackageDraft(props.editingPackage) : null;
+  const textModelOptions = props.appSettings.aiProvider === 'anthropic'
+    ? claudeTextModelOptions
+    : openAiTextModelOptions;
+  const imageModelOptions = props.appSettings.visualProvider === 'gemini'
+    ? geminiImageModelOptions
+    : openAiImageModelOptions;
   const setDraft = (patch: Partial<PackageDraft>) => {
     if (!props.editingPackage) return;
     const next = { ...props.editingPackage, ...patch };
@@ -711,17 +723,22 @@ export function SettingsSection(props: {
           </View>
           <View style={styles.settingsBox}>
             <Text style={styles.sectionLabel}>AI Generation</Text>
-            <Field
+            <SelectField
               label="Text provider"
               value={props.appSettings.aiProvider}
-              onChangeText={(value) => props.setAppSettings({ aiProvider: value })}
-              autoCapitalize="none"
+              options={aiTextProviderOptions}
+              onChange={(value) => {
+                props.setAppSettings({
+                  aiProvider: value,
+                  aiTextModel: value === 'anthropic' ? claudeTextModelOptions[0].value : openAiTextModelOptions[0].value,
+                });
+              }}
             />
-            <Field
-              label="OpenAI text model"
+            <SelectField
+              label={props.appSettings.aiProvider === 'anthropic' ? 'Claude text model' : 'OpenAI text model'}
               value={props.appSettings.aiTextModel}
-              onChangeText={(value) => props.setAppSettings({ aiTextModel: value })}
-              autoCapitalize="none"
+              options={textModelOptions}
+              onChange={(value) => props.setAppSettings({ aiTextModel: value })}
             />
             <Field
               label="OpenAI API key"
@@ -765,17 +782,22 @@ export function SettingsSection(props: {
                 onValueChange={(value) => props.setAppSettings({ visualAutoGenerate: value })}
               />
             </View>
-            <Field
+            <SelectField
               label="Visual provider"
               value={props.appSettings.visualProvider}
-              onChangeText={(value) => props.setAppSettings({ visualProvider: value })}
-              autoCapitalize="none"
+              options={visualProviderOptions}
+              onChange={(value) => {
+                props.setAppSettings({
+                  visualProvider: value,
+                  visualModel: value === 'gemini' ? geminiImageModelOptions[0].value : openAiImageModelOptions[0].value,
+                });
+              }}
             />
-            <Field
+            <SelectField
               label="Image model"
               value={props.appSettings.visualModel}
-              onChangeText={(value) => props.setAppSettings({ visualModel: value })}
-              autoCapitalize="none"
+              options={imageModelOptions}
+              onChange={(value) => props.setAppSettings({ visualModel: value })}
             />
             <Field
               label="Max visuals per lesson"

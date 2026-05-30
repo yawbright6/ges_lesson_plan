@@ -5,7 +5,9 @@ values (
   'ai_generation',
   '{
     "provider": "openai",
-    "model": "gpt-5.5"
+    "model": "gpt-5.5",
+    "openai_models": ["gpt-5.5", "gpt-5.4", "gpt-5.4-mini", "gpt-5.4-nano", "gpt-5.2", "gpt-5.1", "gpt-5"],
+    "anthropic_models": ["claude-sonnet-4-5"]
   }'::jsonb
 )
 on conflict (key) do update
@@ -27,6 +29,8 @@ values (
     "auto_generate": false,
     "provider": "openai",
     "model": "gpt-image-2",
+    "openai_models": ["gpt-image-2", "gpt-image-1.5", "gpt-image-1", "gpt-image-1-mini"],
+    "gemini_models": ["gemini-3.1-flash-image-preview"],
     "max_visuals_per_lesson": 2,
     "credit_cost_per_visual": 1
   }'::jsonb
@@ -34,6 +38,8 @@ values (
 on conflict (key) do update
 set value = public.admin_app_settings.value || '{
     "provider": "openai",
-    "model": "gpt-image-2"
+    "model": "gpt-image-2",
+    "openai_models": ["gpt-image-2", "gpt-image-1.5", "gpt-image-1", "gpt-image-1-mini"],
+    "gemini_models": ["gemini-3.1-flash-image-preview"]
   }'::jsonb,
     updated_at = now();

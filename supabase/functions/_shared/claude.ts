@@ -3,7 +3,7 @@
 import { fetchWithTimeout } from './http.ts';
 
 const API_URL = 'https://api.anthropic.com/v1/messages';
-const MODEL = 'claude-sonnet-4-5';
+export const DEFAULT_CLAUDE_MODEL = 'claude-sonnet-4-5';
 
 export interface ClaudeJsonOptions {
   system: string;
@@ -11,6 +11,7 @@ export interface ClaudeJsonOptions {
   maxTokens?: number;
   temperature?: number;
   timeoutMs?: number;
+  model?: string;
 }
 
 /**
@@ -33,7 +34,7 @@ export async function callClaudeJson<T = unknown>(opts: ClaudeJsonOptions): Prom
       'anthropic-version': '2023-06-01',
     },
     body: JSON.stringify({
-      model: MODEL,
+      model: opts.model || DEFAULT_CLAUDE_MODEL,
       max_tokens: opts.maxTokens ?? 4096,
       temperature: opts.temperature ?? 0.4,
       system: opts.system,

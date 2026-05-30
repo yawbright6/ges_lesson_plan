@@ -1,4 +1,4 @@
-import { callClaudeJson } from './claude.ts';
+import { callClaudeJson, DEFAULT_CLAUDE_MODEL } from './claude.ts';
 import { callOpenAiJson, DEFAULT_OPENAI_TEXT_MODEL } from './openai.ts';
 import { createServiceClient } from './supabase.ts';
 
@@ -26,7 +26,10 @@ export async function callConfiguredTextJson<T = unknown>(opts: JsonGenerationOp
     });
   }
 
-  return callClaudeJson<T>(opts);
+  return callClaudeJson<T>({
+    ...opts,
+    model: settings.model || DEFAULT_CLAUDE_MODEL,
+  });
 }
 
 async function loadTextGenerationSettings(): Promise<TextGenerationSettings> {
@@ -45,7 +48,7 @@ async function loadTextGenerationSettings(): Promise<TextGenerationSettings> {
       .maybeSingle();
     return normalizeSettings((data?.value ?? {}) as Record<string, unknown>);
   } catch {
-    return { provider: 'anthropic', model: '' };
+    return { provider: 'anthropic', model: DEFAULT_CLAUDE_MODEL };
   }
 }
 
@@ -57,7 +60,7 @@ function normalizeSettings(value: Record<string, unknown>): TextGenerationSettin
     return { provider: 'openai', model: model || DEFAULT_OPENAI_TEXT_MODEL };
   }
 
-  return { provider: 'anthropic', model: '' };
+  return { provider: 'anthropic', model: model || DEFAULT_CLAUDE_MODEL };
 }
 
 function cleanText(value: unknown) {
