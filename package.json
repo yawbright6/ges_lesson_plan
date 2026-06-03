@@ -18,6 +18,7 @@
     "audit:curriculum-sources": "node scripts/audit-curriculum-sources.mjs",
     "audit:curriculum-primary": "node scripts/audit-curriculum-sources.mjs --primary",
     "audit:curriculum-jhs": "node scripts/audit-curriculum-sources.mjs --jhs",
+    "audit:curriculum-shs": "node scripts/audit-shs-curriculum.mjs",
     "verify:refactor": "node scripts/verify-admin-refactor.mjs"
   },
   "dependencies": {

@@ -2,7 +2,7 @@ import { supabase } from './supabase';
 import { cachedRequest, invalidateCache } from './cache';
 import { withTimeout } from './async';
 import { getCurrentUserId } from './generatedStore';
-import type { AdminLessonShare, LessonShare, SavedLessonWork } from '@/types/lessonPlan';
+import type { LessonShare, SavedLessonWork } from '@/types/lessonPlan';
 
 const CACHE_PREFIX = 'lesson-shares';
 
@@ -87,11 +87,25 @@ export async function getShareById(shareId: string): Promise<LessonShare | null>
  * Load all lessons shared with admin (admin only).
  * Includes teacher info joined from profiles/auth.
  */
-export async function loadSharedLessonsForAdmin(): Promise<AdminLessonShare[]> {
+export async function loadSharedLessonsForAdmin(): Promise<
+  (LessonShare & { teacher_email?: string; teacher_name?: string; school_name?: string })[]
+> {
   const userId = await getCurrentUserId();
   if (!userId) return [];
 
+  // Check if user is admin - if not, return empty
+  const { data: profileData } = await supabase
+    .from('profiles')
+    .select('role')
+    .eq('id', userId)
+    .single();
+
+  if (profileData?.role !== 'admin') {
+    return [];
+  }
+
   return cachedRequest(`${CACHE_PREFIX}:admin`, async () => {
+    // Get all shares with teacher's email from auth table
     const { data, error } = await withTimeout(
       supabase.rpc('get_shared_lessons_with_teacher_info'),
       10000,
@@ -113,7 +127,11 @@ export async function loadSharedLessonsForAdmin(): Promise<AdminLessonShare[]> {
       return (fallbackData ?? []) as LessonShare[];
     }
 
-    return (data ?? []) as AdminLessonShare[];
+    return (data ?? []) as (LessonShare & {
+      teacher_email?: string;
+      teacher_name?: string;
+      school_name?: string;
+    })[];
   });
 }
 

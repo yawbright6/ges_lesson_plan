@@ -141,7 +141,7 @@ export default function OnboardingScreen() {
                 value={classSizeToAdd}
                 onChangeText={(value) => setClassSizeToAdd(value.replace(/[^0-9]/g, '').slice(0, 3))}
                 keyboardType="number-pad"
-                placeholder="42"
+                placeholder="Enter your class size"
               />
             </View>
           </View>

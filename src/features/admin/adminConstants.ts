@@ -88,6 +88,7 @@ export const promotionTypeOptions = [
 
 export const aiTextProviderOptions = [
   { label: 'OpenAI', value: 'openai' },
+  { label: 'Gemini', value: 'gemini' },
   { label: 'Claude / Anthropic', value: 'anthropic' },
 ];
 
@@ -103,6 +104,14 @@ export const openAiTextModelOptions = [
 
 export const claudeTextModelOptions = [
   { label: 'Claude Sonnet 4.5', value: 'claude-sonnet-4-5' },
+];
+
+export const geminiTextModelOptions = [
+  { label: 'Gemini 2.5 Pro', value: 'gemini-2.5-pro' },
+  { label: 'Gemini 2.5 Flash', value: 'gemini-2.5-flash' },
+  { label: 'Gemini 2.5 Flash-Lite', value: 'gemini-2.5-flash-lite' },
+  { label: 'Gemini 2.0 Flash', value: 'gemini-2.0-flash' },
+  { label: 'Gemini 2.0 Flash-Lite', value: 'gemini-2.0-flash-lite' },
 ];
 
 export const visualProviderOptions = [

@@ -85,4 +85,5 @@ export interface TestItemRewriteRequest {
   items: CompiledTestItem[];
   options?: TestItemRewriteOptions;
   structuredVisualsEnabled?: boolean;
+  visualGenerationEnabled?: boolean;
 }

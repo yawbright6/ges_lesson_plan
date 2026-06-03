@@ -15,6 +15,7 @@ import type { SchemeOfWork } from '@/types/scheme';
 import type { TeachingNoteVisual, TeachingNotes } from '@/types/teachingNotes';
 import type { CompiledTestCompilation, CompiledTestPaper } from '@/types/testItemCompiler';
 import { formatMathText } from './mathText';
+import { getTeachingNoteContentBlocks } from './teachingNoteContent';
 import { buildTestItemsHeading, buildTestItemsWeekLine } from './testItemCompiler';
 
 export async function exportLessonPlanPdf(plan: LessonPlan, options?: { activityFontSize?: number }) {
@@ -394,15 +395,15 @@ function buildSchemeHtml(scheme: SchemeOfWork) {
 }
 
 function buildTeachingNotesContent(notes: TeachingNotes) {
+  const contentBlocks = getTeachingNoteContentBlocks(notes);
   return `
     <section class="notes-title">
       <h1>${escapeHtml(notes.title)}</h1>
       <h2>${escapeHtml(`${notes.subject} - ${notes.classLevel} - Week ${notes.week}${notes.lessonNumber ? ` - Lesson ${notes.lessonNumber}` : ''}${notes.versionNumber ? ` - Version ${notes.versionNumber}` : ''}`)}</h2>
     </section>
     ${notes.overview ? notesSection('Overview', `<p>${escapeHtml(notes.overview)}</p>`) : ''}
-    ${notes.contentBlocks?.length ? notesSection('Lesson Note', notes.contentBlocks.map(buildTeachingNoteBlockHtml).join('')) : ''}
+    ${contentBlocks.length ? notesSection('Lesson Note', contentBlocks.map(buildTeachingNoteBlockHtml).join('')) : ''}
     ${notesListSection('Teacher Preparation', notes.preparation)}
-    ${notes.visuals?.length ? notesSection('Content Diagrams and Examples', notes.visuals.map(buildVisualHtml).join('')) : ''}
     ${notesSection('Teaching Guide', notes.phaseGuidance.map((phase) => `
       <div class="phase-note">
         <h3>Phase ${phase.phase}: ${escapeHtml(phase.title)}</h3>
@@ -646,6 +647,21 @@ function buildTeachingNoteBlockHtml(block: NonNullable<TeachingNotes['contentBlo
       imageUrl: block.imageUrl,
       storagePath: block.storagePath,
     });
+  }
+  if (block.type === 'image_grid') {
+    const items = block.imageItems ?? [];
+    return `<div class="note-block structured-block">
+      ${block.title ? `<h4>${escapeHtml(block.title)}</h4>` : ''}
+      ${block.text ? `<p>${escapeHtml(block.text)}</p>` : ''}
+      ${items.length ? `<div class="image-grid">${items.map((item) => `
+        <div class="image-grid-item">
+          ${item.imageUrl ? `<img class="visual-image" src="${escapeHtml(item.imageUrl)}" alt="${escapeHtml(item.label)}" />` : ''}
+          <strong>${escapeHtml(item.label)}</strong>
+          ${item.description ? `<span>${escapeHtml(item.description)}</span>` : ''}
+        </div>
+      `).join('')}</div>` : ''}
+      ${block.caption ? `<p class="caption">${escapeHtml(block.caption)}</p>` : ''}
+    </div>`;
   }
   if (block.type === 'comparison_table') {
     const rows = block.rows ?? [];
@@ -1077,6 +1093,15 @@ function buildVisualFigureHtml(visualAid: NonNullable<LessonPlan['visualAids']>[
       .join('')}</div>`;
   }
 
+  if (visualAid.type === 'comparison_table' && (visualAid.cells?.length || visualAid.columns?.length)) {
+    const columns = visualAid.columns ?? [];
+    const rows = visualAid.cells ?? [];
+    return `<table class="visual-table">${columns.length ? `<tr class="head">${columns.map((column) => `<td>${escapeHtml(column)}</td>`).join('')}</tr>` : ''}${rows
+      .slice(0, 8)
+      .map((row) => `<tr>${row.slice(0, 6).map((cell) => `<td>${escapeHtml(cell)}</td>`).join('')}</tr>`)
+      .join('')}</table>`;
+  }
+
   if (visualAid.type === 'comparison_table' && visualAid.rows?.length) {
     return `<table class="visual-table">${visualAid.rows
       .slice(0, 5)
@@ -1151,6 +1176,10 @@ function visualExportStyles() {
     .visual-table td { border: 1px solid #e2e2dc; padding: 4px; font-size: 12px; }
     .visual-table .head td { background: #edf3f0; color: #0F4C3A; font-weight: 700; }
     .visual-table .visual-row-label { color: #0F4C3A; font-weight: 700; width: 35%; }
+    .image-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 6px; }
+    .image-grid-item { border: 1px solid #e2e2dc; border-radius: 6px; background: #fff; padding: 6px; font-size: 11px; }
+    .image-grid-item strong { display: block; color: #0F4C3A; margin-top: 4px; }
+    .image-grid-item span { display: block; color: #555; margin-top: 2px; }
     .label-grid { display: flex; flex-wrap: wrap; gap: 5px; }
     .label-chip { border: 1px solid #e2e2dc; background: #F4F1EA; border-radius: 5px; padding: 3px 5px; font-size: 11px; }
     .bar-row { display: flex; align-items: center; gap: 6px; margin-top: 4px; }

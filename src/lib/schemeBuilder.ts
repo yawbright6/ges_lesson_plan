@@ -270,6 +270,38 @@ export function removeEntryFromWeek(
   });
 }
 
+export function moveEntryBetweenWeeks(
+  weeks: SchemeWeek[],
+  fromWeekNumber: number,
+  fromEntryIndex: number,
+  toWeekNumber: number
+): SchemeWeek[] {
+  if (fromWeekNumber === toWeekNumber) return weeks;
+
+  const sourceWeek = weeks.find((week) => week.week === fromWeekNumber);
+  const targetWeek = weeks.find((week) => week.week === toWeekNumber);
+  if (!sourceWeek || !targetWeek) return weeks;
+
+  const sourceEntries = getWeekEntries(sourceWeek);
+  const movedEntry = sourceEntries[fromEntryIndex];
+  if (!movedEntry) return weeks;
+
+  return weeks.map((week) => {
+    if (week.week === fromWeekNumber) {
+      return buildWeek(
+        week.week,
+        sourceEntries.filter((_, index) => index !== fromEntryIndex)
+      );
+    }
+
+    if (week.week === toWeekNumber) {
+      return buildWeek(week.week, [...getWeekEntries(week), movedEntry]);
+    }
+
+    return week;
+  });
+}
+
 export function duplicatePreviousWeek(weeks: SchemeWeek[], weekNumber: number): SchemeWeek[] {
   if (weekNumber <= 1) return weeks;
   const previous = weeks.find((week) => week.week === weekNumber - 1);

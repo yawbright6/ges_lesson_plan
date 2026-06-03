@@ -67,6 +67,7 @@ export interface TestItemRewriteBody {
   classLevel: string;
   termTitle?: string;
   structuredVisualsEnabled?: boolean;
+  visualGenerationEnabled?: boolean;
   items: Array<{
     id?: string;
     week?: number;
@@ -483,7 +484,9 @@ Always respond with a single JSON object only, no markdown or commentary, with t
               "centralNode": string,
               "nodes": string[],
               "groups": [{ "label": string, "items": string[] }],
-              "caption": string
+              "caption": string,
+              "prompt": string,
+              "status": "pending"
             }
           ]
         }
@@ -520,7 +523,8 @@ Rules:
   tables, diagrams, and multi-step word problems that demand an answer with working.
 - When a question genuinely requires a visual, attach it in that question's visuals array and make the question text refer to it clearly, e.g. "Use the diagram below...".
 - Use question-level visuals for number lines, fraction models, geometry shapes, coordinate grids, Venn diagrams, bar/line charts, frequency/tally/place-value tables, circuits, flowcharts, algorithm trace tables, network diagrams, timelines, and labelled diagrams when they improve assessment quality.
-- Do not include generated image prompts or image placeholders in test papers. Use only structured visual data the app can render.
+- If image generation is enabled, visuals that need a custom generated illustration may include a clear classroom-friendly prompt and status: "pending".
+- If image generation is disabled, do not include generated image prompts or image placeholders. Use only structured visual data the app can render.
 - If structured visuals are turned off, return "visuals": [] for every question and write text-only questions.
 - Do not include any instruction about silent electronic calculators.
 - If workings are needed, use exactly this instruction: "All workings in Section B must be shown clearly."
@@ -541,6 +545,7 @@ export function buildTestItemRewritePrompt(body: TestItemRewriteBody): string {
     (body.options?.totalMarks ? `- Required total marks: ${body.options.totalMarks}\n` : '- Total marks: AI may decide\n') +
     `- Requested test modes: ${formatTestModeOptions(body.options?.modes)}\n` +
     `- Structured question visuals: ${body.structuredVisualsEnabled === false ? 'OFF. Return visuals: [] on all questions.' : 'ON. Add question-level visuals only when they improve the assessment.'}\n` +
+    `- AI-generated question images: ${body.visualGenerationEnabled === false ? 'OFF. Do not include prompt, status, imageUrl or pending image placeholders on visuals.' : 'ON. Include prompt and status: "pending" on visuals that should become generated image files.'}\n` +
     `- Source items JSON:\n${JSON.stringify(items)}\n\n` +
     `Return the JSON object only.`
   );
@@ -572,7 +577,7 @@ export function normalizeTestItemRewriteResponse(
               sourceItemIds: cleanStringList(questionRecord.sourceItemIds, 20),
               visuals: body.structuredVisualsEnabled === false
                 ? []
-                : normalizeVisualAids(questionRecord.visuals, false),
+                : normalizeVisualAids(questionRecord.visuals, body.visualGenerationEnabled !== false, Number.POSITIVE_INFINITY),
             };
           })
           .filter((question) => question.text)
@@ -780,7 +785,7 @@ export function normalizeLessonPlanResponse(
   };
 }
 
-function normalizeVisualAids(value: unknown, includeGeneratedImages = true) {
+function normalizeVisualAids(value: unknown, includeGeneratedImages = true, limit = 2) {
   if (!Array.isArray(value)) return [];
   const allowedTypes = new Set([
     'labelled_diagram',
@@ -812,8 +817,10 @@ function normalizeVisualAids(value: unknown, includeGeneratedImages = true) {
     'story_map',
   ]);
 
+  const maxItems = Number.isFinite(limit) ? Math.max(0, limit) : value.length;
+
   return value
-    .slice(0, 2)
+    .slice(0, maxItems)
     .map((item) => {
       const visual = item as Record<string, unknown>;
       const type = cleanText(visual?.type);

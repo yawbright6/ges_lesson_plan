@@ -3,10 +3,10 @@ import { Text, View } from 'react-native';
 import SharedLessonsList from '@/components/SharedLessonsList';
 import AdminLessonReview from '@/components/AdminLessonReview';
 import { styles } from './adminStyles';
-import type { AdminLessonShare } from '@/types/lessonPlan';
+import type { LessonShare } from '@/types/lessonPlan';
 
 export function SharedLessonsSection() {
-  const [selectedShare, setSelectedShare] = useState<AdminLessonShare | null>(null);
+  const [selectedShare, setSelectedShare] = useState<LessonShare | null>(null);
 
   if (selectedShare) {
     return (

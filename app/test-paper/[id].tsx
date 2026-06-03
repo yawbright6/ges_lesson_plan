@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Alert, Platform, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Alert, Image, Platform, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useLocalSearchParams } from 'expo-router';
 import { router } from 'expo-router';
 import { Button } from '@/components/Button';
@@ -139,6 +139,10 @@ function TestVisual({ visual }: { visual: LessonVisualAid }) {
 }
 
 function VisualFigure({ visual }: { visual: LessonVisualAid }) {
+  if (visual.imageUrl) {
+    return <Image source={{ uri: visual.imageUrl }} style={styles.generatedImage} resizeMode="contain" />;
+  }
+
   if (visual.type === 'bar_chart' && visual.data?.length) return <BarChart visual={visual} />;
   if (visual.type === 'line_graph' && visual.data?.length) return <LineGraph visual={visual} />;
   if (isTableVisual(visual)) return <MatrixTable visual={visual} />;
@@ -297,6 +301,7 @@ const styles = StyleSheet.create({
   muted: { ...typography.body, color: colors.textMuted },
   visual: { borderWidth: 1, borderColor: colors.border, borderRadius: radii.md, padding: spacing[3], backgroundColor: colors.tableRowAlt, gap: spacing[2] },
   visualTitle: { ...typography.label, color: colors.primaryDark },
+  generatedImage: { width: '100%', height: 220, backgroundColor: '#fff', borderRadius: 6 },
   caption: { ...typography.caption, color: colors.textMuted, lineHeight: 18 },
   labelWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 4 },
   labelPill: { borderWidth: 1, borderColor: colors.border, borderRadius: 999, paddingHorizontal: 8, paddingVertical: 3, color: colors.primary, fontWeight: '700' },

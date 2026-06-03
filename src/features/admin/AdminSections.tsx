@@ -7,6 +7,7 @@ import {
   claudeTextModelOptions,
   creditKindOptions,
   geminiImageModelOptions,
+  geminiTextModelOptions,
   logSeverityOptions,
   openAiImageModelOptions,
   openAiTextModelOptions,
@@ -480,6 +481,8 @@ export function SettingsSection(props: {
   const draft = props.editingPackage ? preparePackageDraft(props.editingPackage) : null;
   const textModelOptions = props.appSettings.aiProvider === 'anthropic'
     ? claudeTextModelOptions
+    : props.appSettings.aiProvider === 'gemini'
+      ? geminiTextModelOptions
     : openAiTextModelOptions;
   const imageModelOptions = props.appSettings.visualProvider === 'gemini'
     ? geminiImageModelOptions
@@ -730,12 +733,16 @@ export function SettingsSection(props: {
               onChange={(value) => {
                 props.setAppSettings({
                   aiProvider: value,
-                  aiTextModel: value === 'anthropic' ? claudeTextModelOptions[0].value : openAiTextModelOptions[0].value,
+                  aiTextModel: value === 'anthropic'
+                    ? claudeTextModelOptions[0].value
+                    : value === 'gemini'
+                      ? geminiTextModelOptions[0].value
+                      : openAiTextModelOptions[0].value,
                 });
               }}
             />
             <SelectField
-              label={props.appSettings.aiProvider === 'anthropic' ? 'Claude text model' : 'OpenAI text model'}
+              label={props.appSettings.aiProvider === 'anthropic' ? 'Claude text model' : props.appSettings.aiProvider === 'gemini' ? 'Gemini text model' : 'OpenAI text model'}
               value={props.appSettings.aiTextModel}
               options={textModelOptions}
               onChange={(value) => props.setAppSettings({ aiTextModel: value })}
@@ -800,11 +807,12 @@ export function SettingsSection(props: {
               onChange={(value) => props.setAppSettings({ visualModel: value })}
             />
             <Field
-              label="Max visuals per lesson"
+              label="Max generated images per lesson plan"
               value={props.appSettings.visualMaxPerLesson}
               onChangeText={(value) => props.setAppSettings({ visualMaxPerLesson: cleanWholeNumber(value) })}
               keyboardType="number-pad"
             />
+            <Text style={styles.meta}>This cap applies only to lesson plan image generation. Teaching notes and AI test rewrite are not capped by this setting.</Text>
             <Field
               label="Credit cost per visual"
               value={props.appSettings.visualCreditCost}

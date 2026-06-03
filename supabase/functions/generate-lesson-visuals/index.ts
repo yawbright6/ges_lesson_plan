@@ -18,6 +18,7 @@ type Body = {
   subject?: string;
   classLevel?: string;
   week?: number;
+  source?: 'lesson_plan' | 'teaching_notes' | 'test_paper';
   visuals?: VisualInput[];
 };
 
@@ -54,7 +55,7 @@ Deno.serve(async (req) => {
 
     const geminiApiKey = settings.provider === 'gemini' ? await loadGeminiApiKey(service) : '';
     const limit = Math.max(0, settings.maxVisualsPerLesson || 0);
-    const selected = visuals.slice(0, limit);
+    const selected = body.source === 'lesson_plan' ? visuals.slice(0, limit) : visuals;
     const creditCost = Math.max(0, Math.round(settings.creditCostPerVisual || 0));
     const totalCreditCost = creditCost * selected.length;
     const creditDebit = totalCreditCost > 0

@@ -251,7 +251,7 @@ export default function ProfileScreen() {
                 label="Class size"
                 value={classSizeToAdd}
                 onChangeText={(value) => setClassSizeToAdd(cleanNumeric(value))}
-                placeholder="42"
+                placeholder="Enter your class size"
                 keyboardType="number-pad"
                 compact
               />

@@ -24,6 +24,7 @@ import { formatAiActionError, isInsufficientCreditsError } from '@/lib/ai';
 import { defaultRuntimeSettings, loadRuntimeAppSettings } from '@/lib/appSettings';
 import { loadCreditBalance } from '@/lib/credits';
 import { exportLessonPlanPdf, exportLessonPlansPdf, shareLessonPlan, shareLessonPlans } from '@/lib/export';
+import { buildExemplarLessonGuidance } from '@/lib/exemplarLessonGuidance';
 import {
   buildGeneratedBundle,
   generateAndSaveLessonPlans,
@@ -46,6 +47,7 @@ import {
   getLessonsPerWeekForSubject,
   setLessonsPerWeekForSubject,
 } from '@/lib/subjectPrefs';
+import { getWeekTopic } from '@/lib/schemeWeek';
 import { calculateWeekEnding, loadTermStartDate, saveTermStartDate } from '@/lib/termDates';
 import { loadLastSelectedTerm, saveLastSelectedTerm } from '@/lib/termPrefs';
 import { colors, radii, shadows, spacing, typography } from '@/theme/colors';
@@ -140,6 +142,20 @@ export default function GenerateScreen() {
   const selectedScheme =
     matchingSchemes.find((scheme) => scheme.id === selectedSchemeId) ?? matchedScheme;
   const sessionsPerWeek = Math.max(1, Math.min(4, Number(sessionsPerWeekInput) || 1));
+  const selectedSchemeWeek = useMemo(
+    () => selectedScheme?.weeks.find((item) => Number(item.week) === Number(week)),
+    [selectedScheme, week],
+  );
+  const lessonFocusPreview = useMemo(
+    () =>
+      buildLessonFocusPreview({
+        subject,
+        classLevel,
+        selectedWeek: selectedSchemeWeek,
+        sessionsPerWeek,
+      }),
+    [classLevel, selectedSchemeWeek, sessionsPerWeek, subject],
+  );
   const availableWeeks = useMemo(
     () =>
       selectedScheme?.weeks.length
@@ -557,6 +573,26 @@ export default function GenerateScreen() {
           </View>
         </View>
 
+        <View style={styles.focusPreview}>
+          <View style={styles.focusPreviewHeader}>
+            <Text style={styles.focusPreviewTitle}>Weekly Lesson Focus</Text>
+            <Text style={styles.focusPreviewMeta}>
+              {lessonFocusPreview.weekFocus ? `Week focus: ${lessonFocusPreview.weekFocus}` : 'Preview based on the selected week'}
+            </Text>
+          </View>
+          {lessonFocusPreview.items.map((item) => {
+            const active = sessionIndex === 'all' || sessionIndex === item.lessonNumber;
+            return (
+              <View key={item.lessonNumber} style={[styles.focusRow, active && styles.focusRowActive]}>
+                <Text style={[styles.focusLesson, active && styles.focusLessonActive]}>
+                  Lesson {item.lessonNumber}
+                </Text>
+                <Text style={styles.focusText}>{item.title}</Text>
+              </View>
+            );
+          })}
+        </View>
+
         <Field
           label="Notes (optional)"
           value={notes}
@@ -782,6 +818,51 @@ const styles = StyleSheet.create({
   lessonStripTextActive: {
     color: colors.primary,
   },
+  focusPreview: {
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radii.md,
+    padding: spacing[5],
+    gap: spacing[3],
+    ...shadows.sm,
+  },
+  focusPreviewHeader: {
+    gap: spacing[1],
+  },
+  focusPreviewTitle: {
+    ...typography.h4,
+    color: colors.text,
+  },
+  focusPreviewMeta: {
+    ...typography.bodySm,
+    color: colors.textMuted,
+  },
+  focusRow: {
+    borderWidth: 1,
+    borderColor: colors.borderSubtle,
+    borderRadius: radii.md,
+    backgroundColor: colors.surfaceAlt,
+    paddingHorizontal: spacing[4],
+    paddingVertical: spacing[3],
+    gap: spacing[1],
+  },
+  focusRowActive: {
+    borderColor: colors.primary,
+    backgroundColor: colors.primarySoft,
+  },
+  focusLesson: {
+    ...typography.label,
+    color: colors.textMuted,
+  },
+  focusLessonActive: {
+    color: colors.primary,
+  },
+  focusText: {
+    ...typography.bodySm,
+    color: colors.text,
+    lineHeight: 18,
+  },
   schemeList: {
     backgroundColor: colors.surface,
     borderWidth: 1,
@@ -827,6 +908,95 @@ const styles = StyleSheet.create({
 
 function formatCredits(value: number) {
   return `${value} ${value === 1 ? 'credit' : 'credits'}`;
+}
+
+function buildLessonFocusPreview({
+  subject,
+  classLevel,
+  selectedWeek,
+  sessionsPerWeek,
+}: {
+  subject: string;
+  classLevel: ClassLevel;
+  selectedWeek?: SchemeOfWork['weeks'][number];
+  sessionsPerWeek: number;
+}) {
+  const weekFocus = selectedWeek ? getWeekTopic(selectedWeek) : '';
+  const guidance = buildExemplarLessonGuidance({
+    subject,
+    classLevel,
+    week: selectedWeek,
+    sessionIndex: 1,
+    sessionsPerWeek,
+  });
+  const fallbackItems = buildFallbackLessonFocusItems(sessionsPerWeek, weekFocus);
+  const items = Array.from({ length: sessionsPerWeek }, (_, index) => {
+    const rawFocus = guidance?.allFocuses?.[index];
+    return {
+      lessonNumber: index + 1,
+      title: rawFocus ? formatLessonFocusLabel(rawFocus, index, sessionsPerWeek, weekFocus) : fallbackItems[index],
+    };
+  });
+
+  return { weekFocus, items };
+}
+
+function buildFallbackLessonFocusItems(lessonCount: number, weekFocus?: string) {
+  const focus = weekFocus || 'the weekly focus';
+  const base = [
+    `Introduce ${focus}`,
+    `Guided practice and application on ${focus}`,
+    `Independent practice, assessment and correction on ${focus}`,
+    `Consolidation, remediation and enrichment across ${focus}`,
+  ];
+  return base.slice(0, lessonCount);
+}
+
+function formatLessonFocusLabel(rawFocus: string, index: number, lessonCount: number, weekFocus?: string) {
+  const focus = weekFocus || 'the week focus';
+  if (/optional fourth lesson/i.test(rawFocus)) {
+    return `Consolidation, remediation and enrichment across ${focus}`;
+  }
+
+  let text = rawFocus
+    .replace(/\s+/g, ' ')
+    .replace(/^Always begin from the assigned indicator:.*?not as a separate (?:weekly topic|unrelated weekly topic):/i, '')
+    .replace(/^Always begin from the assigned indicator:.*?guidance:/i, '')
+    .trim();
+
+  text = extractBetween(text, /Teach now:\s*/i, /\s+(?:Review only|Do not teach yet|If the assigned indicator)/i) || text;
+  text =
+    extractBetween(text, /Lesson-only exemplars:\s*/i, /\s+(?:Review only|Do not teach yet|If the assigned indicator)/i) ||
+    extractBetween(text, /Exemplars for this lesson only:\s*/i, /\s+(?:Review only|Do not teach yet|If the assigned indicator)/i) ||
+    text;
+  text = text.replace(/Assigned indicator:\s*(?:B[1-9](?:\/JHS[1-3])?(?:\.\d+){4}\s*)?/gi, '');
+  text = text.replace(/Use only the activities implied by this assigned indicator\.?/gi, focus);
+  text = text.replace(/\s+(?:Review only|Do not teach yet|If the assigned indicator).*$/i, '');
+  text = text.replace(/\s+/g, ' ').trim();
+
+  if (!text || text.length < 8) return buildFallbackLessonFocusItems(lessonCount, weekFocus)[index];
+  return sentenceCase(truncateFocusLabel(text));
+}
+
+function extractBetween(value: string, start: RegExp, end: RegExp) {
+  const startMatch = value.match(start);
+  if (!startMatch || startMatch.index === undefined) return '';
+  const startIndex = startMatch.index + startMatch[0].length;
+  const rest = value.slice(startIndex);
+  const endMatch = rest.match(end);
+  return (endMatch?.index === undefined ? rest : rest.slice(0, endMatch.index)).trim();
+}
+
+function truncateFocusLabel(value: string) {
+  if (value.length <= 120) return value;
+  const shortened = value.slice(0, 117).replace(/\s+\S*$/, '');
+  return `${shortened}...`;
+}
+
+function sentenceCase(value: string) {
+  const trimmed = value.trim();
+  if (!trimmed) return trimmed;
+  return trimmed.charAt(0).toUpperCase() + trimmed.slice(1);
 }
 
 function isGhanaianLanguageSubject(subject?: string) {

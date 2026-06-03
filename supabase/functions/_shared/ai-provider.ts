@@ -1,8 +1,9 @@
 import { callClaudeJson, DEFAULT_CLAUDE_MODEL } from './claude.ts';
+import { callGeminiJson, DEFAULT_GEMINI_TEXT_MODEL } from './gemini.ts';
 import { callOpenAiJson, DEFAULT_OPENAI_TEXT_MODEL } from './openai.ts';
 import { createServiceClient } from './supabase.ts';
 
-type TextProvider = 'anthropic' | 'openai';
+type TextProvider = 'anthropic' | 'gemini' | 'openai';
 
 type TextGenerationSettings = {
   provider: TextProvider;
@@ -23,6 +24,13 @@ export async function callConfiguredTextJson<T = unknown>(opts: JsonGenerationOp
     return callOpenAiJson<T>({
       ...opts,
       model: settings.model || DEFAULT_OPENAI_TEXT_MODEL,
+    });
+  }
+
+  if (settings.provider === 'gemini') {
+    return callGeminiJson<T>({
+      ...opts,
+      model: settings.model || DEFAULT_GEMINI_TEXT_MODEL,
     });
   }
 
@@ -58,6 +66,10 @@ function normalizeSettings(value: Record<string, unknown>): TextGenerationSettin
 
   if (provider === 'openai') {
     return { provider: 'openai', model: model || DEFAULT_OPENAI_TEXT_MODEL };
+  }
+
+  if (provider === 'gemini') {
+    return { provider: 'gemini', model: model || DEFAULT_GEMINI_TEXT_MODEL };
   }
 
   return { provider: 'anthropic', model: model || DEFAULT_CLAUDE_MODEL };

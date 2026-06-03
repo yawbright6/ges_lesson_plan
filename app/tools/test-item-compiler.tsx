@@ -22,6 +22,7 @@ import { loadLessonWorks } from '@/lib/lessonStore';
 import { logAppError, reportClientError } from '@/lib/logger';
 import { buildTestItemsHeading, buildTestItemsWeekLine } from '@/lib/testItemCompiler';
 import { saveTestPaper } from '@/lib/testPaperStore';
+import { generateTestPaperVisuals } from '@/lib/visuals';
 import { colors, radii, shadows, spacing, typography } from '@/theme/colors';
 import type { ClassLevel, LessonPlan, LessonPlanBundle, SavedLessonWork } from '@/types/lessonPlan';
 import type { CompiledTestCompilation, CompiledTestItem, CompiledTestPaper, TestItemMode } from '@/types/testItemCompiler';
@@ -214,6 +215,7 @@ export default function TestItemCompilerScreen() {
     setLoading(true);
 
     try {
+      const settings = await loadRuntimeAppSettings();
       const paper = await rewriteTestItems(
         {
           title: compilation.title.replace(/TEST ITEMS/i, 'TEST PAPER'),
@@ -235,10 +237,14 @@ export default function TestItemCompilerScreen() {
         { signal: controller.signal },
       );
       if (controller.signal.aborted || !mounted.current) return;
-      setRewrittenPaper(paper);
+      const paperWithVisuals = settings.visualGeneration.enabled && settings.visualGeneration.autoGenerate
+        ? await generateTestPaperVisuals(paper, { signal: controller.signal })
+        : paper;
+      if (controller.signal.aborted || !mounted.current) return;
+      setRewrittenPaper(paperWithVisuals);
       setCollapsedSections((current) => ({ ...current, paper: false }));
-      if (typeof paper.creditBalance === 'number') {
-        setCreditBalance(paper.creditBalance);
+      if (typeof paperWithVisuals.creditBalance === 'number') {
+        setCreditBalance(paperWithVisuals.creditBalance);
       } else {
         loadCreditBalance().then((balance) => {
           if (!controller.signal.aborted && mounted.current) setCreditBalance(balance);

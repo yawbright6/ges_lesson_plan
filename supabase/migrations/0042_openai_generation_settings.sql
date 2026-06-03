@@ -7,7 +7,8 @@ values (
     "provider": "openai",
     "model": "gpt-5.5",
     "openai_models": ["gpt-5.5", "gpt-5.4", "gpt-5.4-mini", "gpt-5.4-nano", "gpt-5.2", "gpt-5.1", "gpt-5"],
-    "anthropic_models": ["claude-sonnet-4-5"]
+    "anthropic_models": ["claude-sonnet-4-5"],
+    "gemini_models": ["gemini-2.5-pro", "gemini-2.5-flash", "gemini-2.5-flash-lite", "gemini-2.0-flash", "gemini-2.0-flash-lite"]
   }'::jsonb
 )
 on conflict (key) do update

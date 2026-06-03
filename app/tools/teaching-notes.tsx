@@ -17,6 +17,7 @@ import {
   loadTeachingNotesForLesson,
   saveTeachingNotes,
 } from '@/lib/teachingNotesStore';
+import { generateTeachingNoteVisuals } from '@/lib/visuals';
 import { colors, radii, shadows, spacing, typography } from '@/theme/colors';
 import type { LessonPlan, LessonPlanBundle, SavedLessonWork } from '@/types/lessonPlan';
 import type { TeachingNotes } from '@/types/teachingNotes';
@@ -28,6 +29,7 @@ export default function TeachingNotesToolScreen() {
   const [query, setQuery] = useState('');
   const [selectedPlan, setSelectedPlan] = useState<LessonPlan | null>(null);
   const [bulkPlans, setBulkPlans] = useState<LessonPlan[]>([]);
+  const [dismissedBulkParam, setDismissedBulkParam] = useState<string | null>(null);
   const [bulkResults, setBulkResults] = useState<TeachingNotes[]>([]);
   const [bulkGenerating, setBulkGenerating] = useState(false);
   const [bulkProgress, setBulkProgress] = useState(0);
@@ -61,7 +63,7 @@ export default function TeachingNotesToolScreen() {
   }, [lessonPlanId, plans, selectedPlan]);
 
   useEffect(() => {
-    if (!lessonPlanIds || !plans.length || bulkPlans.length) return;
+    if (!lessonPlanIds || !plans.length || bulkPlans.length || dismissedBulkParam === lessonPlanIds) return;
     const idSet = new Set(
       lessonPlanIds
         .split(',')
@@ -71,9 +73,8 @@ export default function TeachingNotesToolScreen() {
     const matches = plans.filter((plan) => plan.id && idSet.has(plan.id));
     if (matches.length) {
       setBulkPlans(matches);
-      selectPlan(matches[0]);
     }
-  }, [lessonPlanIds, plans, bulkPlans.length]);
+  }, [lessonPlanIds, plans, bulkPlans.length, dismissedBulkParam]);
 
   useFocusEffect(
     useCallback(() => {
@@ -119,9 +120,13 @@ export default function TeachingNotesToolScreen() {
 
     setLoading(true);
     try {
+      const settings = await loadRuntimeAppSettings();
       const generated = await generateTeachingNotes(selectedPlan);
+      const notesWithVisuals = settings.visualGeneration.enabled && settings.visualGeneration.autoGenerate
+        ? await generateTeachingNoteVisuals(generated)
+        : generated;
       const saved = await saveTeachingNotes({
-        ...generated,
+        ...notesWithVisuals,
         lessonPlanId: selectedPlan.id,
         sourceLessonPlan: {
           id: selectedPlan.id,
@@ -175,12 +180,16 @@ export default function TeachingNotesToolScreen() {
     const generatedNotes: TeachingNotes[] = [];
 
     try {
+      const settings = await loadRuntimeAppSettings();
       for (let index = 0; index < bulkPlans.length; index += 1) {
         const plan = bulkPlans[index];
         setSelectedPlan(plan);
         const generated = await generateTeachingNotes(plan);
+        const notesWithVisuals = settings.visualGeneration.enabled && settings.visualGeneration.autoGenerate
+          ? await generateTeachingNoteVisuals(generated)
+          : generated;
         const saved = await saveTeachingNotes({
-          ...generated,
+          ...notesWithVisuals,
           lessonPlanId: plan.id!,
           sourceLessonPlan: {
             id: plan.id,
@@ -226,6 +235,25 @@ export default function TeachingNotesToolScreen() {
     } finally {
       setBulkGenerating(false);
     }
+  }
+
+  function removeBulkPlan(planId?: string) {
+    setBulkPlans((current) => {
+      const next = current.filter((plan) => plan.id !== planId);
+      if (!next.length && lessonPlanIds) {
+        setDismissedBulkParam(lessonPlanIds);
+        setBulkResults([]);
+        setBulkProgress(0);
+      }
+      return next;
+    });
+  }
+
+  function clearBulkPlans() {
+    setBulkPlans([]);
+    setBulkResults([]);
+    setBulkProgress(0);
+    if (lessonPlanIds) setDismissedBulkParam(lessonPlanIds);
   }
 
   if (activeNotes) {
@@ -284,10 +312,21 @@ export default function TeachingNotesToolScreen() {
           </Text>
           <View style={styles.bulkList}>
             {bulkPlans.map((plan, index) => (
-              <Pressable key={plan.id ?? index} style={styles.bulkLessonRow} onPress={() => selectPlan(plan)}>
-                <Text style={styles.bulkLessonTitle}>Lesson {plan.sessionIndex ?? index + 1}</Text>
-                <Text style={styles.bulkLessonMeta} numberOfLines={1}>{plan.topic || plan.performanceIndicator || plan.lessonNumber}</Text>
-              </Pressable>
+              <View key={plan.id ?? index} style={styles.bulkLessonRow}>
+                <View style={styles.bulkLessonText}>
+                  <Text style={styles.bulkLessonTitle}>Lesson {plan.sessionIndex ?? index + 1}</Text>
+                  <Text style={styles.bulkLessonMeta} numberOfLines={1}>{plan.topic || plan.performanceIndicator || plan.lessonNumber}</Text>
+                </View>
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel={`Remove lesson ${plan.sessionIndex ?? index + 1}`}
+                  style={({ pressed }) => [styles.bulkRemoveButton, pressed && styles.pressed]}
+                  onPress={() => removeBulkPlan(plan.id)}
+                  disabled={bulkGenerating}
+                >
+                  <Text style={styles.bulkRemoveText}>X</Text>
+                </Pressable>
+              </View>
             ))}
           </View>
           <CreditUsagePreview
@@ -304,7 +343,7 @@ export default function TeachingNotesToolScreen() {
               disabled={bulkGenerating}
               style={styles.actionButton}
             />
-            <Button title="Clear bulk" variant="secondary" onPress={() => setBulkPlans([])} disabled={bulkGenerating} style={styles.actionButton} />
+            <Button title="Clear bulk" variant="secondary" onPress={clearBulkPlans} disabled={bulkGenerating} style={styles.actionButton} />
           </View>
           <GenerationProgress
             active={bulkGenerating}
@@ -317,7 +356,7 @@ export default function TeachingNotesToolScreen() {
         </View>
       ) : null}
 
-      {selectedPlan ? (
+      {selectedPlan && !bulkPlans.length ? (
         <View style={styles.selectedCard}>
           <Text style={styles.selectedTitle}>Selected lesson</Text>
           <Text style={styles.cardTitle}>{lessonTitle(selectedPlan)}</Text>
@@ -442,10 +481,24 @@ const styles = StyleSheet.create({
     paddingVertical: spacing[3],
     borderBottomWidth: 1,
     borderBottomColor: colors.borderSubtle,
-    gap: 2,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing[3],
   },
+  bulkLessonText: { flex: 1, gap: 2 },
   bulkLessonTitle: { ...typography.label, color: colors.text },
   bulkLessonMeta: { ...typography.bodySm, color: colors.textMuted },
+  bulkRemoveButton: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: colors.border,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.surfaceAlt,
+  },
+  bulkRemoveText: { ...typography.label, color: colors.danger, fontWeight: '800' },
   selectedTitle: {
     ...typography.eyebrow,
     color: colors.primaryDark,
@@ -455,6 +508,7 @@ const styles = StyleSheet.create({
   selectButton: { minHeight: 40, paddingHorizontal: spacing[5] },
   buttonRow: { flexDirection: 'row', gap: spacing[4], flexWrap: 'wrap' },
   actionButton: { flex: 1, minWidth: 140 },
+  pressed: { opacity: 0.82 },
   empty: {
     backgroundColor: colors.surface,
     borderWidth: 1,

@@ -262,6 +262,7 @@ export async function rewriteTestItems(
   const requestBody = {
     ...input,
     structuredVisualsEnabled: input.structuredVisualsEnabled ?? settings.visualGeneration.structuredVisualsEnabled,
+    visualGenerationEnabled: input.visualGenerationEnabled ?? settings.visualGeneration.enabled,
   };
   if (useLocalAi) {
     try {
