@@ -4,6 +4,7 @@ import { withTimeout } from './async';
 import {
   addDays,
   getCurrentUserId,
+  getRetentionCutoffIso,
   loadGeneratedRetentionDays,
   loadLocalItems,
   slugify,
@@ -36,12 +37,14 @@ export async function loadTeachingNotes(): Promise<TeachingNotes[]> {
   const userId = await getCurrentUserId();
   if (userId) {
     return cachedRequest(`${CACHE_PREFIX}:${userId}`, async () => {
+      const retentionDays = await loadGeneratedRetentionDays();
+      const retentionCutoff = getRetentionCutoffIso(retentionDays);
       const { data, error } = await withTimeout(
         supabase
           .from('saved_teaching_notes')
           .select('payload')
           .eq('user_id', userId)
-          .gt('expires_at', new Date().toISOString())
+          .gte('created_at', retentionCutoff)
           .order('created_at', { ascending: false }),
         10000,
         'Saved teaching notes took too long to load.',
@@ -66,13 +69,15 @@ export async function loadTeachingNotesForLesson(lessonPlanId: string): Promise<
   const userId = await getCurrentUserId();
   if (userId) {
     return cachedRequest(`${CACHE_PREFIX}:${userId}:lesson:${lessonPlanId}`, async () => {
+      const retentionDays = await loadGeneratedRetentionDays();
+      const retentionCutoff = getRetentionCutoffIso(retentionDays);
       const { data, error } = await withTimeout(
         supabase
           .from('saved_teaching_notes')
           .select('payload')
           .eq('user_id', userId)
           .eq('lesson_plan_id', lessonPlanId)
-          .gt('expires_at', new Date().toISOString())
+          .gte('created_at', retentionCutoff)
           .order('version_number', { ascending: false })
           .order('created_at', { ascending: false }),
         10000,
@@ -102,13 +107,15 @@ export async function getLatestTeachingNotesForLesson(lessonPlanId: string): Pro
 export async function getTeachingNotesById(id: string): Promise<TeachingNotes | null> {
   const userId = await getCurrentUserId();
   if (userId) {
+    const retentionDays = await loadGeneratedRetentionDays();
+    const retentionCutoff = getRetentionCutoffIso(retentionDays);
     const { data, error } = await withTimeout(
       supabase
         .from('saved_teaching_notes')
         .select('payload')
         .eq('user_id', userId)
         .eq('id', id)
-        .gt('expires_at', new Date().toISOString())
+        .gte('created_at', retentionCutoff)
         .maybeSingle(),
       10000,
       'Saved teaching notes took too long to load.',

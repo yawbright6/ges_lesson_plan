@@ -270,38 +270,6 @@ export function removeEntryFromWeek(
   });
 }
 
-export function moveEntryBetweenWeeks(
-  weeks: SchemeWeek[],
-  fromWeekNumber: number,
-  fromEntryIndex: number,
-  toWeekNumber: number
-): SchemeWeek[] {
-  if (fromWeekNumber === toWeekNumber) return weeks;
-
-  const sourceWeek = weeks.find((week) => week.week === fromWeekNumber);
-  const targetWeek = weeks.find((week) => week.week === toWeekNumber);
-  if (!sourceWeek || !targetWeek) return weeks;
-
-  const sourceEntries = getWeekEntries(sourceWeek);
-  const movedEntry = sourceEntries[fromEntryIndex];
-  if (!movedEntry) return weeks;
-
-  return weeks.map((week) => {
-    if (week.week === fromWeekNumber) {
-      return buildWeek(
-        week.week,
-        sourceEntries.filter((_, index) => index !== fromEntryIndex)
-      );
-    }
-
-    if (week.week === toWeekNumber) {
-      return buildWeek(week.week, [...getWeekEntries(week), movedEntry]);
-    }
-
-    return week;
-  });
-}
-
 export function duplicatePreviousWeek(weeks: SchemeWeek[], weekNumber: number): SchemeWeek[] {
   if (weekNumber <= 1) return weeks;
   const previous = weeks.find((week) => week.week === weekNumber - 1);
@@ -309,6 +277,29 @@ export function duplicatePreviousWeek(weeks: SchemeWeek[], weekNumber: number): 
   return weeks.map((week) =>
     week.week === weekNumber ? buildWeek(week.week, getWeekEntries(previous)) : week
   );
+}
+
+export function moveWeekToPosition(
+  weeks: SchemeWeek[],
+  fromWeekNumber: number,
+  toPositionIndex: number
+): SchemeWeek[] {
+  const orderedWeeks = [...weeks].sort((left, right) => left.week - right.week);
+  const fromIndex = orderedWeeks.findIndex((week) => week.week === fromWeekNumber);
+  if (fromIndex < 0) return weeks;
+
+  const boundedTargetIndex = Math.max(0, Math.min(orderedWeeks.length, toPositionIndex));
+  const adjustedTargetIndex =
+    boundedTargetIndex > fromIndex ? boundedTargetIndex - 1 : boundedTargetIndex;
+  if (adjustedTargetIndex === fromIndex) return weeks;
+
+  const [movedWeek] = orderedWeeks.splice(fromIndex, 1);
+  orderedWeeks.splice(adjustedTargetIndex, 0, movedWeek);
+
+  return orderedWeeks.map((week, index) => ({
+    ...week,
+    week: index + 1,
+  }));
 }
 
 function buildWeek(weekNumber: number, entries: SchemeWeekEntry[]): SchemeWeek {

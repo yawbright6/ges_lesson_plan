@@ -1,4 +1,6 @@
 import { invokeEdgeFunction } from './edgeFunctions';
+import { invalidateRuntimeAppSettings } from './appSettings';
+import { clearGeneratedStoreCaches } from './generatedStore';
 
 export type AdminUser = {
   user_id: string;
@@ -267,6 +269,10 @@ export async function adminDeletePackage(id: string) {
 
 export async function adminUpdateSettings(settings: Record<string, unknown>) {
   const data = await invokeAdmin<{ settings: AdminSetting[] }>({ action: 'update-settings', settings });
+  invalidateRuntimeAppSettings();
+  if (Object.prototype.hasOwnProperty.call(settings, 'generated_file_retention')) {
+    clearGeneratedStoreCaches();
+  }
   return data.settings;
 }
 

@@ -4,6 +4,7 @@ import { cachedRequest, invalidateCache } from './cache';
 import {
   addDays,
   getCurrentUserId,
+  getRetentionCutoffIso,
   loadGeneratedRetentionDays,
   loadLocalItems,
   scopeRemoteGeneratedId,
@@ -67,12 +68,14 @@ export function createGeneratedRepository<T extends { id?: string }>(
     const userId = await getCurrentUserId();
     if (userId) {
       return cachedRequest(`${config.cachePrefix}:${userId}`, async () => {
+        const retentionDays = await loadGeneratedRetentionDays();
+        const retentionCutoff = getRetentionCutoffIso(retentionDays);
         const { data, error } = await withTimeout(
           supabase
             .from(config.table)
             .select('payload')
             .eq('user_id', userId)
-            .gt('expires_at', new Date().toISOString())
+            .gte('created_at', retentionCutoff)
             .order('created_at', { ascending: false }),
           10000,
           config.loadTimeoutMessage,
@@ -91,13 +94,15 @@ export function createGeneratedRepository<T extends { id?: string }>(
   async function getById(id: string): Promise<T | null> {
     const userId = await getCurrentUserId();
     if (userId) {
+      const retentionDays = await loadGeneratedRetentionDays();
+      const retentionCutoff = getRetentionCutoffIso(retentionDays);
       const { data, error } = await withTimeout(
         supabase
           .from(config.table)
           .select('payload')
           .eq('user_id', userId)
           .eq('id', id)
-          .gt('expires_at', new Date().toISOString())
+          .gte('created_at', retentionCutoff)
           .maybeSingle(),
         10000,
         config.getTimeoutMessage,

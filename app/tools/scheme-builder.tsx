@@ -30,7 +30,7 @@ import {
   getStrandOptions,
   getSubStrandOptions,
   isLanguageSubject,
-  moveEntryBetweenWeeks,
+  moveWeekToPosition,
   removeEntryFromWeek,
   type BuilderMode,
   type CurriculumEntryOption,
@@ -48,7 +48,7 @@ import {
 } from '@/lib/options';
 import { colors, radii, shadows, spacing, typography } from '@/theme/colors';
 import type { ClassLevel } from '@/types/lessonPlan';
-import type { SchemeOfWork, SchemeWeek, SchemeWeekEntry } from '@/types/scheme';
+import type { SchemeOfWork, SchemeWeek } from '@/types/scheme';
 
 const WEEK_COUNT_OPTIONS: SelectOption[] = [8, 9, 10, 11, 12, 13, 14].map((value) => ({
   label: `${value} weeks`,
@@ -305,6 +305,22 @@ export default function SchemeBuilderScreen() {
     scrollViewRef.current?.scrollTo({ y: nextOffset, animated: false });
   }
 
+  function handleMoveWeek(fromWeekNumber: number, toPositionIndex: number) {
+    const orderedWeeks = [...weeks].sort((left, right) => left.week - right.week);
+    const fromIndex = orderedWeeks.findIndex((week) => week.week === fromWeekNumber);
+    if (fromIndex < 0) return;
+
+    const boundedTargetIndex = Math.max(0, Math.min(orderedWeeks.length, toPositionIndex));
+    const adjustedTargetIndex =
+      boundedTargetIndex > fromIndex ? boundedTargetIndex - 1 : boundedTargetIndex;
+    if (adjustedTargetIndex === fromIndex) return;
+
+    const movedWeekNumber = adjustedTargetIndex + 1;
+    setWeeks((current) => moveWeekToPosition(current, fromWeekNumber, toPositionIndex));
+    setActiveWeek(movedWeekNumber);
+    showToast({ message: `Week moved to Week ${movedWeekNumber}.` });
+  }
+
   return (
     <ScrollView
       ref={scrollViewRef}
@@ -549,14 +565,7 @@ export default function SchemeBuilderScreen() {
         </View>
         <SchemePreview
           scheme={previewScheme}
-          onMoveEntry={(fromWeekNumber, entryIndex, toWeekNumber) => {
-            if (fromWeekNumber === toWeekNumber) return;
-            setWeeks((current) =>
-              moveEntryBetweenWeeks(current, fromWeekNumber, entryIndex, toWeekNumber)
-            );
-            setActiveWeek(toWeekNumber);
-            showToast({ message: `Topic moved to Week ${toWeekNumber}.` });
-          }}
+          onMoveWeek={handleMoveWeek}
           onDragAutoScroll={handlePreviewDragAutoScroll}
           onRemoveEntry={(weekNumber, entryIndex) =>
             setWeeks((current) => removeEntryFromWeek(current, weekNumber, entryIndex))
@@ -627,12 +636,12 @@ function ChipGrid({
 
 function SchemePreview({
   scheme,
-  onMoveEntry,
+  onMoveWeek,
   onDragAutoScroll,
   onRemoveEntry,
 }: {
   scheme: SchemeOfWork;
-  onMoveEntry: (fromWeekNumber: number, entryIndex: number, toWeekNumber: number) => void;
+  onMoveWeek: (fromWeekNumber: number, toPositionIndex: number) => void;
   onDragAutoScroll: (pageY: number) => void;
   onRemoveEntry: (weekNumber: number, entryIndex: number) => void;
 }) {
@@ -654,29 +663,23 @@ function SchemePreview({
     });
 
     const measuredZones: DropZone[] = [];
-    scheme.weeks.forEach((week) => {
+    scheme.weeks.forEach((week, index) => {
       weekRefs.current[week.week]?.measureInWindow((x, y, width, height) => {
-        measuredZones.push({ weekNumber: week.week, x, y, width, height });
+        measuredZones.push({ weekNumber: week.week, index, x, y, width, height });
         dropZonesRef.current = measuredZones;
       });
     });
   }
 
-  function beginDrag(
-    weekNumber: number,
-    entryIndex: number,
-    entry: SchemeWeekEntry,
-    x: number,
-    y: number
-  ) {
+  function beginDrag(week: SchemeWeek, index: number, x: number, y: number) {
     measureDropTargets();
     setDragState({
-      fromWeekNumber: weekNumber,
-      entryIndex,
-      entry,
+      fromWeekNumber: week.week,
+      fromIndex: index,
+      week,
       x,
       y,
-      targetWeekNumber: getDropWeekNumber(x, y),
+      targetPositionIndex: getDropPositionIndex(y),
     });
   }
 
@@ -685,13 +688,13 @@ function SchemePreview({
     if (!current) return;
 
     onDragAutoScroll(y);
-    const targetWeekNumber = getDropWeekNumber(x, y);
+    const targetPositionIndex = getDropPositionIndex(y);
     measureDropTargets();
     setDragState({
       ...current,
       x,
       y,
-      targetWeekNumber,
+      targetPositionIndex,
     });
   }
 
@@ -699,18 +702,51 @@ function SchemePreview({
     const current = dragRef.current;
     setDragState(null);
 
-    if (!current?.targetWeekNumber) return;
-    onMoveEntry(current.fromWeekNumber, current.entryIndex, current.targetWeekNumber);
+    if (current?.targetPositionIndex === undefined) return;
+    onMoveWeek(current.fromWeekNumber, current.targetPositionIndex);
   }
 
-  function getDropWeekNumber(x: number, y: number): number | undefined {
-    return dropZonesRef.current.find(
-      (zone) =>
-        x >= zone.x &&
-        x <= zone.x + zone.width &&
-        y >= zone.y &&
-        y <= zone.y + zone.height
-    )?.weekNumber;
+  function getDropPositionIndex(y: number): number | undefined {
+    const zones = [...dropZonesRef.current].sort((left, right) => left.index - right.index);
+    if (!zones.length) return undefined;
+
+    if (y < zones[0].y) return 0;
+
+    for (const zone of zones) {
+      if (y <= zone.y + zone.height) {
+        return y < zone.y + zone.height / 2 ? zone.index : zone.index + 1;
+      }
+    }
+
+    return zones.length;
+  }
+
+  function isActiveInsertionMarker(positionIndex: number) {
+    if (!dragging) return false;
+    if (dragging.targetPositionIndex !== positionIndex) return false;
+    return positionIndex !== dragging.fromIndex && positionIndex !== dragging.fromIndex + 1;
+  }
+
+  function renderInsertionMarker(positionIndex: number) {
+    if (!isActiveInsertionMarker(positionIndex)) return null;
+    return (
+      <View style={styles.weekDropMarker}>
+        <View style={styles.weekDropLine} />
+        <Text style={styles.weekDropText}>Drop here</Text>
+      </View>
+    );
+  }
+
+  function getDragOverlayMeta() {
+    if (!dragging || dragging.targetPositionIndex === undefined) {
+      return 'Move before or after a week';
+    }
+
+    const targetIndex = dragging.targetPositionIndex;
+    const adjustedTargetIndex =
+      targetIndex > dragging.fromIndex ? targetIndex - 1 : targetIndex;
+    if (adjustedTargetIndex === dragging.fromIndex) return 'Current position';
+    return `Drop as Week ${adjustedTargetIndex + 1}`;
   }
 
   const overlayLeft = dragging
@@ -722,45 +758,40 @@ function SchemePreview({
 
   return (
     <View ref={previewListRef} style={styles.previewList}>
-      {scheme.weeks.map((week) => {
+      {scheme.weeks.map((week, weekIndex) => {
         const entries = getWeekEntries(week);
-        const activeDropTarget = dragging?.targetWeekNumber === week.week;
+        const draggingThisWeek = dragging?.fromWeekNumber === week.week;
         return (
           <View
             key={`${scheme.id}-${week.week}`}
-            ref={(node) => {
-              weekRefs.current[week.week] = node;
-            }}
-            style={[styles.previewWeek, activeDropTarget && styles.previewWeekDropTarget]}
+            style={styles.previewWeekSlot}
           >
-            <Text style={styles.previewWeekTitle}>
-              Week {week.week}: {getWeekTopic(week) || 'No topic assigned'}
-            </Text>
-            {entries.length ? (
-              entries.map((entry, index) => (
-                <View
-                  key={`${week.week}-${index}-${entry.indicator}`}
-                  style={[
-                    styles.previewEntry,
-                    dragging?.fromWeekNumber === week.week &&
-                      dragging.entryIndex === index &&
-                      styles.previewEntryDragging,
-                  ]}
-                >
+            {renderInsertionMarker(weekIndex)}
+            <View
+              ref={(node) => {
+                weekRefs.current[week.week] = node;
+              }}
+              style={[styles.previewWeek, draggingThisWeek && styles.previewWeekDragging]}
+            >
+              <View style={styles.previewWeekHeader}>
+                <WeekDragHandle
+                  week={week}
+                  index={weekIndex}
+                  onDragStart={beginDrag}
+                  onDragMove={updateDragPosition}
+                  onDragEnd={finishDrag}
+                />
+                <Text style={styles.previewWeekTitle}>
+                  Week {week.week}: {getWeekTopic(week) || 'No topic assigned'}
+                </Text>
+              </View>
+              {entries.length ? (
+                entries.map((entry, index) => (
+                  <View key={`${week.week}-${index}-${entry.indicator}`} style={styles.previewEntry}>
                   <View style={styles.previewEntryHeader}>
-                    <View style={styles.previewEntryTitleGroup}>
-                      <DragHandle
-                        weekNumber={week.week}
-                        entryIndex={index}
-                        entry={entry}
-                        onDragStart={beginDrag}
-                        onDragMove={updateDragPosition}
-                        onDragEnd={finishDrag}
-                      />
-                      <Text style={styles.previewEntryTitle}>
-                        {entry.strand || 'Strand'} - {entry.subStrand || 'Sub-strand'}
-                      </Text>
-                    </View>
+                    <Text style={styles.previewEntryTitle}>
+                      {entry.strand || 'Strand'} - {entry.subStrand || 'Sub-strand'}
+                    </Text>
                     <Pressable
                       accessibilityRole="button"
                       accessibilityLabel="Remove preview entry"
@@ -775,14 +806,16 @@ function SchemePreview({
                   <Text style={styles.previewText}>{entry.contentStandard || 'Not specified'}</Text>
                   <Text style={styles.previewLabel}>Indicator</Text>
                   <Text style={styles.previewText}>{entry.indicator || 'Not specified'}</Text>
-                </View>
-              ))
-            ) : (
-              <Text style={styles.emptyText}>No curriculum focus yet.</Text>
-            )}
+                  </View>
+                ))
+              ) : (
+                <Text style={styles.emptyText}>No curriculum focus yet.</Text>
+              )}
+            </View>
           </View>
         );
       })}
+      {renderInsertionMarker(scheme.weeks.length)}
       {dragging ? (
         <View
           pointerEvents="none"
@@ -795,12 +828,10 @@ function SchemePreview({
           ]}
         >
           <Text style={styles.dragOverlayTitle} numberOfLines={1}>
-            {dragging.entry.topic || dragging.entry.indicator || 'Topic'}
+            Week {dragging.week.week}: {getWeekTopic(dragging.week) || 'No topic assigned'}
           </Text>
           <Text style={styles.dragOverlayMeta} numberOfLines={1}>
-            {dragging.targetWeekNumber
-              ? `Drop on Week ${dragging.targetWeekNumber}`
-              : 'Move to a week'}
+            {getDragOverlayMeta()}
           </Text>
         </View>
       ) : null}
@@ -810,30 +841,23 @@ function SchemePreview({
 
 type DropZone = {
   weekNumber: number;
+  index: number;
   x: number;
   y: number;
   width: number;
   height: number;
 };
 
-function DragHandle({
-  weekNumber,
-  entryIndex,
-  entry,
+function WeekDragHandle({
+  week,
+  index,
   onDragStart,
   onDragMove,
   onDragEnd,
 }: {
-  weekNumber: number;
-  entryIndex: number;
-  entry: SchemeWeekEntry;
-  onDragStart: (
-    weekNumber: number,
-    entryIndex: number,
-    entry: SchemeWeekEntry,
-    x: number,
-    y: number
-  ) => void;
+  week: SchemeWeek;
+  index: number;
+  onDragStart: (week: SchemeWeek, index: number, x: number, y: number) => void;
   onDragMove: (x: number, y: number) => void;
   onDragEnd: () => void;
 }) {
@@ -858,7 +882,7 @@ function DragHandle({
           clearLongPressTimer();
           longPressTimerRef.current = setTimeout(() => {
             dragStartedRef.current = true;
-            onDragStart(weekNumber, entryIndex, entry, pageX, pageY);
+            onDragStart(week, index, pageX, pageY);
           }, DRAG_LONG_PRESS_MS);
         },
         onPanResponderMove: (
@@ -885,15 +909,15 @@ function DragHandle({
           dragStartedRef.current = false;
         },
       }),
-    [entry, entryIndex, onDragEnd, onDragMove, onDragStart, weekNumber]
+    [index, onDragEnd, onDragMove, onDragStart, week]
   );
 
   return (
     <View
       {...panResponder.panHandlers}
       accessibilityRole="button"
-      accessibilityLabel="Hold and drag topic"
-      style={styles.dragHandle}
+      accessibilityLabel="Hold and drag week"
+      style={styles.weekDragHandle}
     >
       <Ionicons name="reorder-three-outline" size={22} color={colors.textMuted} />
     </View>
@@ -902,11 +926,11 @@ function DragHandle({
 
 type DragState = {
   fromWeekNumber: number;
-  entryIndex: number;
-  entry: SchemeWeekEntry;
+  fromIndex: number;
+  week: SchemeWeek;
   x: number;
   y: number;
-  targetWeekNumber?: number;
+  targetPositionIndex?: number;
 };
 
 function toggleValue(values: string[], value: string): string[] {
@@ -1227,6 +1251,26 @@ const styles = StyleSheet.create({
     paddingVertical: spacing[3],
   },
   previewList: { gap: spacing[4], position: 'relative' },
+  previewWeekSlot: {
+    gap: spacing[2],
+  },
+  weekDropMarker: {
+    minHeight: 28,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing[1],
+  },
+  weekDropLine: {
+    width: '100%',
+    height: 3,
+    borderRadius: radii.pill,
+    backgroundColor: colors.primary,
+  },
+  weekDropText: {
+    ...typography.caption,
+    color: colors.primary,
+    fontWeight: '700',
+  },
   previewWeek: {
     borderWidth: 1,
     borderColor: colors.borderSubtle,
@@ -1234,19 +1278,21 @@ const styles = StyleSheet.create({
     padding: spacing[5],
     backgroundColor: colors.bg,
   },
-  previewWeekDropTarget: {
-    borderColor: colors.primary,
-    backgroundColor: colors.primarySoft,
+  previewWeekDragging: {
+    opacity: 0.42,
   },
-  previewWeekTitle: { ...typography.h4, color: colors.text, marginBottom: spacing[3] },
+  previewWeekHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing[3],
+    marginBottom: spacing[3],
+  },
+  previewWeekTitle: { ...typography.h4, color: colors.text, flex: 1 },
   previewEntry: {
     borderTopWidth: 1,
     borderTopColor: colors.borderSubtle,
     paddingTop: spacing[3],
     marginTop: spacing[3],
-  },
-  previewEntryDragging: {
-    opacity: 0.42,
   },
   previewEntryHeader: {
     flexDirection: 'row',
@@ -1254,14 +1300,13 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     gap: spacing[3],
   },
-  previewEntryTitleGroup: {
+  previewEntryTitle: {
+    ...typography.label,
+    color: colors.primary,
+    marginBottom: spacing[2],
     flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing[2],
   },
-  previewEntryTitle: { ...typography.label, color: colors.primary, marginBottom: spacing[2] },
-  dragHandle: {
+  weekDragHandle: {
     width: 34,
     height: 34,
     borderRadius: radii.md,

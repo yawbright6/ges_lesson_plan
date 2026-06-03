@@ -46,6 +46,10 @@ export function addDays(date: Date, days: number) {
   return next;
 }
 
+export function getRetentionCutoffIso(days: number, now = new Date()) {
+  return addDays(now, -Math.max(1, Math.round(days))).toISOString();
+}
+
 export function isExpired(createdAt: string | undefined, days: number) {
   if (!createdAt) return false;
   return Date.now() - new Date(createdAt).getTime() > days * 24 * 60 * 60 * 1000;
