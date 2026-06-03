@@ -460,7 +460,7 @@ function getSourceSupplementalEntries(
         indicator: record.indicator,
         pacingWeeks,
       });
-      const metadata = getPrimaryCurriculumMetadata(subject, code);
+      const metadata = getCurriculumMetadata(subject, code);
       const standardCode = metadata?.contentStandardCode ?? getContentStandardCodeFromIndicatorCode(code);
       const indicator = cleanCurriculumText(cleanIndicatorText(record.indicator));
       const exemplars = uniqueStrings(record.exemplars.map(cleanCurriculumText).filter(Boolean));
@@ -963,6 +963,16 @@ function getExemplarSource(
   return null;
 }
 
+function getCurriculumMetadata(
+  subject: string,
+  code: string
+): PrimaryCurriculumMetadataRecord | undefined {
+  const jhsMetadata = getJhsCurriculumMetadata(subject, code);
+  if (jhsMetadata) return jhsMetadata;
+
+  return getPrimaryCurriculumMetadata(subject, code);
+}
+
 function getPrimaryCurriculumMetadata(
   subject: string,
   code: string
@@ -1006,6 +1016,60 @@ function getPrimaryCurriculumMetadata(
     return primaryPhysicalEducationMetadataByIndicator[code];
   }
   return undefined;
+}
+
+function getJhsCurriculumMetadata(
+  subject: string,
+  code: string
+): PrimaryCurriculumMetadataRecord | undefined {
+  const normalized = normalizeText(subject);
+  const normalizedCode = normalizeCurriculumCodeSpacing(code);
+  if (!/^B[789]\/JHS\d\.\d+\.\d+\.\d+\.\d+$/.test(normalizedCode)) {
+    return undefined;
+  }
+
+  if (normalized.includes('career technology')) {
+    return getCareerTechnologyMetadata(normalizedCode);
+  }
+  if (normalized.includes('creative arts')) {
+    return getCreativeArtsDesignMetadata(normalizedCode);
+  }
+  return undefined;
+}
+
+function getCareerTechnologyMetadata(code: string): PrimaryCurriculumMetadataRecord | undefined {
+  const parts = code.split('.');
+  const strandNumber = parts[1];
+  const subStrandNumber = parts[2];
+  const contentNumber = parts[3];
+  const strand = CAREER_TECHNOLOGY_STRANDS[strandNumber];
+  const subStrand = CAREER_TECHNOLOGY_SUB_STRANDS[`${strandNumber}.${subStrandNumber}`];
+  if (!strand || !subStrand) return undefined;
+
+  const contentStandardCode = code.split('.').slice(0, 4).join('.');
+  return {
+    strand,
+    subStrand,
+    contentStandardCode,
+    contentStandard: `Demonstrate knowledge, understanding and skills in ${subStrand.toLowerCase()}.`,
+  };
+}
+
+function getCreativeArtsDesignMetadata(code: string): PrimaryCurriculumMetadataRecord | undefined {
+  const parts = code.split('.');
+  const strandNumber = parts[1];
+  const subStrandNumber = parts[2];
+  const strand = CREATIVE_ARTS_DESIGN_STRANDS[strandNumber];
+  const subStrand = CREATIVE_ARTS_DESIGN_SUB_STRANDS[`${strandNumber}.${subStrandNumber}`];
+  if (!strand || !subStrand) return undefined;
+
+  const contentStandardCode = code.split('.').slice(0, 4).join('.');
+  return {
+    strand,
+    subStrand,
+    contentStandardCode,
+    contentStandard: `Demonstrate knowledge, understanding and skills in ${subStrand.toLowerCase()}.`,
+  };
 }
 
 function isEnglishSubject(subject: string): boolean {
@@ -1103,6 +1167,51 @@ function getSubjectResources(subject: string): string[] {
   }
   return ['Textbook', 'Exercise book'];
 }
+
+const CAREER_TECHNOLOGY_STRANDS: Record<string, string> = {
+  '1': 'Health and Safety',
+  '2': 'Materials for Production',
+  '3': 'Tools, Equipment and Processes',
+  '4': 'Technology',
+  '5': 'Designing and Making of Artefacts/Products',
+  '6': 'Entrepreneurial Skills',
+};
+
+const CAREER_TECHNOLOGY_SUB_STRANDS: Record<string, string> = {
+  '1.1': 'Personal Hygiene and Food Hygiene',
+  '1.2': 'Personal, Workshop and Food Laboratory Safety',
+  '1.3': 'Environmental Health and Safety',
+  '2.1': 'Compliant Materials',
+  '2.2': 'Resistant Materials',
+  '2.3': 'Smart and Modern Materials',
+  '2.4': 'Food Commodities (Animal and Plant Sources)',
+  '3.1': 'Measuring and Marking Out',
+  '3.2': 'Cutting/Shaping',
+  '3.3': 'Joining and Assembling',
+  '3.4': 'Kitchen Essentials',
+  '3.5': 'Finishes and Finishing',
+  '4.1': 'Simple Structures and Mechanisms, Electric and Electronic Systems',
+  '5.1': 'Communicating Designs',
+  '5.2': 'Designing',
+  '5.3': 'Planning for Making Artefacts/Products',
+  '5.4': 'Making Artefacts from Compliant, Resistant Materials and Food Ingredients',
+  '6.1': 'Career Pathways and Career Opportunities',
+  '6.2': 'Establishing and Managing a Small Business Enterprise',
+};
+
+const CREATIVE_ARTS_DESIGN_STRANDS: Record<string, string> = {
+  '1': 'Design',
+  '2': 'Creative Arts',
+};
+
+const CREATIVE_ARTS_DESIGN_SUB_STRANDS: Record<string, string> = {
+  '1.1': 'Design in Nature and Manmade Environment',
+  '1.2': 'Drawing, Shading, Colouring and Modelling for Design',
+  '1.3': 'Creativity, Innovation and the Design Process',
+  '2.1': 'Media and Techniques',
+  '2.2': 'Creative and Aesthetic Expression',
+  '2.3': 'Connections in Local and Global Cultures',
+};
 
 function isGhanaianLanguageSubject(subject: string): boolean {
   return normalizeText(subject).includes('ghanaian language');
