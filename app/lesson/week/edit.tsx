@@ -111,6 +111,7 @@ export default function WeekLessonEditScreen() {
               <View key={`${planIndex}-${phase.phase}`} style={styles.phaseCard}>
                 <Text style={styles.phaseTitle}>Phase {phase.phase}: {phase.title}</Text>
                 <LineListEditor title="Activities" values={phase.activities} placeholder="Activity" onChange={(activities) => updatePhase(planIndex, phaseIndex, { activities })} />
+                <LineListEditor title="Resources" values={phase.resources ?? []} placeholder="Resource" onChange={(resources) => updatePhase(planIndex, phaseIndex, { resources })} />
                 {phase.phase === 2 ? (
                   <LineListEditor title="Assessment questions" values={phase.assessment ?? []} placeholder="Question" onChange={(assessment) => updatePhase(planIndex, phaseIndex, { assessment })} />
                 ) : null}

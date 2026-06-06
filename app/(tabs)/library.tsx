@@ -337,7 +337,12 @@ function SchemeCard({ scheme, onDelete }: { scheme: SchemeOfWork; onDelete: () =
       subtitle={`${scheme.weeks.length} weeks | ${scheme.title}`}
       meta={formatDate(scheme.createdAt)}
       onOpen={() => router.push(`/(tabs)/scheme/${scheme.id}`)}
-      actions={<CardActions onDelete={onDelete} />}
+      actions={
+        <CardActions
+          onEdit={() => router.push(`/tools/scheme-builder?schemeId=${encodeURIComponent(scheme.id ?? '')}`)}
+          onDelete={onDelete}
+        />
+      }
     />
   );
 }
@@ -372,9 +377,10 @@ function DocumentCard({
   );
 }
 
-function CardActions({ onDelete }: { onDelete: () => void }) {
+function CardActions({ onDelete, onEdit }: { onDelete: () => void; onEdit?: () => void }) {
   return (
     <View style={styles.cardActions}>
+      {onEdit ? <ActionIcon icon="create-outline" label="Edit" onPress={onEdit} /> : null}
       <ActionIcon icon="trash-outline" label="Delete" onPress={onDelete} danger />
     </View>
   );

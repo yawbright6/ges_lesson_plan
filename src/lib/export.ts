@@ -469,7 +469,7 @@ function buildCompiledTestPaperContent(paper: CompiledTestPaper) {
               ${section.questions
                 .map((question) => {
                   const marks = question.marks || 1;
-                  return `<li>${buildTestQuestionHtml(question)}<strong>[${marks} mark${marks === 1 ? '' : 's'}]</strong></li>`;
+                  return `<li>${buildTestQuestionHtml(question)}<strong class="question-marks">[${marks} mark${marks === 1 ? '' : 's'}]</strong></li>`;
                 })
                 .join('')}
             </ol>
@@ -498,14 +498,30 @@ function buildTestQuestionHtml(question: CompiledTestPaper['sections'][number]['
   const visuals = question.visuals?.length
     ? `<div class="test-question-visuals">${question.visuals.map(buildVisualAidHtml).join('')}</div>`
     : '';
+  const subparts = buildTestQuestionSubpartsHtml(question);
   if (!parsed || (question.mode && question.mode !== 'multiple_choice' && !hasOptionMarkers(question.text))) {
-    return `<span>${escapeHtml(question.text)}</span>${visuals}`;
+    return `<span>${escapeHtml(question.text)}</span>${subparts}${visuals}`;
   }
 
   return `<span>${escapeHtml(parsed.stem)}</span>
     <div class="mcq-options">
       ${orderMultipleChoiceOptions(parsed.options).map((option) => `<div class="mcq-option"><strong>${escapeHtml(option.label)}.</strong> ${escapeHtml(option.text)}</div>`).join('')}
-    </div>${visuals}`;
+    </div>${subparts}${visuals}`;
+}
+
+function buildTestQuestionSubpartsHtml(question: CompiledTestPaper['sections'][number]['questions'][number]) {
+  const subparts = Array.isArray(question.subparts) ? question.subparts.filter((subpart) => subpart.text?.trim()) : [];
+  if (!subparts.length) return '';
+  return `<ol class="question-subparts">
+    ${subparts
+      .map((subpart, index) => {
+        const label = subpart.label?.trim() || String.fromCharCode(97 + index);
+        const marks = Number(subpart.marks);
+        const marksText = Number.isFinite(marks) && marks > 0 ? ` <strong class="subpart-marks">[${Math.round(marks)} mark${Math.round(marks) === 1 ? '' : 's'}]</strong>` : '';
+        return `<li value="${index + 1}"><span class="subpart-label">(${escapeHtml(label)})</span> ${escapeHtml(subpart.text)}${marksText}</li>`;
+      })
+      .join('')}
+  </ol>`;
 }
 
 function parseMultipleChoiceText(text: string) {
@@ -804,7 +820,7 @@ function pageHtml(content: string, documentType: 'lesson' | 'scheme' | 'notes' |
         .phase-cell strong { font-size: 10px; }
         .phase-cell span { font-size: 11px; }
         .phase-cell small { font-size: 10px; }
-        .activity-cell { font-size: ${options?.activityFontSize ?? 16}px; }
+        .activity-cell { font-size: ${options?.activityFontSize ?? 14}px; }
         .activity-cell div { margin-bottom: 6px; line-height: 1.24; }
         .resource-cell { font-size: 13px; line-height: 1.2; }
         .assessment { margin-top: 5px; padding-top: 5px; border-top-color: #e2e2dc; }
@@ -956,6 +972,11 @@ function testStyles() {
     .test-list { margin: 0; padding-left: 20px; }
     .test-list li { font-size: 15px; line-height: 1.5; margin-bottom: 8px; }
     .test-list strong { color: #0F4C3A; margin-left: 6px; white-space: nowrap; }
+    .question-marks { display: inline-block; }
+    .question-subparts { margin: 6px 0 4px; padding-left: 22px; list-style: none; }
+    .question-subparts li { font-size: 14px; line-height: 1.45; margin-bottom: 4px; }
+    .subpart-label { color: #0F4C3A; font-weight: 700; margin-right: 4px; }
+    .subpart-marks { font-size: 12px; }
     .test-question-visuals { margin-top: 8px; }
     .test-question-visuals .visual-aid { margin-top: 6px; }
     .mcq-options { display: grid; grid-template-columns: 1fr 1fr; column-gap: 28px; row-gap: 7px; margin-top: 8px; margin-bottom: 4px; }
@@ -969,13 +990,14 @@ function testStyles() {
 
 function notesStyles() {
   return `
-    body { padding: 20px; }
-    .notes-title { margin-bottom: 14px; }
+    body { padding: 18px; }
+    .notes-title { margin-bottom: 10px; }
     .notes-title h1 { font-size: 20px; color: #0F4C3A; }
     .notes-title h2 { font-size: 13px; color: #555; }
-    .notes-section { border: 1px solid #d8d8d2; border-radius: 6px; padding: 10px; margin-bottom: 10px; break-inside: avoid; page-break-inside: avoid; }
-    .notes-section h3 { color: #0F4C3A; font-size: 14px; margin-bottom: 6px; }
+    .notes-section { border: 1px solid #d8d8d2; border-radius: 6px; padding: 9px; margin-bottom: 8px; break-inside: auto; page-break-inside: auto; }
+    .notes-section h3 { color: #0F4C3A; font-size: 14px; margin: 0 0 6px; break-after: avoid; page-break-after: avoid; }
     .notes-section p, .notes-section li { font-size: 12px; line-height: 1.48; }
+    .notes-section p { margin: 0; }
     .notes-section ul, .notes-section ol { margin-top: 4px; padding-left: 18px; }
     .notes-section li { margin-bottom: 3px; }
     .phase-note { border-top: 1px solid #e2e2dc; padding-top: 6px; margin-top: 6px; }

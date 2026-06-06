@@ -393,6 +393,13 @@ export default function SchemesScreen() {
                 </Text>
               </View>
               <Button
+                title="Edit"
+                icon="create-outline"
+                variant="secondary"
+                onPress={() => router.push(`/tools/scheme-builder?schemeId=${encodeURIComponent(scheme.id ?? '')}`)}
+                style={styles.savedButton}
+              />
+              <Button
                 title="PDF"
                 variant="secondary"
                 onPress={() => exportSchemePdf(scheme)}

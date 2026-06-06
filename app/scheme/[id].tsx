@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Alert, Platform, StyleSheet, View } from 'react-native';
-import { useLocalSearchParams } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { Button } from '@/components/Button';
 import { PreviewActionButton, PreviewActions, PreviewHeader } from '@/components/PreviewChrome';
 import { SchemeTable } from '@/components/SchemeTable';
@@ -38,10 +38,16 @@ export default function SchemeDetailScreen() {
       <PreviewHeader
         title="Scheme"
         onBack={() => goBackOrReplace()}
+        onEdit={() => router.push(`/tools/scheme-builder?schemeId=${encodeURIComponent(scheme.id ?? '')}`)}
         onShare={() => shareScheme(scheme)}
       />
       <SchemeTable scheme={scheme} />
       <PreviewActions>
+        <PreviewActionButton
+          title="Edit in Builder"
+          icon="create-outline"
+          onPress={() => router.push(`/tools/scheme-builder?schemeId=${encodeURIComponent(scheme.id ?? '')}`)}
+        />
         <PreviewActionButton title="PDF" icon="document-text-outline" onPress={() => exportSchemePdf(scheme)} />
         <PreviewActionButton
           title="Delete"

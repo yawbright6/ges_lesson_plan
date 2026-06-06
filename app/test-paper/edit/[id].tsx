@@ -8,7 +8,7 @@ import { reportClientError } from '@/lib/logger';
 import { goBackOrReplace } from '@/lib/navigation';
 import { getTestPaperById, saveTestPaper } from '@/lib/testPaperStore';
 import { colors, radii, spacing, typography } from '@/theme/colors';
-import type { CompiledAnswerKeyItem, CompiledTestPaper, CompiledTestQuestion, CompiledTestSection } from '@/types/testItemCompiler';
+import type { CompiledAnswerKeyItem, CompiledTestPaper, CompiledTestQuestion, CompiledTestQuestionSubpart, CompiledTestSection } from '@/types/testItemCompiler';
 
 export default function TestPaperEditScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -51,6 +51,9 @@ export default function TestPaperEditScreen() {
     updateSection(sectionIndex, {
       questions: section.questions.map((question, index) => index === questionIndex ? { ...question, ...patch } : question),
     });
+  };
+  const updateQuestionSubparts = (sectionIndex: number, questionIndex: number, subparts: CompiledTestQuestionSubpart[]) => {
+    updateQuestion(sectionIndex, questionIndex, { subparts });
   };
 
   async function handleSave() {
@@ -137,6 +140,10 @@ export default function TestPaperEditScreen() {
                   value={String(question.marks)}
                   keyboardType="number-pad"
                   onChangeText={(marks) => updateQuestion(sectionIndex, questionIndex, { marks: markValue(Number(marks)) })}
+                />
+                <SubpartEditor
+                  subparts={question.subparts ?? []}
+                  onChange={(subparts) => updateQuestionSubparts(sectionIndex, questionIndex, subparts)}
                 />
               </View>
             ))}
@@ -240,6 +247,64 @@ function LineListEditor({
   );
 }
 
+function SubpartEditor({
+  subparts,
+  onChange,
+}: {
+  subparts: CompiledTestQuestionSubpart[];
+  onChange: (subparts: CompiledTestQuestionSubpart[]) => void;
+}) {
+  const items = subparts.length ? subparts : [];
+  return (
+    <View style={styles.subpartBlock}>
+      <View style={styles.cardHeader}>
+        <Text style={styles.subpartTitle}>Subparts</Text>
+        <Button
+          title="Add"
+          size="small"
+          variant="secondary"
+          icon="add-outline"
+          onPress={() => onChange([...subparts, { label: String.fromCharCode(97 + subparts.length), text: '', marks: undefined }])}
+        />
+      </View>
+      {items.map((subpart, index) => (
+        <View key={index} style={styles.subpartCard}>
+          <View style={styles.grid}>
+            <Field
+              label="Label"
+              value={subpart.label}
+              onChangeText={(label) => onChange(replaceSubpartAt(items, index, { ...subpart, label }))}
+            />
+            <Field
+              label="Marks"
+              value={subpart.marks ? String(subpart.marks) : ''}
+              keyboardType="number-pad"
+              onChangeText={(marks) => onChange(replaceSubpartAt(items, index, { ...subpart, marks: marks ? markValue(Number(marks)) : undefined }))}
+            />
+          </View>
+          <Field
+            label="Subpart text"
+            value={subpart.text}
+            multiline
+            onChangeText={(text) => onChange(replaceSubpartAt(items, index, { ...subpart, text }))}
+          />
+          <Button
+            title="Remove subpart"
+            size="small"
+            variant="danger"
+            icon="trash-outline"
+            onPress={() => onChange(items.filter((_, itemIndex) => itemIndex !== index))}
+          />
+        </View>
+      ))}
+    </View>
+  );
+}
+
+function replaceSubpartAt(values: CompiledTestQuestionSubpart[], index: number, value: CompiledTestQuestionSubpart) {
+  return values.map((item, itemIndex) => itemIndex === index ? value : item);
+}
+
 function updateAnswerKey(
   draft: CompiledTestPaper,
   updateDraft: (patch: Partial<CompiledTestPaper>) => void,
@@ -308,6 +373,16 @@ const styles = StyleSheet.create({
   },
   questionTitle: { ...typography.label, color: colors.text },
   grid: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing[4] },
+  subpartBlock: { gap: spacing[2], marginTop: spacing[2] },
+  subpartTitle: { ...typography.label, color: colors.textMuted },
+  subpartCard: {
+    borderWidth: 1,
+    borderColor: colors.borderSubtle,
+    borderRadius: radii.sm,
+    padding: spacing[3],
+    gap: spacing[2],
+    backgroundColor: colors.surface,
+  },
   markSummary: { ...typography.label, color: colors.primary },
   listItem: { gap: spacing[2] },
 });

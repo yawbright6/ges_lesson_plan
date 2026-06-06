@@ -96,6 +96,11 @@ export default function TestPaperDetailScreen() {
                 <MathText style={styles.bodyText}>
                   {question.id}. {question.text} [{question.marks} mark{question.marks === 1 ? '' : 's'}]
                 </MathText>
+                {question.subparts?.map((subpart, index) => (
+                  <MathText key={`${question.id}-subpart-${index}`} style={styles.subpartText}>
+                    ({subpart.label || String.fromCharCode(97 + index)}) {subpart.text}{subpart.marks ? ` [${subpart.marks} mark${subpart.marks === 1 ? '' : 's'}]` : ''}
+                  </MathText>
+                ))}
                 {question.visuals?.map((visual, index) => (
                   <TestVisual key={visual.id ?? `${question.id}-visual-${index}`} visual={visual} />
                 ))}
@@ -296,6 +301,7 @@ const styles = StyleSheet.create({
   cardTitle: { ...typography.h4, color: colors.primaryDark },
   bodyText: { ...typography.bodySm, color: colors.text, lineHeight: 21 },
   questionBlock: { gap: spacing[2] },
+  subpartText: { ...typography.caption, color: colors.textMuted, lineHeight: 18, marginLeft: spacing[4] },
   guideText: { ...typography.caption, color: colors.textMuted, lineHeight: 18, marginLeft: spacing[4] },
   answerItem: { gap: spacing[1] },
   muted: { ...typography.body, color: colors.textMuted },

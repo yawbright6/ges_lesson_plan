@@ -458,6 +458,13 @@ Always respond with a single JSON object only, no markdown or commentary, with t
           "marks": number,
           "mode": "multiple_choice" | "fill_in_blank" | "essay",
           "sourceItemIds": string[],
+          "subparts": [
+            {
+              "label": string,
+              "text": string,
+              "marks": number
+            }
+          ],
           "visuals": [
             {
               "type": "labelled_diagram" | "bar_chart" | "line_graph" | "flowchart" | "timeline" | "comparison_table" |
@@ -509,9 +516,12 @@ Rules:
 - Preserve Ghanaian classroom context and Ghanaian English spelling.
 - Keep curriculum alignment with the source week, topic, strand, sub-strand, and indicator metadata.
 - Group sections by week and lesson unless the source items clearly need a simpler combined section.
-- Respect requested test modes. If a mode has a questionCount, create exactly that many questions for that mode.
+- Respect requested test modes. If a mode has a questionCount, create exactly that many MAIN questions for that mode.
+- A MAIN question is one object in sections[].questions and one numbered item on the paper. Do not combine two or more requested questions into one major question.
+- For example, if essay has questionCount 5, return exactly five essay question objects, numbered as five main questions.
+- Subparts are allowed only inside a main question's subparts array. Subparts may test smaller steps of that one main question, but they do not count as additional main questions and must not replace the requested main-question count.
 - If a mode is selected without a questionCount, choose a sensible number based on the source items and total marks.
-- If totalMarks is provided, distribute marks across all questions so the final totalMarks equals the requested value.
+- If totalMarks is provided, distribute marks across all MAIN questions so the final totalMarks equals the requested value. When a main question has subparts, the subpart marks should add up to that main question's marks.
 - Multiple choice questions must include options A-D in the question text and the answer key must give the correct option and answer.
 - Format multiple choice options as separate lines in the question text using A., B., C., and D.
 - Fill-in questions should be short completion items with clear expected answers.
@@ -573,8 +583,9 @@ export function normalizeTestItemRewriteResponse(
               id: cleanText(questionRecord.id) || `${sectionIndex + 1}.${questionIndex + 1}`,
               text: cleanText(questionRecord.text),
               marks,
-              mode: cleanText(questionRecord.mode),
+              mode: normalizeTestMode(questionRecord.mode),
               sourceItemIds: cleanStringList(questionRecord.sourceItemIds, 20),
+              subparts: normalizeTestQuestionSubparts(questionRecord.subparts ?? questionRecord.subQuestions),
               visuals: body.structuredVisualsEnabled === false
                 ? []
                 : normalizeVisualAids(questionRecord.visuals, body.visualGenerationEnabled !== false, Number.POSITIVE_INFINITY),
@@ -587,8 +598,12 @@ export function normalizeTestItemRewriteResponse(
     .filter((section) => section.questions.length)
     .slice(0, 20);
 
+  const requestedCounts = getRequestedModeCounts(body.options?.modes);
+  const countAdjustedSections = enforceRequestedTestModeCounts(normalizedSections, body, requestedCounts);
+  const markAdjustedSections = distributeRequestedTestMarks(countAdjustedSections, body.options?.totalMarks);
+
   const answerKeyValue = Array.isArray(payload?.answerKey) ? payload.answerKey : [];
-  const answerKey = answerKeyValue
+  const rawAnswerKey = answerKeyValue
     .filter((item) => item && typeof item === 'object')
     .map((item) => {
       const record = item as Record<string, unknown>;
@@ -602,9 +617,14 @@ export function normalizeTestItemRewriteResponse(
     .filter((item) => item.questionId && item.answer)
     .slice(0, 80);
 
-  const totalMarks =
-    Math.round(Number(payload?.totalMarks)) ||
-    normalizedSections.reduce(
+  const marksByQuestion = new Map<string, number>();
+  markAdjustedSections.forEach((section) => section.questions.forEach((question) => marksByQuestion.set(question.id, question.marks)));
+  const answerKey = rawAnswerKey.map((item) => ({
+    ...item,
+    marks: marksByQuestion.get(item.questionId) ?? item.marks,
+  }));
+
+  const totalMarks = markAdjustedSections.reduce(
       (sum, section) => sum + section.questions.reduce((sectionSum, question) => sectionSum + question.marks, 0),
       0,
     );
@@ -618,11 +638,142 @@ export function normalizeTestItemRewriteResponse(
     instructions: normalizeTestPaperInstructions(cleanStringList(payload?.instructions, 8)).length
       ? normalizeTestPaperInstructions(cleanStringList(payload?.instructions, 8))
       : ['Answer all questions.', 'Write clearly and show working where necessary.'],
-    sections: normalizedSections,
+    sections: markAdjustedSections,
     answerKey,
     totalMarks,
     createdAt: new Date().toISOString(),
   };
+}
+
+function normalizeTestMode(value: unknown) {
+  const mode = cleanText(value);
+  return ['multiple_choice', 'fill_in_blank', 'essay'].includes(mode) ? mode : undefined;
+}
+
+function normalizeTestQuestionSubparts(value: unknown) {
+  if (!Array.isArray(value)) return [];
+  return value
+    .filter((item) => item && typeof item === 'object')
+    .map((item, index) => {
+      const record = item as Record<string, unknown>;
+      const label = cleanText(record.label) || String.fromCharCode(97 + index);
+      const text = cleanText(record.text ?? record.question);
+      const marks = Math.round(Number(record.marks));
+      if (!text) return null;
+      return {
+        label,
+        text,
+        marks: Number.isFinite(marks) && marks > 0 ? marks : undefined,
+      };
+    })
+    .filter((item): item is { label: string; text: string; marks: number | undefined } => Boolean(item))
+    .slice(0, 8);
+}
+
+function getRequestedModeCounts(modes?: NonNullable<TestItemRewriteBody['options']>['modes']) {
+  const counts = new Map<string, number>();
+  if (!Array.isArray(modes)) return counts;
+  modes.forEach((mode) => {
+    const modeName = normalizeTestMode(mode?.mode);
+    const count = Math.round(Number(mode?.questionCount));
+    if (mode?.enabled !== false && modeName && Number.isFinite(count) && count > 0) {
+      counts.set(modeName, count);
+    }
+  });
+  return counts;
+}
+
+function enforceRequestedTestModeCounts<T extends {
+  id: string;
+  title: string;
+  questions: Array<{
+    id: string;
+    text: string;
+    marks: number;
+    mode?: string;
+    sourceItemIds: string[];
+    subparts?: Array<{ label: string; text: string; marks?: number }>;
+    visuals?: unknown[];
+  }>;
+}>(sections: T[], body: TestItemRewriteBody, requestedCounts: Map<string, number>): T[] {
+  if (!requestedCounts.size) return sections;
+
+  const adjustedSections = sections.map((section) => ({ ...section, questions: [...section.questions] }));
+  const allQuestions = adjustedSections.flatMap((section) => section.questions);
+  requestedCounts.forEach((requiredCount, mode) => {
+    let modeQuestions = allQuestions.filter((question) => question.mode === mode);
+
+    if (modeQuestions.length > requiredCount) {
+      let remaining = requiredCount;
+      adjustedSections.forEach((section) => {
+        section.questions = section.questions.filter((question) => {
+          if (question.mode !== mode) return true;
+          if (remaining > 0) {
+            remaining -= 1;
+            return true;
+          }
+          return false;
+        });
+      });
+      modeQuestions = adjustedSections.flatMap((section) => section.questions).filter((question) => question.mode === mode);
+    }
+
+    if (modeQuestions.length >= requiredCount) return;
+
+    const targetSection = adjustedSections.find((section) => section.questions.some((question) => question.mode === mode)) ?? adjustedSections[0];
+    if (!targetSection) return;
+    const sourceItems = Array.isArray(body.items) ? body.items : [];
+    for (let index = modeQuestions.length; index < requiredCount; index += 1) {
+      const sourceItem = sourceItems[index % Math.max(1, sourceItems.length)] ?? {};
+      const questionId = String(adjustedSections.flatMap((section) => section.questions).length + 1);
+      const questionText =
+        cleanText(sourceItem.question) ||
+        `${mode === 'essay' ? 'Discuss' : mode === 'fill_in_blank' ? 'Complete' : 'Answer'} a curriculum-aligned question from the selected assessment item.`;
+      targetSection.questions.push({
+        id: questionId,
+        text: questionText,
+        marks: 1,
+        mode,
+        sourceItemIds: cleanText(sourceItem.id) ? [cleanText(sourceItem.id)] : [],
+        subparts: [],
+        visuals: [],
+      });
+    }
+  });
+
+  return adjustedSections.filter((section) => section.questions.length) as T[];
+}
+
+function distributeRequestedTestMarks<T extends {
+  questions: Array<{
+    marks: number;
+    subparts?: Array<{ marks?: number }>;
+  }>;
+}>(sections: T[], requestedTotal?: number): T[] {
+  const total = Math.round(Number(requestedTotal));
+  const questions = sections.flatMap((section) => section.questions);
+  if (!Number.isFinite(total) || total <= 0 || !questions.length) return sections;
+
+  const baseMark = Math.max(1, Math.floor(total / questions.length));
+  let remainder = Math.max(0, total - baseMark * questions.length);
+  questions.forEach((question) => {
+    question.marks = baseMark + (remainder > 0 ? 1 : 0);
+    remainder -= 1;
+    if (question.subparts?.length) {
+      distributeQuestionSubpartMarks(question.subparts, question.marks);
+    }
+  });
+  return sections;
+}
+
+function distributeQuestionSubpartMarks(subparts: Array<{ marks?: number }>, questionMarks: number) {
+  if (!subparts.length) return;
+  const baseMark = Math.max(1, Math.floor(questionMarks / subparts.length));
+  let remainder = Math.max(0, questionMarks - baseMark * subparts.length);
+  subparts.forEach((subpart) => {
+    subpart.marks = baseMark + (remainder > 0 ? 1 : 0);
+    remainder -= 1;
+  });
 }
 
 function normalizeTestPaperInstructions(instructions: string[]) {
@@ -1051,7 +1202,7 @@ function filterTeachingNoteVisualBlocks<T extends { type?: string; prompt?: stri
 }
 
 function normalizeTeachingNoteBlocks(value: unknown, legacyVisuals: unknown = []) {
-  const blocks = Array.isArray(value)
+  const blocks: Array<Record<string, unknown>> = Array.isArray(value)
     ? value
         .filter((item) => item && typeof item === 'object')
         .map((item, index) => normalizeTeachingNoteBlock(item as Record<string, unknown>, index))

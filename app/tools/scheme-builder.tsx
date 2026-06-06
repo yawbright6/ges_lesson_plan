@@ -1,5 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Alert,
@@ -37,7 +37,7 @@ import {
 } from '@/lib/schemeBuilder';
 import { getWeekEntries, getWeekTopic } from '@/lib/schemeWeek';
 import { reportClientError } from '@/lib/logger';
-import { saveScheme } from '@/lib/schemeStore';
+import { getSchemeById, saveScheme } from '@/lib/schemeStore';
 import { loadLastSelectedTerm, saveLastSelectedTerm } from '@/lib/termPrefs';
 import {
   CLASS_LEVEL_OPTIONS,
@@ -58,17 +58,19 @@ const DRAG_LONG_PRESS_MS = 420;
 
 export default function SchemeBuilderScreen() {
   const { showToast } = useToast();
+  const { schemeId } = useLocalSearchParams<{ schemeId?: string }>();
   const windowSize = useWindowDimensions();
   const scrollViewRef = useRef<ScrollView | null>(null);
   const scrollOffsetRef = useRef(0);
   const autoScrollTickRef = useRef(0);
+  const hydratedSchemeIdRef = useRef<string | null>(null);
   const [mode, setMode] = useState<BuilderMode>('quick');
   const [classLevel, setClassLevel] = useState<ClassLevel>('B7');
   const [subject, setSubject] = useState(getDefaultSubjectForClassLevel('B7'));
   const [term, setTerm] = useState('Term 1');
   const [termPrefsLoaded, setTermPrefsLoaded] = useState(false);
   const [numberOfWeeksInput, setNumberOfWeeksInput] = useState('12');
-  const [includeFullYear, setIncludeFullYear] = useState(false);
+  const [includeFullYear, setIncludeFullYear] = useState(true);
   const [selectedStrands, setSelectedStrands] = useState<string[]>([]);
   const [selectedSubStrands, setSelectedSubStrands] = useState<string[]>([]);
   const [activeWeek, setActiveWeek] = useState(1);
@@ -77,6 +79,7 @@ export default function SchemeBuilderScreen() {
   const [detailStandard, setDetailStandard] = useState('');
   const [detailTopicSearch, setDetailTopicSearch] = useState('');
   const [weeks, setWeeks] = useState<SchemeWeek[]>(createEmptyWeeks(12));
+  const [editingScheme, setEditingScheme] = useState<SchemeOfWork | null>(null);
   const [saving, setSaving] = useState(false);
 
   const subjectOptions = useMemo(
@@ -139,14 +142,23 @@ export default function SchemeBuilderScreen() {
     [numberOfWeeks]
   );
   const previewScheme = useMemo(
-    () => buildSchemeFromWeeks({ subject, classLevel, term, weeks }),
-    [classLevel, subject, term, weeks]
+    () => ({
+      ...(editingScheme ?? buildSchemeFromWeeks({ subject, classLevel, term, weeks })),
+      title: `${subject} Scheme of Work - ${classLevel} ${term}`,
+      subject,
+      classLevel,
+      term,
+      source: editingScheme?.source ?? 'mapped',
+      weeks,
+    }),
+    [classLevel, editingScheme, subject, term, weeks]
   );
   const activeWeekEntries = getWeekEntries(
     weeks.find((week) => week.week === activeWeek) ?? { week: activeWeek }
   );
 
   useEffect(() => {
+    if (schemeId) return;
     let active = true;
     loadLastSelectedTerm().then((savedTerm) => {
       if (active && savedTerm) setTerm(savedTerm);
@@ -156,7 +168,48 @@ export default function SchemeBuilderScreen() {
     return () => {
       active = false;
     };
-  }, []);
+  }, [schemeId]);
+
+  useEffect(() => {
+    const id = typeof schemeId === 'string' ? schemeId : undefined;
+    if (!id || hydratedSchemeIdRef.current === id) return;
+
+    let active = true;
+    hydratedSchemeIdRef.current = id;
+    getSchemeById(id)
+      .then((scheme) => {
+        if (!active) return;
+        if (!scheme) {
+          Alert.alert('Scheme not found', 'This saved scheme could not be loaded into the builder.');
+          return;
+        }
+
+        setEditingScheme(scheme);
+        setClassLevel(scheme.classLevel);
+        setSubject(scheme.subject);
+        setTerm(scheme.term);
+        setNumberOfWeeksInput(String(Math.max(1, Math.min(14, scheme.weeks.length || 12))));
+        setWeeks(scheme.weeks.length ? scheme.weeks : createEmptyWeeks(12));
+        setActiveWeek(1);
+        setSelectedStrands([]);
+        setSelectedSubStrands([]);
+        setDetailStrand('');
+        setDetailSubStrand('');
+        setDetailStandard('');
+        setDetailTopicSearch('');
+      })
+      .catch((error: unknown) => {
+        reportClientError('scheme_builder_load_existing', error, { schemeId: id });
+        Alert.alert('Load failed', error instanceof Error ? error.message : 'Could not load this saved scheme.');
+      })
+      .finally(() => {
+        if (active) setTermPrefsLoaded(true);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [schemeId]);
 
   useEffect(() => {
     if (termPrefsLoaded) saveLastSelectedTerm(term).catch(() => undefined);
@@ -175,6 +228,7 @@ export default function SchemeBuilderScreen() {
   }, [languageSubject, mode]);
 
   useEffect(() => {
+    if (editingScheme) return;
     setWeeks(createEmptyWeeks(numberOfWeeks));
     setActiveWeek(1);
     setSelectedStrands([]);
@@ -183,7 +237,7 @@ export default function SchemeBuilderScreen() {
     setDetailSubStrand('');
     setDetailStandard('');
     setDetailTopicSearch('');
-  }, [classLevel, numberOfWeeks, subject, term]);
+  }, [classLevel, editingScheme, numberOfWeeks, subject, term]);
 
   useEffect(() => {
     setDetailSubStrand('');
@@ -274,12 +328,15 @@ export default function SchemeBuilderScreen() {
     try {
       const saved = await saveScheme({
         ...previewScheme,
+        id: editingScheme?.id ?? previewScheme.id,
+        createdAt: editingScheme?.createdAt ?? previewScheme.createdAt,
         title: `${subject} Scheme of Work - ${classLevel} ${term}`,
       });
-      showToast({ message: 'Scheme builder draft saved.' });
+      setEditingScheme(saved);
+      showToast({ message: editingScheme ? 'Scheme updated.' : 'Scheme builder draft saved.' });
       router.push(`/(tabs)/scheme/${saved.id}`);
     } catch (error: unknown) {
-      reportClientError('scheme_builder_save', error, { subject, classLevel, term, numberOfWeeks });
+      reportClientError('scheme_builder_save', error, { subject, classLevel, term, numberOfWeeks, schemeId: editingScheme?.id });
       Alert.alert('Save failed', error instanceof Error ? error.message : 'Could not save this scheme.');
     } finally {
       setSaving(false);
@@ -556,12 +613,16 @@ export default function SchemeBuilderScreen() {
       <View style={styles.previewPanel}>
         <View style={styles.previewHeader}>
           <View>
-            <Text style={styles.panelTitle}>Live Preview</Text>
+            <Text style={styles.panelTitle}>{editingScheme ? 'Edit Preview' : 'Live Preview'}</Text>
             <Text style={styles.metaText}>
-              {languageSubject ? 'Language weekly multi-aspect scheme' : 'Weekly curriculum scheme'}
+              {editingScheme
+                ? 'Editing saved scheme'
+                : languageSubject
+                  ? 'Language weekly multi-aspect scheme'
+                  : 'Weekly curriculum scheme'}
             </Text>
           </View>
-          <Button title="Save Scheme" onPress={handleSave} loading={saving} style={styles.saveButton} />
+          <Button title={editingScheme ? 'Update Scheme' : 'Save Scheme'} onPress={handleSave} loading={saving} style={styles.saveButton} />
         </View>
         <SchemePreview
           scheme={previewScheme}

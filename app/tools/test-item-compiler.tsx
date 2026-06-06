@@ -468,9 +468,16 @@ export default function TestItemCompilerScreen() {
               <View key={section.id} style={styles.group}>
                 <MathText style={styles.groupTitle}>{section.title}</MathText>
                 {section.questions.map((question) => (
-                  <MathText key={question.id} style={styles.questionText}>
-                    {question.id}. {question.text} [{question.marks}]
-                  </MathText>
+                  <View key={question.id} style={styles.questionBlock}>
+                    <MathText style={styles.questionText}>
+                      {question.id}. {question.text} [{question.marks}]
+                    </MathText>
+                    {question.subparts?.map((subpart, index) => (
+                      <MathText key={`${question.id}-subpart-${index}`} style={styles.subpartText}>
+                        ({subpart.label || String.fromCharCode(97 + index)}) {subpart.text}{subpart.marks ? ` [${subpart.marks}]` : ''}
+                      </MathText>
+                    ))}
+                  </View>
                 ))}
               </View>
             ))}
@@ -849,6 +856,8 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   questionText: { ...typography.bodySm, color: colors.text, lineHeight: 20 },
+  questionBlock: { gap: spacing[2] },
+  subpartText: { ...typography.caption, color: colors.textMuted, lineHeight: 18, marginLeft: spacing[4] },
   paperPanel: {
     borderWidth: 1,
     borderColor: colors.primary,

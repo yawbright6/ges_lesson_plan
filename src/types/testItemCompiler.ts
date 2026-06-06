@@ -33,7 +33,14 @@ export interface CompiledTestQuestion {
   marks: number;
   sourceItemIds: string[];
   mode?: TestItemMode;
+  subparts?: CompiledTestQuestionSubpart[];
   visuals?: LessonVisualAid[];
+}
+
+export interface CompiledTestQuestionSubpart {
+  label: string;
+  text: string;
+  marks?: number;
 }
 
 export interface CompiledTestSection {
