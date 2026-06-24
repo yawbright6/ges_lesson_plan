@@ -1,4 +1,5 @@
 import { appStorage } from './storage';
+import { getDefaultLessonsPerWeekForSubject } from './lessonAssignments';
 
 const STORAGE_KEY = 'subject-lesson-counts';
 
@@ -7,6 +8,10 @@ type SubjectLessonCounts = Record<string, string>;
 export async function getLessonsPerWeekForSubject(subject: string): Promise<string | null> {
   const prefs = await loadPrefs();
   return prefs[normalizeSubject(subject)] ?? null;
+}
+
+export function getDefaultLessonsPerWeekSubjectPreference(subject: string): string {
+  return getDefaultLessonsPerWeekForSubject(subject);
 }
 
 export async function setLessonsPerWeekForSubject(
@@ -39,3 +44,4 @@ async function writePrefs(prefs: SubjectLessonCounts) {
 function normalizeSubject(subject: string) {
   return subject.trim().toLowerCase();
 }
+

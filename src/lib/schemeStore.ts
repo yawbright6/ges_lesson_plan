@@ -1,6 +1,7 @@
 import { normalizeSchemeWeek } from '@/lib/schemeWeek';
 import { createGeneratedRepository } from './generatedRepository';
 import type { ClassLevel } from '@/types/lessonPlan';
+import type { WeeklyLessonAssignment } from './lessonAssignments';
 import type { SchemeOfWork, SchemeWeek } from '@/types/scheme';
 
 const STORAGE_KEY = 'local-schemes';
@@ -38,6 +39,8 @@ type SchemeContext = {
   lessonFocusGuidance?: {
     allFocuses: string[];
     currentFocus?: string;
+    assignments?: WeeklyLessonAssignment[];
+    currentAssignment?: WeeklyLessonAssignment;
   };
 };
 
@@ -131,3 +134,4 @@ function normalizeScheme(scheme: SchemeOfWork): SchemeOfWork {
 function normalizeText(value?: string): string {
   return (value ?? '').trim().toLowerCase();
 }
+

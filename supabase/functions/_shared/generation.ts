@@ -13,6 +13,18 @@ interface SchemeWeek extends SchemeWeekEntry {
   entries?: SchemeWeekEntry[];
 }
 
+interface LessonAssignment {
+  lessonNumber?: number;
+  title?: string;
+  focus?: string;
+  aspect?: string;
+  assignedEntry?: SchemeWeekEntry;
+  supportExemplars?: string[];
+  deferredExemplars?: string[];
+  previousRelatedFocus?: string;
+  nextRelatedFocus?: string;
+}
+
 interface SchemeContext {
   title?: string;
   subject?: string;
@@ -24,6 +36,8 @@ interface SchemeContext {
   lessonFocusGuidance?: {
     allFocuses?: string[];
     currentFocus?: string;
+    assignments?: LessonAssignment[];
+    currentAssignment?: LessonAssignment;
   };
 }
 
@@ -803,9 +817,10 @@ export function buildLessonPrompt(body: LessonGenerationBody): string {
   const sessionBlock =
     body.sessionIndex && body.sessionsPerWeek
       ? `\nThis lesson is session ${body.sessionIndex} of ${body.sessionsPerWeek} for the week.
-Shape the activities as part of a multi-lesson sequence on the same weekly topic:
-- Session 1 should introduce the weekly topic and establish foundational understanding.
-- Later sessions should deepen, practise, apply, assess, or extend the same topic without changing it.\n`
+Shape the activities as part of the assigned weekly lesson sequence:
+- Use the current lesson assignment or current focus as the main boundary.
+- Do not assume every lesson in the week teaches the same topic when the scheme has multiple entries/aspects.
+- Later sessions should deepen, practise, apply, assess, or extend only their assigned entry/aspect.\n`
       : '';
 
   const schemeContextBlock = body.schemeContext
@@ -880,10 +895,12 @@ export function normalizeLessonPlanResponse(
     ...lessonPayload
   } = payload;
   const selectedWeek = body?.schemeContext?.selectedWeek;
+  const assignedEntry = body?.schemeContext?.lessonFocusGuidance?.currentAssignment?.assignedEntry;
   const primaryEntry =
-    Array.isArray(selectedWeek?.entries) && selectedWeek.entries.length
+    assignedEntry ||
+    (Array.isArray(selectedWeek?.entries) && selectedWeek.entries.length
       ? selectedWeek.entries[0]
-      : null;
+      : null);
   const termLabel = cleanText(body?.term) || cleanText(body?.schemeContext?.term) || 'Term';
   const subject = cleanText(lessonPayload?.subject) || cleanText(body?.subject);
   const classLevel = cleanText(lessonPayload?.classLevel) || cleanText(body?.classLevel);
@@ -910,16 +927,16 @@ export function normalizeLessonPlanResponse(
       (sessionIndex && sessionsPerWeek ? `${sessionIndex} of ${sessionsPerWeek}` : ''),
     sessionIndex,
     sessionsPerWeek,
-    strand: selectedWeek?.strand || cleanText(primaryEntry?.strand) || cleanText(lessonPayload?.strand),
+    strand: cleanText(primaryEntry?.strand) || cleanText(lessonPayload?.strand) || selectedWeek?.strand,
     subStrand:
-      selectedWeek?.subStrand || cleanText(primaryEntry?.subStrand) || cleanText(lessonPayload?.subStrand),
-    topic: selectedWeek?.topic || cleanText(primaryEntry?.topic) || cleanText(lessonPayload?.topic),
+      cleanText(primaryEntry?.subStrand) || cleanText(lessonPayload?.subStrand) || selectedWeek?.subStrand,
+    topic: cleanText(primaryEntry?.topic) || cleanText(lessonPayload?.topic) || selectedWeek?.topic,
     contentStandard:
-      selectedWeek?.contentStandard ||
       cleanText(primaryEntry?.contentStandard) ||
-      cleanText(lessonPayload?.contentStandard),
+      cleanText(lessonPayload?.contentStandard) ||
+      selectedWeek?.contentStandard,
     indicator:
-      selectedWeek?.indicator || cleanText(primaryEntry?.indicator) || cleanText(lessonPayload?.indicator),
+      cleanText(primaryEntry?.indicator) || cleanText(lessonPayload?.indicator) || selectedWeek?.indicator,
     references:
       cleanText(lessonPayload?.references) ||
       (selectedWeek?.topic ? `Scheme topic: ${selectedWeek.topic}` : ''),
@@ -1382,18 +1399,36 @@ function formatLessonFocusGuidance(guidance?: SchemeContext['lessonFocusGuidance
     ? guidance.allFocuses.filter(Boolean)
     : [];
   if (!guidance?.currentFocus && !allFocuses.length) return '';
+  const currentAssignment = guidance?.currentAssignment;
+  const assignedEntry = currentAssignment?.assignedEntry;
+  const assignmentBlock = currentAssignment
+    ? `
+  Current assignment:
+  - Lesson: ${currentAssignment.lessonNumber || ''}
+  - Aspect: ${currentAssignment.aspect || ''}
+  - Title: ${currentAssignment.title || ''}
+  - Assigned topic: ${assignedEntry?.topic || ''}
+  - Assigned strand: ${assignedEntry?.strand || ''}
+  - Assigned sub-strand: ${assignedEntry?.subStrand || ''}
+  - Assigned content standard: ${assignedEntry?.contentStandard || ''}
+  - Assigned indicator: ${assignedEntry?.indicator || ''}
+  - Teach now exemplars: ${(currentAssignment.supportExemplars || []).join(' ')}
+  - Defer to later related lessons: ${(currentAssignment.deferredExemplars || []).join(' ')}
+  - Previous related focus: ${currentAssignment.previousRelatedFocus || ''}
+  - Next related focus: ${currentAssignment.nextRelatedFocus || ''}
+`
+    : '';
 
   return `Binding lesson focus guidance:
   Current lesson focus: ${guidance?.currentFocus || ''}
+${assignmentBlock}
   Weekly lesson focus sequence:
 ${allFocuses.map((focus, index) => `  ${index + 1}. ${focus}`).join('\n')}
 Use the current lesson focus as the boundary for this lesson's main activities, examples, performance indicator and assessment.
-Do not blend every weekly indicator or exemplar into every lesson. If the current focus contains "Teach now",
-"Review only", or "Do not teach yet" instructions, obey those boundaries strictly:
-- build the starter, new learning activities, performance indicator, assessment and visual aids from "Teach now";
-- mention "Review only" material only briefly as prior knowledge;
-- do not teach "Do not teach yet" material as main content, worked examples, assessment items, or visual aids.
-If the assigned indicator is broad, do not unpack every concept in it at once; unpack only the parts needed for the current "Teach now" exemplars.
+Do not blend every weekly indicator or exemplar into every lesson.
+Build the starter, new learning activities, performance indicator, assessment and visual aids from the assigned entry and teach-now exemplars.
+If deferred exemplars are listed, do not teach them as the main content, worked examples, assessment items, or visual aids in this lesson.
+If the assigned indicator is broad, do not unpack every concept in it at once; unpack only the parts needed for the current assignment.
 Later focus-sequence items may be mentioned only as a one-sentence preview, not taught as main content.
 `;
 }
@@ -1474,3 +1509,4 @@ function cleanText(value: unknown) {
 function slugify(value: string) {
   return cleanText(value).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
 }
+

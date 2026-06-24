@@ -24,7 +24,7 @@ import { formatAiActionError, isInsufficientCreditsError } from '@/lib/ai';
 import { defaultRuntimeSettings, loadRuntimeAppSettings } from '@/lib/appSettings';
 import { loadCreditBalance } from '@/lib/credits';
 import { exportLessonPlanPdf, exportLessonPlansPdf, shareLessonPlan, shareLessonPlans } from '@/lib/export';
-import { buildExemplarLessonGuidance } from '@/lib/exemplarLessonGuidance';
+import { buildWeeklyLessonAssignments } from '@/lib/lessonAssignments';
 import {
   buildGeneratedBundle,
   generateAndSaveLessonPlans,
@@ -44,6 +44,7 @@ import {
 import { DEFAULT_PDF_ACTIVITY_FONT_SIZE, PDF_ACTIVITY_FONT_SIZE_OPTIONS } from '@/lib/pdfOptions';
 import { findMatchingScheme, loadMatchingSchemes } from '@/lib/schemeStore';
 import {
+  getDefaultLessonsPerWeekSubjectPreference,
   getLessonsPerWeekForSubject,
   setLessonsPerWeekForSubject,
 } from '@/lib/subjectPrefs';
@@ -152,9 +153,10 @@ export default function GenerateScreen() {
         subject,
         classLevel,
         selectedWeek: selectedSchemeWeek,
+        weeks: selectedScheme?.weeks,
         sessionsPerWeek,
       }),
-    [classLevel, selectedSchemeWeek, sessionsPerWeek, subject],
+    [classLevel, selectedScheme?.weeks, selectedSchemeWeek, sessionsPerWeek, subject],
   );
   const availableWeeks = useMemo(
     () =>
@@ -191,9 +193,8 @@ export default function GenerateScreen() {
     async function loadSubjectPreference() {
       if (!subject.trim()) return;
       const savedValue = await getLessonsPerWeekForSubject(subject);
-      if (active && savedValue) {
-        setSessionsPerWeekInput(savedValue);
-      }
+      if (!active) return;
+      setSessionsPerWeekInput(savedValue || getDefaultLessonsPerWeekSubjectPreference(subject));
     }
 
     loadSubjectPreference();
@@ -914,27 +915,30 @@ function buildLessonFocusPreview({
   subject,
   classLevel,
   selectedWeek,
+  weeks,
   sessionsPerWeek,
 }: {
   subject: string;
   classLevel: ClassLevel;
   selectedWeek?: SchemeOfWork['weeks'][number];
+  weeks?: SchemeOfWork['weeks'];
   sessionsPerWeek: number;
 }) {
   const weekFocus = selectedWeek ? getWeekTopic(selectedWeek) : '';
-  const guidance = buildExemplarLessonGuidance({
+  const guidance = buildWeeklyLessonAssignments({
     subject,
     classLevel,
-    week: selectedWeek,
+    selectedWeek,
+    weeks,
     sessionIndex: 1,
     sessionsPerWeek,
   });
   const fallbackItems = buildFallbackLessonFocusItems(sessionsPerWeek, weekFocus);
   const items = Array.from({ length: sessionsPerWeek }, (_, index) => {
-    const rawFocus = guidance?.allFocuses?.[index];
+    const assignment = guidance?.assignments?.[index];
     return {
       lessonNumber: index + 1,
-      title: rawFocus ? formatLessonFocusLabel(rawFocus, index, sessionsPerWeek, weekFocus) : fallbackItems[index],
+      title: assignment?.title ? sentenceCase(truncateFocusLabel(assignment.title)) : fallbackItems[index],
     };
   });
 
@@ -1002,3 +1006,4 @@ function sentenceCase(value: string) {
 function isGhanaianLanguageSubject(subject?: string) {
   return subject?.trim().toLowerCase() === 'ghanaian language';
 }
+

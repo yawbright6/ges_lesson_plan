@@ -1,6 +1,7 @@
 import type { LessonPhase, LessonPlan, LessonPlanPromptInput } from '@/types/lessonPlan';
 import type { SchemeOfWork, SchemeWeek, SchemeWeekEntry } from '@/types/scheme';
 import { buildSchemeContext } from './schemeStore';
+import { buildWeeklyLessonAssignments } from './lessonAssignments';
 
 export function buildFallbackLessonPlan(
   input: LessonPlanPromptInput,
@@ -8,17 +9,27 @@ export function buildFallbackLessonPlan(
 ): LessonPlan {
   const schemeContext = buildSchemeContext(scheme, input.week);
   const selectedWeek = schemeContext.selectedWeek ?? getWeekByNumber(scheme, input.week);
-  const primaryEntry = getPrimaryEntry(selectedWeek);
-  const topic = selectedWeek?.topic || primaryEntry?.topic || `Week ${input.week} lesson`;
-  const strand = selectedWeek?.strand || primaryEntry?.strand || scheme.subject;
-  const subStrand = selectedWeek?.subStrand || primaryEntry?.subStrand || topic;
+  const assignmentGuidance = buildWeeklyLessonAssignments({
+    subject: input.subject,
+    classLevel: input.classLevel,
+    selectedWeek,
+    weeks: scheme.weeks,
+    weekNumber: input.week,
+    sessionIndex: input.sessionIndex,
+    sessionsPerWeek: input.sessionsPerWeek,
+  });
+  const assignedEntry = assignmentGuidance?.currentAssignment?.assignedEntry;
+  const primaryEntry = assignedEntry ?? getPrimaryEntry(selectedWeek);
+  const topic = primaryEntry?.topic || selectedWeek?.topic || `Week ${input.week} lesson`;
+  const strand = primaryEntry?.strand || selectedWeek?.strand || scheme.subject;
+  const subStrand = primaryEntry?.subStrand || selectedWeek?.subStrand || topic;
   const contentStandard =
-    selectedWeek?.contentStandard ||
     primaryEntry?.contentStandard ||
+    selectedWeek?.contentStandard ||
     `Teach learners the key ideas for ${topic}.`;
   const indicator =
-    selectedWeek?.indicator ||
     primaryEntry?.indicator ||
+    selectedWeek?.indicator ||
     `Learners should demonstrate understanding of ${topic}.`;
   const sessionsPerWeek = input.sessionsPerWeek ?? 1;
   const sessionIndex = input.sessionIndex ?? 1;
@@ -202,3 +213,4 @@ function normalizeTermLabel(term: string): string {
   if (lower.includes('3') || lower.includes('third')) return 'Term 3';
   return term.trim() || 'Term 1';
 }
+

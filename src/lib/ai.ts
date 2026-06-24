@@ -6,7 +6,7 @@ import { stripGeneratedTeachingNoteVisuals } from './teachingNoteContent';
 import { buildFallbackLessonPlan } from './fallbackLessonPlan';
 import { getExplicitCurriculumYearWeeks, getExplicitSchemeOfWork } from './curriculum';
 import { buildSchemeContext, findMatchingScheme } from './schemeStore';
-import { buildExemplarLessonGuidance } from './exemplarLessonGuidance';
+import { buildWeeklyLessonAssignments } from './lessonAssignments';
 import type { LessonPlan, LessonPlanPromptInput } from '@/types/lessonPlan';
 import type { SchemeGenerationInput, SchemeOfWork } from '@/types/scheme';
 import type { TeachingNotes } from '@/types/teachingNotes';
@@ -112,10 +112,12 @@ export async function generateLessonPlan(
   }
 
   const schemeContext = buildSchemeContext(groundingScheme, input.week);
-  const lessonFocusGuidance = buildExemplarLessonGuidance({
+  const lessonFocusGuidance = buildWeeklyLessonAssignments({
     subject: groundingScheme.subject || input.subject,
     classLevel: groundingScheme.classLevel || input.classLevel,
-    week: schemeContext.selectedWeek,
+    selectedWeek: schemeContext.selectedWeek,
+    weeks: groundingScheme.weeks,
+    weekNumber: input.week,
     sessionIndex: input.sessionIndex,
     sessionsPerWeek: input.sessionsPerWeek,
   });
@@ -556,3 +558,4 @@ function buildFallbackTeachingNotes(plan: LessonPlan): TeachingNotes {
     visuals: [],
   };
 }
+
