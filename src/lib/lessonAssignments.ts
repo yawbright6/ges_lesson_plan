@@ -33,6 +33,9 @@ type SubjectStrategy =
   | 'language-aspect'
   | 'mathematics-progression'
   | 'science-inquiry'
+  | 'computing-practical'
+  | 'social-inquiry'
+  | 'rme-values'
   | 'concept-application'
   | 'creative-process'
   | 'practical-production'
@@ -57,8 +60,9 @@ export function getSubjectLessonProfile(subject: string): SubjectLessonProfile {
   if (normalized.includes('english')) return { defaultLessonsPerWeek: 3, strategy: 'language-aspect' };
   if (normalized.includes('mathematics') || normalized.includes('math')) return { defaultLessonsPerWeek: 3, strategy: 'mathematics-progression' };
   if (normalized.includes('science')) return { defaultLessonsPerWeek: 3, strategy: 'science-inquiry' };
-  if (normalized.includes('social studies')) return { defaultLessonsPerWeek: 2, strategy: 'concept-application' };
-  if (normalized === 'rme' || normalized.includes('religious and moral')) return { defaultLessonsPerWeek: 2, strategy: 'concept-application' };
+  if (normalized.includes('computing')) return { defaultLessonsPerWeek: 2, strategy: 'computing-practical' };
+  if (normalized.includes('social studies')) return { defaultLessonsPerWeek: 2, strategy: 'social-inquiry' };
+  if (normalized === 'rme' || normalized.includes('religious and moral')) return { defaultLessonsPerWeek: 2, strategy: 'rme-values' };
   if (normalized.includes('creative arts')) return { defaultLessonsPerWeek: 2, strategy: 'creative-process' };
   if (normalized.includes('career technology') || normalized.includes('career tech')) return { defaultLessonsPerWeek: 2, strategy: 'practical-production' };
   if (normalized.includes('french')) return { defaultLessonsPerWeek: 2, strategy: 'language-aspect' };
@@ -250,8 +254,8 @@ function buildExemplarPlan(input: {
       : [];
 
   return {
-    supportExemplars: uniqueStrings(supportGroups.flatMap((group) => group.exemplars)),
-    deferredExemplars: uniqueStrings(deferredGroups.flatMap((group) => group.exemplars)),
+    supportExemplars: uniqueStrings(supportGroups.flatMap((group) => group.exemplars).map(cleanLessonFocusText).filter(Boolean)),
+    deferredExemplars: uniqueStrings(deferredGroups.flatMap((group) => group.exemplars).map(cleanLessonFocusText).filter(Boolean)),
     supportIndicators: uniqueStrings(supportGroups.map(formatIndicatorLabel).filter(Boolean)),
     deferredIndicators: uniqueStrings(deferredGroups.map(formatIndicatorLabel).filter(Boolean)),
   };
@@ -303,29 +307,163 @@ function splitSingleFocusGroup(
   slotCount: number,
   strategy: SubjectStrategy,
 ): IndicatorFocusGroup[][] {
-  const exemplars = uniqueStrings(group.exemplars ?? []);
-  if (!exemplars.length) return Array.from({ length: slotCount }, () => [{ ...group, exemplars: [] }]);
-
-  if (exemplars.length === 1 && slotCount > 1) {
-    const expanded = expandSingleDenseExemplar(exemplars[0], group.indicator, strategy, slotCount);
-    if (expanded.length > 1) return expanded.map((exemplar) => [{ ...group, exemplars: [exemplar] }]);
+  const exemplars = uniqueStrings(group.exemplars ?? []).map(cleanLessonFocusText).filter(Boolean);
+  if (exemplars.length >= slotCount) {
+    const stageGroups = groupExemplarsByStage(exemplars, strategy);
+    if (stageGroups.length > 1) {
+      const chunks = splitStageGroupsAcrossSlots(stageGroups, slotCount);
+      return chunks.map((chunk) => [{ ...group, exemplars: chunk }]);
+    }
   }
 
-  const stageGroups = groupExemplarsByStage(exemplars, strategy);
-  const exemplarChunks = splitStageGroupsAcrossSlots(stageGroups, slotCount);
+  const focusUnits = buildLessonFocusUnits(group, exemplars, slotCount, strategy);
+  const chunks = splitItemsIntoSlots(focusUnits, slotCount);
 
-  return exemplarChunks.map((chunk) => [{ ...group, exemplars: chunk }]);
+  return chunks.map((chunk) => [{ ...group, exemplars: chunk }]);
 }
 
-function expandSingleDenseExemplar(
-  exemplar: string,
-  indicator: string,
-  strategy: SubjectStrategy,
+function buildLessonFocusUnits(
+  group: IndicatorFocusGroup,
+  exemplars: string[],
   slotCount: number,
+  strategy: SubjectStrategy,
 ): string[] {
-  const text = normalizeForMatch(`${indicator} ${exemplar}`);
+  if (!exemplars.length) {
+    return deriveIndicatorFocusUnits(group, slotCount, strategy);
+  }
 
-  if (strategy === 'mathematics-progression' && hasAny(text, ['tallies', 'tally', 'frequency table', 'data'])) {
+  if (exemplars.length < slotCount) {
+    const derived = deriveIndicatorFocusUnits(group, slotCount, strategy);
+    if (derived.length >= slotCount) return derived;
+  }
+
+  return orderExemplarsByStage(exemplars, strategy);
+}
+
+function splitItemsIntoSlots(values: string[], slotCount: number): string[][] {
+  const cleanValues = uniqueStrings(values).map(cleanLessonFocusText).filter(Boolean);
+  if (!cleanValues.length) return [];
+  if (slotCount <= 1) return [cleanValues];
+
+  const chunks = splitBalanced(cleanValues, Math.min(slotCount, cleanValues.length));
+  while (chunks.length < slotCount) chunks.push([]);
+  return chunks.slice(0, slotCount);
+}
+
+function orderExemplarsByStage(exemplars: string[], strategy: SubjectStrategy): string[] {
+  return exemplars
+    .map((exemplar, index) => ({
+      exemplar,
+      index,
+      stage: classifyExemplarStage(exemplar, strategy),
+    }))
+    .sort((left, right) => left.stage - right.stage || left.index - right.index)
+    .map((item) => item.exemplar);
+}
+
+function classifyExemplarStage(exemplar: string, strategy: SubjectStrategy): number {
+  const text = normalizeForMatch(exemplar);
+
+  if (strategy === 'language-aspect') {
+    if (hasAny(text, ['write', 'compose', 'paragraph', 'essay', 'extended', 'present', 'produce'])) return 2;
+    if (hasAny(text, ['categorise', 'categorize', 'classify', 'correct', 'transform', 'convert', 'compare', 'distinguish'])) return 1;
+    return 0;
+  }
+
+  if (strategy === 'science-inquiry') {
+    if (hasAny(text, ['explain', 'analyse', 'analyze', 'apply', 'conclude', 'evaluate', 'use'])) return 2;
+    if (hasAny(text, ['investigate', 'demonstrate', 'record', 'experiment', 'measure', 'observe'])) return 1;
+    return 0;
+  }
+
+  if (strategy === 'mathematics-progression') {
+    if (hasAny(text, ['solve', 'pose problems', 'apply', 'word problem', 'independent', 'prove', 'justify', 'analyse', 'analyze'])) return 2;
+    if (hasAny(text, ['calculate', 'complete', 'work', 'practice', 'guided', 'construct', 'draw'])) return 1;
+    return 0;
+  }
+
+  if (strategy === 'computing-practical') {
+    if (hasAny(text, ['evaluate', 'troubleshoot', 'format', 'create', 'apply', 'safe', 'safety', 'risk reduction'])) return 2;
+    if (hasAny(text, ['demonstrate', 'use', 'explore', 'insert', 'configure', 'practise', 'practice'])) return 1;
+    return 0;
+  }
+
+  if (strategy === 'rme-values' || strategy === 'social-inquiry' || strategy === 'concept-application') {
+    if (hasAny(text, ['apply', 'reflect', 'present', 'role play', 'role-play', 'demonstrate', 'community', 'life', 'evaluate'])) return 2;
+    if (hasAny(text, ['discuss', 'distinguish', 'compare', 'explain benefits', 'examine'])) return 1;
+    return 0;
+  }
+
+  if (strategy === 'creative-process' || strategy === 'practical-production') {
+    if (hasAny(text, ['make', 'perform', 'produce', 'evaluate', 'appraise', 'display'])) return 1;
+    return 0;
+  }
+
+  return 0;
+}
+
+function deriveIndicatorFocusUnits(
+  group: IndicatorFocusGroup,
+  slotCount: number,
+  strategy: SubjectStrategy,
+): string[] {
+  const indicator = cleanLessonFocusText(group.indicator);
+  const exemplarText = cleanLessonFocusText(uniqueStrings(group.exemplars ?? []).join(' '));
+  const combined = normalizeForMatch(`${indicator} ${exemplarText}`);
+
+  if (strategy === 'computing-practical') {
+    if (hasAny(combined, ['online services', 'social media', 'wikis', 'blogs'])) {
+      return [
+        'Identify common online services learners use or can access, including social media, wikis, blogs, email and learning platforms.',
+        'Explain and evaluate issues associated with online services such as privacy, misinformation, cyberbullying, addiction, scams and unreliable content.',
+      ].slice(0, slotCount);
+    }
+
+    if (hasAny(combined, ['health issues', 'workstation health', 'wrist pains', 'eye problems', 'back and neck pains'])) {
+      return [
+        'Identify health risks at computer workstations, including wrist pain, eye strain, back and neck pain and faulty electrical connections.',
+        'Discuss ways to prevent or reduce workstation health risks through posture, screen distance, breaks, chair adjustment and safe cable use.',
+      ].slice(0, slotCount);
+    }
+
+    if (hasAny(combined, ['risk reduction', 'screen protectors', 'speakers', 'earpieces', 'electric sockets'])) {
+      return [
+        'Demonstrate safe volume and eye-protection practices when using speakers, earpieces, screens and screen protectors.',
+        'Illustrate electrical safety and risk reduction at workstations, including avoiding overloaded sockets and unsafe adapters.',
+      ].slice(0, slotCount);
+    }
+
+    return [
+      `Unpack ICT terms, tools and procedures in the indicator: ${indicator}`,
+      `Practise or demonstrate the expected computing skill using the curriculum examples: ${exemplarText || indicator}`,
+      `Apply, evaluate or troubleshoot the computing skill in a practical task: ${exemplarText || indicator}`,
+    ].slice(0, slotCount);
+  }
+
+  if (strategy === 'rme-values') {
+    if (hasAny(combined, ['ssnit', 'pension', 'retirement', 'invalidity', 'dependents'])) {
+      return [
+        'Explain the meaning and purpose of the SSNIT pension scheme, focusing on benefits to workers on retirement or invalidity.',
+        'Discuss SSNIT pension benefits to dependents after the death of a worker and to foreigners permanently leaving Ghana.',
+      ].slice(0, slotCount);
+    }
+
+    return [
+      `Explain the key religious or moral concept in the indicator: ${indicator}`,
+      `Discuss examples and life applications from the exemplars: ${exemplarText || indicator}`,
+      `Reflect on values, choices and community-life application: ${exemplarText || indicator}`,
+    ].slice(0, slotCount);
+  }
+
+  if (strategy === 'social-inquiry') {
+    return [
+      `Explain the key civic, historical, geographical or social concept in the indicator: ${indicator}`,
+      `Discuss local examples, causes, effects or responsibilities from the exemplars: ${exemplarText || indicator}`,
+      `Apply the concept through reflection, presentation, inquiry or community action: ${exemplarText || indicator}`,
+    ].slice(0, slotCount);
+  }
+
+  if (strategy === 'mathematics-progression' && hasAny(combined, ['tallies', 'tally', 'frequency table', 'data'])) {
     return [
       'Use tallies to organise raw data into a frequency table.',
       'Complete and check frequency tables from tally data.',
@@ -335,21 +473,25 @@ function expandSingleDenseExemplar(
 
   if (strategy === 'mathematics-progression') {
     return [
-      `Introduce the mathematical idea and unpack the worked example: ${exemplar}`,
-      `Use guided practice from the exemplar: ${exemplar}`,
-      `Apply the exemplar independently to solve or pose related problems: ${exemplar}`,
+      `Introduce the mathematical concept, vocabulary or rule in the indicator: ${indicator}`,
+      `Work through guided examples and practice: ${exemplarText || indicator}`,
+      `Apply the concept independently to solve or pose related problems: ${exemplarText || indicator}`,
     ].slice(0, slotCount);
   }
 
   if (strategy === 'science-inquiry') {
     return [
-      `Identify and describe the key science idea: ${exemplar}`,
-      `Demonstrate or investigate the science idea using observable evidence: ${exemplar}`,
-      `Explain and apply the science idea to everyday situations: ${exemplar}`,
+      `Identify and describe the key science idea in the indicator: ${indicator}`,
+      `Demonstrate or investigate the science idea using observable evidence: ${exemplarText || indicator}`,
+      `Explain and apply the science idea to everyday situations: ${exemplarText || indicator}`,
     ].slice(0, slotCount);
   }
 
-  return [];
+  return [
+    `Unpack the key terms and concepts in the indicator: ${indicator}`,
+    `Use the curriculum examples for guided practice or discussion: ${exemplarText || indicator}`,
+    `Apply, assess or extend the focus: ${exemplarText || indicator}`,
+  ].slice(0, slotCount);
 }
 
 function exemplarWeight(group: IndicatorFocusGroup): number {
@@ -428,7 +570,7 @@ function splitStageGroupsAcrossSlots(groups: string[][], slotCount: number): str
   }
   const result = [...groups];
   while (result.length < slotCount) {
-    result.push(groups[groups.length - 1]);
+    result.push([]);
   }
   return result.slice(0, slotCount);
 }
@@ -560,6 +702,16 @@ function cleanText(value?: string) {
   return (value ?? '').trim();
 }
 
+function cleanLessonFocusText(value?: string) {
+  return cleanText(value)
+    .replace(/\bprevail in cyberspace\b/gi, '')
+    .replace(/\b\d+\s*©?\s*NaCCA,?\s+Ministry of Education\s+\d{4}\b/gi, '')
+    .replace(/\bNaCCA,?\s+Ministry of Education\s+\d{4}\b/gi, '')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .replace(/\s+([.,;:])/g, '$1');
+}
+
 function uniqueStrings(values: string[]) {
   const seen = new Set<string>();
   const result: string[] = [];
@@ -572,4 +724,8 @@ function uniqueStrings(values: string[]) {
   }
   return result;
 }
+
+
+
+
 
