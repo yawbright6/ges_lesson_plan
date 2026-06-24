@@ -280,87 +280,176 @@ function splitFocusGroupsAcrossSlots(
   if (!cleanGroups.length) return [];
   const safeSlotCount = Math.max(1, slotCount);
   if (safeSlotCount <= 1) return [cleanGroups];
-  if (cleanGroups.length === 1) return splitSingleFocusGroup(cleanGroups[0], safeSlotCount, strategy);
 
-  const allocations = allocateFocusGroupSlots(cleanGroups, safeSlotCount);
-  return allocations.flatMap(({ group, count }) => splitSingleFocusGroup(group, count, strategy));
+  const naturalUnits = buildNaturalFocusUnitsAcrossGroups(cleanGroups, strategy, safeSlotCount);
+  const completeUnits = naturalUnits.length >= safeSlotCount
+    ? naturalUnits
+    : expandSparseFocusUnits(naturalUnits, cleanGroups, safeSlotCount, strategy);
+  const slots = splitFocusUnitsIntoLessonSlots(completeUnits, safeSlotCount);
+  return slots.map((slot) => groupsFromFocusUnits(slot));
 }
 
-function allocateFocusGroupSlots(
+type FocusUnit = {
+  group: IndicatorFocusGroup;
+  text: string;
+  stage: number;
+  index: number;
+};
+
+function buildNaturalFocusUnitsAcrossGroups(
   groups: IndicatorFocusGroup[],
-  slotCount: number,
-): Array<{ group: IndicatorFocusGroup; count: number }> {
-  const allocations = groups.map((group, index) => ({ group, count: 1, index }));
-  let remaining = Math.max(0, slotCount - allocations.length);
-
-  while (remaining > 0) {
-    allocations.sort((left, right) => exemplarWeight(right.group) / right.count - exemplarWeight(left.group) / left.count);
-    allocations[0].count += 1;
-    remaining -= 1;
-  }
-
-  return allocations.sort((left, right) => left.index - right.index);
-}
-
-function splitSingleFocusGroup(
-  group: IndicatorFocusGroup,
-  slotCount: number,
   strategy: SubjectStrategy,
-): IndicatorFocusGroup[][] {
-  const exemplars = uniqueStrings(group.exemplars ?? []).map(cleanLessonFocusText).filter(Boolean);
-  if (exemplars.length >= slotCount) {
-    const stageGroups = groupExemplarsByStage(exemplars, strategy);
-    if (stageGroups.length > 1) {
-      const chunks = splitStageGroupsAcrossSlots(stageGroups, slotCount);
-      return chunks.map((chunk) => [{ ...group, exemplars: chunk }]);
-    }
-  }
-
-  const focusUnits = buildLessonFocusUnits(group, exemplars, slotCount, strategy);
-  const chunks = splitItemsIntoSlots(focusUnits, slotCount);
-
-  return chunks.map((chunk) => [{ ...group, exemplars: chunk }]);
-}
-
-function buildLessonFocusUnits(
-  group: IndicatorFocusGroup,
-  exemplars: string[],
   slotCount: number,
-  strategy: SubjectStrategy,
-): string[] {
-  if (!exemplars.length) {
-    return deriveIndicatorFocusUnits(group, slotCount, strategy);
-  }
+): FocusUnit[] {
+  const units: FocusUnit[] = [];
 
-  if (exemplars.length < slotCount) {
-    const derived = deriveIndicatorFocusUnits(group, slotCount, strategy);
-    if (derived.length >= slotCount) return derived;
-  }
+  groups.forEach((group, groupIndex) => {
+    const exemplars = uniqueStrings(group.exemplars ?? []).map(cleanLessonFocusText).filter(Boolean);
+    const derivedUnits = deriveIndicatorFocusUnits(group, slotCount, strategy);
+    const groupUnits = shouldPreferDerivedFocusUnits(group, strategy, slotCount)
+      ? derivedUnits
+      : exemplars.length
+        ? exemplars
+        : derivedUnits.slice(0, 1);
+    groupUnits.forEach((text, unitIndex) => {
+      const cleanTextValue = cleanLessonFocusText(text);
+      if (!cleanTextValue) return;
+      units.push({
+        group,
+        text: cleanTextValue,
+        stage: classifyExemplarStage(cleanTextValue, strategy),
+        index: groupIndex * 100 + unitIndex,
+      });
+    });
+  });
 
-  return orderExemplarsByStage(exemplars, strategy);
+  return dedupeFocusUnits(units);
+}
+function shouldPreferDerivedFocusUnits(group: IndicatorFocusGroup, strategy: SubjectStrategy, slotCount: number) {
+  if (slotCount <= 1 || strategy !== 'mathematics-progression') return false;
+  const combined = normalizeForMatch(`${group.indicator} ${(group.exemplars ?? []).join(' ')}`);
+  return hasAny(combined, ['tallies', 'tally', 'frequency table', 'data'])
+    && (group.exemplars ?? []).some((exemplar) => isRawWorkedExample(exemplar));
 }
 
-function splitItemsIntoSlots(values: string[], slotCount: number): string[][] {
-  const cleanValues = uniqueStrings(values).map(cleanLessonFocusText).filter(Boolean);
-  if (!cleanValues.length) return [];
-  if (slotCount <= 1) return [cleanValues];
+function isRawWorkedExample(value: string) {
+  const text = normalizeForMatch(value);
+  const digitCount = (value.match(/\d/g) ?? []).length;
+  return text.startsWith('e g') || digitCount >= 20 || text.includes('complete the frequency table below');
+}
 
-  const chunks = splitBalanced(cleanValues, Math.min(slotCount, cleanValues.length));
+function splitFocusUnitsIntoLessonSlots(
+  units: FocusUnit[],
+  slotCount: number,
+): FocusUnit[][] {
+  const cleanUnits = dedupeFocusUnits(units).sort((left, right) => left.stage - right.stage || left.index - right.index);
+  if (!cleanUnits.length) return [];
+  if (slotCount <= 1) return [cleanUnits];
+  if (cleanUnits.length <= slotCount) {
+    const exactSlots = cleanUnits.map((unit) => [unit]);
+    while (exactSlots.length < slotCount) exactSlots.push([]);
+    return exactSlots;
+  }
+
+  const stageGroups = groupFocusUnitsByStage(cleanUnits);
+  const chunks = stageGroups.length > 1
+    ? splitStageUnitGroupsAcrossSlots(stageGroups, slotCount)
+    : splitBalanced(cleanUnits, Math.min(slotCount, cleanUnits.length));
   while (chunks.length < slotCount) chunks.push([]);
   return chunks.slice(0, slotCount);
 }
 
-function orderExemplarsByStage(exemplars: string[], strategy: SubjectStrategy): string[] {
-  return exemplars
-    .map((exemplar, index) => ({
-      exemplar,
-      index,
-      stage: classifyExemplarStage(exemplar, strategy),
-    }))
-    .sort((left, right) => left.stage - right.stage || left.index - right.index)
-    .map((item) => item.exemplar);
+function expandSparseFocusUnits(
+  units: FocusUnit[],
+  groups: IndicatorFocusGroup[],
+  slotCount: number,
+  strategy: SubjectStrategy,
+): FocusUnit[] {
+  const expanded = [...units];
+  groups.forEach((group, groupIndex) => {
+    if (expanded.length >= slotCount) return;
+    const derived = deriveIndicatorFocusUnits(group, slotCount, strategy);
+    derived.forEach((text, derivedIndex) => {
+      if (expanded.length >= slotCount) return;
+      const cleanTextValue = cleanLessonFocusText(text);
+      if (!cleanTextValue || expanded.some((item) => areSimilarFocusUnits(item.text, cleanTextValue))) return;
+      expanded.push({
+        group,
+        text: cleanTextValue,
+        stage: classifyExemplarStage(cleanTextValue, strategy),
+        index: groupIndex * 1000 + derivedIndex,
+      });
+    });
+  });
+  return expanded;
 }
 
+function groupFocusUnitsByStage(units: FocusUnit[]): FocusUnit[][] {
+  const buckets = new Map<number, FocusUnit[]>();
+  units.forEach((unit) => {
+    buckets.set(unit.stage, [...(buckets.get(unit.stage) ?? []), unit]);
+  });
+  return [...buckets.entries()]
+    .sort((left, right) => left[0] - right[0])
+    .map(([, values]) => values)
+    .filter((values) => values.length);
+}
+
+function splitStageUnitGroupsAcrossSlots(groups: FocusUnit[][], slotCount: number): FocusUnit[][] {
+  if (groups.length === slotCount) return groups;
+  if (groups.length > slotCount) return splitBalanced(groups, slotCount).map((chunk) => chunk.flat());
+  const result = groups.map((group) => [...group]);
+  while (result.length < slotCount) {
+    let splitIndex = -1;
+    let splitSize = 1;
+    result.forEach((group, index) => {
+      if (group.length > splitSize) {
+        splitIndex = index;
+        splitSize = group.length;
+      }
+    });
+    if (splitIndex < 0) break;
+    const [left, right] = splitBalanced(result[splitIndex], 2);
+    result.splice(splitIndex, 1, left ?? [], right ?? []);
+  }
+  while (result.length < slotCount) result.push([]);
+  return result.slice(0, slotCount);
+}
+
+function groupsFromFocusUnits(units: FocusUnit[]): IndicatorFocusGroup[] {
+  const groups = new Map<IndicatorFocusGroup, string[]>();
+  units.forEach((unit) => {
+    groups.set(unit.group, [...(groups.get(unit.group) ?? []), unit.text]);
+  });
+
+  return [...groups.entries()].map(([group, exemplars]) => ({
+    ...group,
+    exemplars: uniqueStrings(exemplars),
+  }));
+}
+
+function dedupeFocusUnits(units: FocusUnit[]): FocusUnit[] {
+  const result: FocusUnit[] = [];
+  for (const unit of units) {
+    if (!unit.text || result.some((existing) => areSimilarFocusUnits(existing.text, unit.text))) continue;
+    result.push(unit);
+  }
+  return result;
+}
+
+function areSimilarFocusUnits(left: string, right: string) {
+  const leftTokens = new Set(tokenizeFocus(left));
+  const rightTokens = tokenizeFocus(right);
+  if (!leftTokens.size || !rightTokens.length) return normalizeForMatch(left) === normalizeForMatch(right);
+  const shared = rightTokens.filter((token) => leftTokens.has(token)).length;
+  return shared / Math.max(leftTokens.size, rightTokens.length) >= 0.82;
+}
+
+function tokenizeFocus(value: string) {
+  return normalizeForMatch(value)
+    .split(' ')
+    .filter((token) => token.length > 3 && !FOCUS_STOP_WORDS.has(token));
+}
 function classifyExemplarStage(exemplar: string, strategy: SubjectStrategy): number {
   const text = normalizeForMatch(exemplar);
 
@@ -371,8 +460,8 @@ function classifyExemplarStage(exemplar: string, strategy: SubjectStrategy): num
   }
 
   if (strategy === 'science-inquiry') {
-    if (hasAny(text, ['explain', 'analyse', 'analyze', 'apply', 'conclude', 'evaluate', 'use'])) return 2;
-    if (hasAny(text, ['investigate', 'demonstrate', 'record', 'experiment', 'measure', 'observe'])) return 1;
+    if (hasAny(text, ['apply', 'conclude', 'evaluate', 'select', 'explore', 'present findings', 'present', 'uses of', 'everyday life', 'applications'])) return 2;
+    if (hasAny(text, ['investigate', 'demonstrate', 'record', 'experiment', 'measure', 'observe', 'explain', 'practice', 'practise', 'match'])) return 1;
     return 0;
   }
 
@@ -494,10 +583,6 @@ function deriveIndicatorFocusUnits(
   ].slice(0, slotCount);
 }
 
-function exemplarWeight(group: IndicatorFocusGroup): number {
-  return Math.max(1, group.exemplars.length);
-}
-
 function buildDisplayTitle(input: {
   supportExemplars: string[];
   supportIndicators: string[];
@@ -517,74 +602,6 @@ function formatIndicatorLabel(group: IndicatorFocusGroup): string {
   const code = cleanText(group.code);
   const indicator = cleanText(group.indicator);
   return [code, indicator].filter(Boolean).join(' ');
-}
-
-function groupExemplarsByStage(exemplars: string[], strategy: SubjectStrategy): string[][] {
-  if (strategy === 'language-aspect') {
-    return groupByStage(exemplars, (text) => {
-      if (hasAny(text, ['write', 'compose', 'paragraph', 'essay', 'extended', 'present', 'produce'])) return 2;
-      if (hasAny(text, ['categorise', 'categorize', 'classify', 'correct', 'transform', 'convert', 'compare', 'distinguish'])) return 1;
-      return 0;
-    });
-  }
-
-  if (strategy === 'science-inquiry') {
-    return groupByStage(exemplars, (text) => {
-      if (hasAny(text, ['explain', 'analyse', 'analyze', 'apply', 'conclude', 'evaluate', 'use'])) return 2;
-      if (hasAny(text, ['investigate', 'demonstrate', 'record', 'experiment', 'measure', 'observe'])) return 1;
-      return 0;
-    });
-  }
-
-  if (strategy === 'mathematics-progression') {
-    return groupByStage(exemplars, (text) => {
-      if (hasAny(text, ['solve', 'pose problems', 'apply', 'word problem', 'independent', 'prove', 'justify', 'analyse', 'analyze'])) return 2;
-      if (hasAny(text, ['calculate', 'complete', 'work', 'practice', 'guided', 'construct', 'draw'])) return 1;
-      return 0;
-    });
-  }
-
-  if (strategy === 'creative-process' || strategy === 'practical-production') {
-    return groupByStage(exemplars, (text) => {
-      if (hasAny(text, ['make', 'perform', 'produce', 'evaluate', 'appraise', 'display'])) return 1;
-      return 0;
-    });
-  }
-
-  if (strategy === 'concept-application') {
-    return groupByStage(exemplars, (text) => {
-      if (hasAny(text, ['apply', 'reflect', 'present', 'role play', 'role-play', 'community', 'life'])) return 1;
-      return 0;
-    });
-  }
-
-  return [exemplars];
-}
-
-function splitStageGroupsAcrossSlots(groups: string[][], slotCount: number): string[][] {
-  if (!groups.length) return [];
-  if (groups.length === slotCount) return groups;
-  if (groups.length > slotCount) {
-    const chunks = splitBalanced(groups, slotCount);
-    return chunks.map((chunk) => chunk.flat());
-  }
-  const result = [...groups];
-  while (result.length < slotCount) {
-    result.push([]);
-  }
-  return result.slice(0, slotCount);
-}
-
-function groupByStage(exemplars: string[], classify: (text: string) => number): string[][] {
-  const buckets = new Map<number, string[]>();
-  exemplars.forEach((exemplar) => {
-    const stage = classify(normalizeForMatch(exemplar));
-    buckets.set(stage, [...(buckets.get(stage) ?? []), exemplar]);
-  });
-  return [...buckets.entries()]
-    .sort((left, right) => left[0] - right[0])
-    .map(([, values]) => values)
-    .filter((values) => values.length);
 }
 
 function buildFallbackGuidance(input: {
@@ -690,6 +707,29 @@ function hasAny(text: string, terms: string[]) {
   return terms.some((term) => text.includes(normalizeForMatch(term)));
 }
 
+const FOCUS_STOP_WORDS = new Set([
+  'with',
+  'from',
+  'that',
+  'this',
+  'their',
+  'them',
+  'into',
+  'using',
+  'learners',
+  'lesson',
+  'focus',
+  'indicator',
+  'exemplar',
+  'examples',
+  'discuss',
+  'identify',
+  'explain',
+  'demonstrate',
+  'describe',
+  'explore',
+]);
+
 function normalizeForMatch(value: string) {
   return value.toLowerCase().replace(/[^a-z0-9]+/g, ' ').replace(/\s+/g, ' ').trim();
 }
@@ -724,8 +764,3 @@ function uniqueStrings(values: string[]) {
   }
   return result;
 }
-
-
-
-
-
