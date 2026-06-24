@@ -244,7 +244,8 @@ function buildExemplarPlan(input: {
     : input.hasFutureRelatedEntry
       ? 2
       : 1;
-  const slots = splitFocusGroupsAcrossSlots(sourceGroups, requiredSlots, input.profile.strategy);
+  const normalizedGroups = normalizeFocusGroupsForAssignment(sourceGroups, input.entry, input.profile.strategy, requiredSlots);
+  const slots = splitFocusGroupsAcrossSlots(normalizedGroups, requiredSlots, input.profile.strategy);
   const supportSlotIndex = input.repeatedEntrySlotCount > 1 ? input.repeatedEntrySlotIndex : 0;
   const supportGroups = slots[supportSlotIndex] ?? slots[0] ?? [];
   const deferredGroups = input.repeatedEntrySlotCount > 1
@@ -271,6 +272,130 @@ function buildEntryOnlyFocusGroups(entry?: SchemeWeekEntry): IndicatorFocusGroup
   return indicator ? [{ indicator, exemplars: [] }] : [];
 }
 
+function normalizeFocusGroupsForAssignment(
+  groups: IndicatorFocusGroup[],
+  entry: SchemeWeekEntry | undefined,
+  strategy: SubjectStrategy,
+  slotCount: number,
+): IndicatorFocusGroup[] {
+  return groups.map((group) => {
+    const preferredUnits = derivePreferredFocusUnits(group, entry, strategy, slotCount);
+    if (!preferredUnits.length) return group;
+    return {
+      ...group,
+      indicator: cleanText(entry?.indicator) || group.indicator,
+      exemplars: preferredUnits,
+    };
+  });
+}
+
+function derivePreferredFocusUnits(
+  group: IndicatorFocusGroup,
+  entry: SchemeWeekEntry | undefined,
+  strategy: SubjectStrategy,
+  slotCount: number,
+): string[] {
+  const focusCount = Math.max(1, slotCount);
+  const entryTopic = cleanLessonFocusText(entry?.topic ?? '');
+  const indicator = cleanLessonFocusText(entry?.indicator || group.indicator);
+  const exemplarText = cleanLessonFocusText(uniqueStrings(group.exemplars ?? []).join(' '));
+  const entryContext = normalizeForMatch([
+    entry?.topic,
+    entry?.strand,
+    entry?.subStrand,
+    entry?.indicator,
+    entry?.contentStandard,
+  ].filter(Boolean).join(' '));
+  const combined = normalizeForMatch([
+    entryContext,
+    group.indicator,
+    exemplarText,
+  ].filter(Boolean).join(' '));
+
+  if (strategy === 'computing-practical') {
+    if (hasAny(entryContext, ['network hardware', 'network topologies', 'network systems'])) {
+      return [
+        'Identify key network hardware used to set up network systems, such as server, client, hub, switch and cables.',
+        'Explain and draw network topologies such as bus, star, ring and mesh, including their features.',
+      ].slice(0, focusCount);
+    }
+
+    if (hasAny(entryContext, ['spreadsheet interface', 'basic data operations', 'entering data'])) {
+      return [
+        'Identify the main parts and features of the spreadsheet interface.',
+        'Enter, select, delete and move data in a spreadsheet using a sample data set.',
+      ].slice(0, focusCount);
+    }
+
+    if (hasAny(entryContext, ['create formulas', 'simple formulas', 'spreadsheet formula'])) {
+      return [
+        'Explain formula structure and why spreadsheet formulas begin with the equal sign (=).',
+        'Create and test simple spreadsheet formulas using cell references and basic operators.',
+      ].slice(0, focusCount);
+    }
+
+    if (hasAny(entryContext, ['modern storage', 'storage systems'])) {
+      return [
+        'Identify and describe modern storage systems such as flash memory cards, USB flash drives, SSDs and hybrid hard drives.',
+        'Illustrate the uses, capacities and differences of modern storage systems.',
+      ].slice(0, focusCount);
+    }
+  }
+
+  if (strategy === 'mathematics-progression' && hasAny(combined, ['construct special angles', 'construct angles', '30', '45', '60', '75', '90'])) {
+    return [
+      'Construct 90 degrees and 45 degrees angles using a straightedge and pair of compasses.',
+      'Construct 60 degrees and 30 degrees angles and verify the constructions.',
+      'Construct 15 degrees and 75 degrees angles by bisecting known angles.',
+    ].slice(0, focusCount);
+  }
+
+  if (strategy === 'mathematics-progression' && (group.exemplars ?? []).some((exemplar) => isRawWorkedExample(exemplar))) {
+    return deriveIndicatorFocusUnits(group, slotCount, strategy);
+  }
+
+  if (strategy === 'practical-production' && hasAny(combined, ['micro small and medium', 'business enterprises', 'setting up micro', 'small business enterprise'])) {
+    const enterpriseUnits = hasAny(entryContext, ['classifying', 'classify', 'enterprise ideas'])
+      ? [
+          'Identify and classify local enterprises as micro, small or medium-sized businesses.',
+          'Develop and display a photo album of local enterprise examples for discussion and appraisal.',
+        ]
+      : hasAny(entryContext, ['setting up', 'managing', 'steps'])
+        ? [
+            'Explain steps involved in setting up and managing micro and small business enterprises.',
+            'Discuss how micro, small and medium-sized enterprises are started and managed in the locality.',
+          ]
+        : [
+            'Explain the meaning and criteria of micro, small and medium-sized business enterprises.',
+            'Identify and classify local enterprises, then discuss steps involved in setting up micro and small businesses.',
+          ];
+    return enterpriseUnits.slice(0, focusCount);
+  }
+
+  if (strategy === 'language-aspect' && entryTopic && hasAny(combined, ['initiate discussions', 'engage in conferences', 'oral summary', 'listening to extended oral texts'])) {
+    return [
+      entryTopic,
+      `Practise and apply ${entryTopic.toLowerCase()} through oral or written response activities.`,
+    ].slice(0, focusCount);
+  }
+
+  if (strategy === 'language-aspect' && isGenericListeningFocus(combined) && entryTopic) {
+    return [
+      entryTopic,
+      `Practise and apply ${entryTopic.toLowerCase()} through oral or written response activities.`,
+    ].slice(0, focusCount);
+  }
+
+  if (strategy === 'language-aspect' && isRawWorkedExample(exemplarText) && entryTopic) {
+    return [entryTopic, `Apply ${entryTopic.toLowerCase()} in a guided language task.`].slice(0, focusCount);
+  }
+
+  return [];
+}
+
+function isGenericListeningFocus(text: string) {
+  return hasAny(text, ['listen to a level appropriate dialogue', 'listen to and note important issues', 'identify key information', 'message mood']);
+}
 function splitFocusGroupsAcrossSlots(
   groups: IndicatorFocusGroup[],
   slotCount: number,
@@ -472,8 +597,10 @@ function classifyExemplarStage(exemplar: string, strategy: SubjectStrategy): num
   }
 
   if (strategy === 'computing-practical') {
+    if (hasAny(text, ['network hardware', 'formula structure', 'spreadsheet interface'])) return 0;
+    if (hasAny(text, ['network topologies', 'create and test', 'enter select delete', 'enter, select, delete'])) return 1;
     if (hasAny(text, ['evaluate', 'troubleshoot', 'format', 'create', 'apply', 'safe', 'safety', 'risk reduction'])) return 2;
-    if (hasAny(text, ['demonstrate', 'use', 'explore', 'insert', 'configure', 'practise', 'practice'])) return 1;
+    if (hasAny(text, ['demonstrate', 'explore', 'insert', 'configure', 'practise', 'practice'])) return 1;
     return 0;
   }
 
