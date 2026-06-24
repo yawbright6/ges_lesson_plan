@@ -27,13 +27,23 @@ export interface LessonFocusGuidance {
 }
 
 type ExemplarSource = Record<string, { indicator: string; exemplars: string[] }>;
-type IndicatorFocusGroup = {
+export type IndicatorFocusGroup = {
   code?: string;
   indicator: string;
   exemplars: string[];
   priorExemplars?: string[];
   deferredExemplars?: string[];
 };
+
+export function getCurriculumFocusGroupsForEntry(input: {
+  subject: string;
+  entry?: SchemeWeekEntry;
+}): IndicatorFocusGroup[] {
+  if (!input.entry) return [];
+  const source = getExemplarSource(input.subject);
+  if (!source) return [];
+  return getFocusGroupsForEntry(input.entry, source);
+}
 
 export function buildExemplarLessonGuidance(input: {
   subject: string;
@@ -698,14 +708,14 @@ function getExemplarSource(subject: string): ExemplarSource | null {
   if (normalized.includes('computing')) {
     return { ...primaryComputingExemplarsByIndicator, ...computingExemplarsByIndicator };
   }
-  if (normalized.includes('career technology')) return careerTechnologyExemplarsByIndicator;
+  if (normalized.includes('career technology') || normalized.includes('career tech')) return careerTechnologyExemplarsByIndicator;
   if (normalized === 'rme' || normalized.includes('religious and moral')) {
     return { ...primaryRmeExemplarsByIndicator, ...rmeExemplarsByIndicator };
   }
   if (normalized.includes('creative arts')) {
     return { ...primaryCreativeArtsExemplarsByIndicator, ...creativeArtsDesignExemplarsByIndicator };
   }
-  if (normalized.includes('ghanaian language')) {
+  if (normalized.includes('ghanaian language') || normalized.includes('gha language') || normalized.includes('gha. language')) {
     return { ...primaryGhanaianLanguageExemplarsByIndicator, ...ghanaianLanguageExemplarsByIndicator };
   }
   if (normalized.includes('french')) {
@@ -736,10 +746,10 @@ function getSubjectMode(subject: string): string {
   ) {
     return 'physical-education';
   }
-  if (normalized.includes('career technology')) return 'career-technology';
+  if (normalized.includes('career technology') || normalized.includes('career tech')) return 'career-technology';
   if (normalized === 'rme' || normalized.includes('religious and moral')) return 'rme';
   if (normalized.includes('creative arts')) return 'creative-arts-design';
-  if (normalized.includes('ghanaian language')) return 'ghanaian-language';
+  if (normalized.includes('ghanaian language') || normalized.includes('gha language') || normalized.includes('gha. language')) return 'ghanaian-language';
   if (normalized.includes('french')) return 'french';
   return 'generic';
 }
@@ -799,3 +809,4 @@ const STOP_WORDS = new Set([
   'knowledge',
   'understanding',
 ]);
+

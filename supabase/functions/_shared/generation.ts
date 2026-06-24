@@ -21,6 +21,8 @@ interface LessonAssignment {
   assignedEntry?: SchemeWeekEntry;
   supportExemplars?: string[];
   deferredExemplars?: string[];
+  supportIndicators?: string[];
+  deferredIndicators?: string[];
   previousRelatedFocus?: string;
   nextRelatedFocus?: string;
 }
@@ -1412,8 +1414,10 @@ function formatLessonFocusGuidance(guidance?: SchemeContext['lessonFocusGuidance
   - Assigned sub-strand: ${assignedEntry?.subStrand || ''}
   - Assigned content standard: ${assignedEntry?.contentStandard || ''}
   - Assigned indicator: ${assignedEntry?.indicator || ''}
+  - Lesson-only indicator focus: ${(currentAssignment.supportIndicators || []).join(' ')}
   - Teach now exemplars: ${(currentAssignment.supportExemplars || []).join(' ')}
   - Defer to later related lessons: ${(currentAssignment.deferredExemplars || []).join(' ')}
+  - Deferred indicator focus: ${(currentAssignment.deferredIndicators || []).join(' ')}
   - Previous related focus: ${currentAssignment.previousRelatedFocus || ''}
   - Next related focus: ${currentAssignment.nextRelatedFocus || ''}
 `

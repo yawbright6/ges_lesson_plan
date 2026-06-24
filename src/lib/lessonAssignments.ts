@@ -1,6 +1,10 @@
 import type { ClassLevel } from '@/types/lessonPlan';
 import type { SchemeWeek, SchemeWeekEntry } from '@/types/scheme';
-import { buildExemplarLessonGuidance } from './exemplarLessonGuidance';
+import {
+  buildExemplarLessonGuidance,
+  getCurriculumFocusGroupsForEntry,
+  type IndicatorFocusGroup,
+} from './exemplarLessonGuidance';
 import { getWeekEntries, getWeekTopic } from './schemeWeek';
 
 export interface WeeklyLessonAssignment {
@@ -12,6 +16,8 @@ export interface WeeklyLessonAssignment {
   assignedEntry?: SchemeWeekEntry;
   supportExemplars: string[];
   deferredExemplars: string[];
+  supportIndicators: string[];
+  deferredIndicators: string[];
   previousRelatedFocus?: string;
   nextRelatedFocus?: string;
 }
@@ -35,6 +41,15 @@ type SubjectStrategy =
 type SubjectLessonProfile = {
   defaultLessonsPerWeek: number;
   strategy: SubjectStrategy;
+};
+
+type IndexedEntry = { entry: SchemeWeekEntry; index: number };
+
+type ExemplarPlan = {
+  supportExemplars: string[];
+  deferredExemplars: string[];
+  supportIndicators: string[];
+  deferredIndicators: string[];
 };
 
 export function getSubjectLessonProfile(subject: string): SubjectLessonProfile {
@@ -85,6 +100,7 @@ export function buildWeeklyLessonAssignments(input: {
     const previousRelatedFocus = assignedEntry ? findRelatedEntry(input.weeks, selectedWeek.week, assignedEntry, -1)?.topic : undefined;
     const nextRelatedFocus = assignedEntry ? findRelatedEntry(input.weeks, selectedWeek.week, assignedEntry, 1)?.topic : undefined;
     const exemplarPlan = buildExemplarPlan({
+      subject: input.subject,
       entry: assignedEntry,
       profile,
       repeatedEntrySlotIndex,
@@ -100,6 +116,8 @@ export function buildWeeklyLessonAssignments(input: {
       profile,
       supportExemplars: exemplarPlan.supportExemplars,
       deferredExemplars: exemplarPlan.deferredExemplars,
+      supportIndicators: exemplarPlan.supportIndicators,
+      deferredIndicators: exemplarPlan.deferredIndicators,
       previousRelatedFocus,
       nextRelatedFocus,
       weekFocus: getWeekTopic(selectedWeek),
@@ -120,7 +138,7 @@ export function buildWeeklyLessonAssignments(input: {
   };
 }
 
-function assignEntriesToLessons(entries: SchemeWeekEntry[], lessonCount: number) {
+function assignEntriesToLessons(entries: SchemeWeekEntry[], lessonCount: number): IndexedEntry[][] {
   const indexed = entries.map((entry, index) => ({ entry, index }));
   if (lessonCount <= 1) return [indexed];
   if (indexed.length === 1) return Array.from({ length: lessonCount }, () => [indexed[0]]);
@@ -140,6 +158,8 @@ function buildAssignment(input: {
   profile: SubjectLessonProfile;
   supportExemplars: string[];
   deferredExemplars: string[];
+  supportIndicators: string[];
+  deferredIndicators: string[];
   previousRelatedFocus?: string;
   nextRelatedFocus?: string;
   weekFocus: string;
@@ -147,16 +167,26 @@ function buildAssignment(input: {
   const entryGroup = input.entryGroup.filter(Boolean);
   const primary = input.assignedEntry ?? entryGroup[0];
   const aspect = entryGroup.map((entry) => entry.strand || entry.subStrand || entry.topic).filter(Boolean).join(' + ');
-  const title = [
-    aspect || input.weekFocus || `Lesson ${input.lessonNumber}`,
-    entryGroup.map((entry) => entry.topic).filter(Boolean).join(' + '),
-  ].filter(Boolean).join(' - ');
+  const title = buildDisplayTitle({
+    supportExemplars: input.supportExemplars,
+    supportIndicators: input.supportIndicators,
+    primary,
+    aspect,
+    weekFocus: input.weekFocus,
+    lessonNumber: input.lessonNumber,
+  });
   const supportText = input.supportExemplars.length
-    ? `Teach now using these supporting exemplars: ${input.supportExemplars.join(' ')}`
-    : 'Teach now using only this assigned entry and its immediate curriculum demand.';
+    ? `Teach now using these curriculum exemplars only: ${input.supportExemplars.join(' ')}`
+    : 'Teach now using only this assigned entry and the curriculum demand stated in its indicator.';
+  const supportIndicatorText = input.supportIndicators.length
+    ? `Assigned indicator focus: ${input.supportIndicators.join(' ')}`
+    : `Assigned indicator focus: ${primary?.indicator || primary?.topic || input.weekFocus || ''}`;
   const deferredText = input.deferredExemplars.length
-    ? `Defer to the next related ${aspect || 'aspect'} lesson: ${input.deferredExemplars.join(' ')}`
-    : 'No explicit exemplar is being deferred from this assignment.';
+    ? `Defer to a later related ${aspect || 'aspect'} lesson: ${input.deferredExemplars.join(' ')}`
+    : 'No explicit curriculum exemplar is being deferred from this assignment.';
+  const deferredIndicatorText = input.deferredIndicators.length
+    ? `Deferred indicator focus: ${input.deferredIndicators.join(' ')}`
+    : '';
   const relatedText = [
     input.previousRelatedFocus ? `Previous related focus: ${input.previousRelatedFocus}.` : '',
     input.nextRelatedFocus ? `Next related focus may continue at: ${input.nextRelatedFocus}.` : '',
@@ -165,10 +195,12 @@ function buildAssignment(input: {
   const focus = [
     `Lesson ${input.lessonNumber} assigned entry: ${formatEntryLabel(primary, aspect || input.weekFocus)}.`,
     `Assigned strategy: ${input.profile.strategy}.`,
+    supportIndicatorText,
     supportText,
     deferredText,
+    deferredIndicatorText,
     relatedText,
-    'Use only this assigned entry as the main boundary for strand, sub-strand, topic, activities, examples, performance indicator and assessment.',
+    'Use only this assigned entry and teach-now exemplars as the boundary for strand, sub-strand, topic, activities, examples, performance indicator, assessment and visual aids.',
   ].filter(Boolean).join(' ');
 
   return {
@@ -180,39 +212,169 @@ function buildAssignment(input: {
     assignedEntry: primary,
     supportExemplars: input.supportExemplars,
     deferredExemplars: input.deferredExemplars,
+    supportIndicators: input.supportIndicators,
+    deferredIndicators: input.deferredIndicators,
     previousRelatedFocus: input.previousRelatedFocus,
     nextRelatedFocus: input.nextRelatedFocus,
   };
 }
 
 function buildExemplarPlan(input: {
+  subject: string;
   entry?: SchemeWeekEntry;
   profile: SubjectLessonProfile;
   repeatedEntrySlotIndex: number;
   repeatedEntrySlotCount: number;
   hasFutureRelatedEntry: boolean;
-}) {
-  const exemplars = uniqueStrings(input.entry?.exemplars ?? []);
-  if (!exemplars.length) return { supportExemplars: [], deferredExemplars: [] };
-
-  const groups = groupExemplarsByStage(exemplars, input.profile.strategy);
-  if (input.repeatedEntrySlotCount > 1) {
-    const chunks = splitStageGroupsAcrossSlots(groups, input.repeatedEntrySlotCount);
-    const supportExemplars = chunks[input.repeatedEntrySlotIndex] ?? chunks[chunks.length - 1] ?? exemplars;
-    return {
-      supportExemplars,
-      deferredExemplars: chunks.slice(input.repeatedEntrySlotIndex + 1).flat(),
-    };
+}): ExemplarPlan {
+  const curriculumGroups = getCurriculumFocusGroupsForEntry({ subject: input.subject, entry: input.entry });
+  const sourceGroups = curriculumGroups.length
+    ? curriculumGroups
+    : buildEntryOnlyFocusGroups(input.entry);
+  if (!sourceGroups.length) {
+    return { supportExemplars: [], deferredExemplars: [], supportIndicators: [], deferredIndicators: [] };
   }
 
-  if (input.hasFutureRelatedEntry && groups.length > 1) {
-    return {
-      supportExemplars: groups[0],
-      deferredExemplars: groups.slice(1).flat(),
-    };
+  const requiredSlots = input.repeatedEntrySlotCount > 1
+    ? input.repeatedEntrySlotCount
+    : input.hasFutureRelatedEntry
+      ? 2
+      : 1;
+  const slots = splitFocusGroupsAcrossSlots(sourceGroups, requiredSlots, input.profile.strategy);
+  const supportSlotIndex = input.repeatedEntrySlotCount > 1 ? input.repeatedEntrySlotIndex : 0;
+  const supportGroups = slots[supportSlotIndex] ?? slots[0] ?? [];
+  const deferredGroups = input.repeatedEntrySlotCount > 1
+    ? slots.slice(supportSlotIndex + 1).flat()
+    : input.hasFutureRelatedEntry
+      ? slots.slice(1).flat()
+      : [];
+
+  return {
+    supportExemplars: uniqueStrings(supportGroups.flatMap((group) => group.exemplars)),
+    deferredExemplars: uniqueStrings(deferredGroups.flatMap((group) => group.exemplars)),
+    supportIndicators: uniqueStrings(supportGroups.map(formatIndicatorLabel).filter(Boolean)),
+    deferredIndicators: uniqueStrings(deferredGroups.map(formatIndicatorLabel).filter(Boolean)),
+  };
+}
+
+function buildEntryOnlyFocusGroups(entry?: SchemeWeekEntry): IndicatorFocusGroup[] {
+  if (!entry) return [];
+  const exemplars = uniqueStrings(entry.exemplars ?? []);
+  if (exemplars.length) {
+    return [{ indicator: cleanText(entry.indicator) || cleanText(entry.topic) || 'Weekly curriculum focus', exemplars }];
+  }
+  const indicator = cleanText(entry.indicator) || cleanText(entry.topic);
+  return indicator ? [{ indicator, exemplars: [] }] : [];
+}
+
+function splitFocusGroupsAcrossSlots(
+  groups: IndicatorFocusGroup[],
+  slotCount: number,
+  strategy: SubjectStrategy,
+): IndicatorFocusGroup[][] {
+  const cleanGroups = groups.filter(Boolean);
+  if (!cleanGroups.length) return [];
+  const safeSlotCount = Math.max(1, slotCount);
+  if (safeSlotCount <= 1) return [cleanGroups];
+  if (cleanGroups.length === 1) return splitSingleFocusGroup(cleanGroups[0], safeSlotCount, strategy);
+
+  const allocations = allocateFocusGroupSlots(cleanGroups, safeSlotCount);
+  return allocations.flatMap(({ group, count }) => splitSingleFocusGroup(group, count, strategy));
+}
+
+function allocateFocusGroupSlots(
+  groups: IndicatorFocusGroup[],
+  slotCount: number,
+): Array<{ group: IndicatorFocusGroup; count: number }> {
+  const allocations = groups.map((group, index) => ({ group, count: 1, index }));
+  let remaining = Math.max(0, slotCount - allocations.length);
+
+  while (remaining > 0) {
+    allocations.sort((left, right) => exemplarWeight(right.group) / right.count - exemplarWeight(left.group) / left.count);
+    allocations[0].count += 1;
+    remaining -= 1;
   }
 
-  return { supportExemplars: exemplars, deferredExemplars: [] };
+  return allocations.sort((left, right) => left.index - right.index);
+}
+
+function splitSingleFocusGroup(
+  group: IndicatorFocusGroup,
+  slotCount: number,
+  strategy: SubjectStrategy,
+): IndicatorFocusGroup[][] {
+  const exemplars = uniqueStrings(group.exemplars ?? []);
+  if (!exemplars.length) return Array.from({ length: slotCount }, () => [{ ...group, exemplars: [] }]);
+
+  if (exemplars.length === 1 && slotCount > 1) {
+    const expanded = expandSingleDenseExemplar(exemplars[0], group.indicator, strategy, slotCount);
+    if (expanded.length > 1) return expanded.map((exemplar) => [{ ...group, exemplars: [exemplar] }]);
+  }
+
+  const stageGroups = groupExemplarsByStage(exemplars, strategy);
+  const exemplarChunks = splitStageGroupsAcrossSlots(stageGroups, slotCount);
+
+  return exemplarChunks.map((chunk) => [{ ...group, exemplars: chunk }]);
+}
+
+function expandSingleDenseExemplar(
+  exemplar: string,
+  indicator: string,
+  strategy: SubjectStrategy,
+  slotCount: number,
+): string[] {
+  const text = normalizeForMatch(`${indicator} ${exemplar}`);
+
+  if (strategy === 'mathematics-progression' && hasAny(text, ['tallies', 'tally', 'frequency table', 'data'])) {
+    return [
+      'Use tallies to organise raw data into a frequency table.',
+      'Complete and check frequency tables from tally data.',
+      'Use the organised table or chart to answer questions and solve or pose problems.',
+    ].slice(0, slotCount);
+  }
+
+  if (strategy === 'mathematics-progression') {
+    return [
+      `Introduce the mathematical idea and unpack the worked example: ${exemplar}`,
+      `Use guided practice from the exemplar: ${exemplar}`,
+      `Apply the exemplar independently to solve or pose related problems: ${exemplar}`,
+    ].slice(0, slotCount);
+  }
+
+  if (strategy === 'science-inquiry') {
+    return [
+      `Identify and describe the key science idea: ${exemplar}`,
+      `Demonstrate or investigate the science idea using observable evidence: ${exemplar}`,
+      `Explain and apply the science idea to everyday situations: ${exemplar}`,
+    ].slice(0, slotCount);
+  }
+
+  return [];
+}
+
+function exemplarWeight(group: IndicatorFocusGroup): number {
+  return Math.max(1, group.exemplars.length);
+}
+
+function buildDisplayTitle(input: {
+  supportExemplars: string[];
+  supportIndicators: string[];
+  primary?: SchemeWeekEntry;
+  aspect: string;
+  weekFocus: string;
+  lessonNumber: number;
+}): string {
+  if (input.supportExemplars.length) return input.supportExemplars.join(' + ');
+  if (input.supportIndicators.length) return input.supportIndicators.join(' + ');
+  return [input.aspect, input.primary?.topic || input.weekFocus || `Lesson ${input.lessonNumber}`]
+    .filter(Boolean)
+    .join(' - ');
+}
+
+function formatIndicatorLabel(group: IndicatorFocusGroup): string {
+  const code = cleanText(group.code);
+  const indicator = cleanText(group.indicator);
+  return [code, indicator].filter(Boolean).join(' ');
 }
 
 function groupExemplarsByStage(exemplars: string[], strategy: SubjectStrategy): string[][] {
@@ -226,16 +388,16 @@ function groupExemplarsByStage(exemplars: string[], strategy: SubjectStrategy): 
 
   if (strategy === 'science-inquiry') {
     return groupByStage(exemplars, (text) => {
-      if (hasAny(text, ['explain', 'analyse', 'analyze', 'apply', 'conclude', 'evaluate'])) return 2;
-      if (hasAny(text, ['investigate', 'demonstrate', 'record', 'experiment', 'measure'])) return 1;
+      if (hasAny(text, ['explain', 'analyse', 'analyze', 'apply', 'conclude', 'evaluate', 'use'])) return 2;
+      if (hasAny(text, ['investigate', 'demonstrate', 'record', 'experiment', 'measure', 'observe'])) return 1;
       return 0;
     });
   }
 
   if (strategy === 'mathematics-progression') {
     return groupByStage(exemplars, (text) => {
-      if (hasAny(text, ['solve', 'apply', 'word problem', 'independent', 'prove'])) return 2;
-      if (hasAny(text, ['calculate', 'work', 'practice', 'guided', 'construct'])) return 1;
+      if (hasAny(text, ['solve', 'pose problems', 'apply', 'word problem', 'independent', 'prove', 'justify', 'analyse', 'analyze'])) return 2;
+      if (hasAny(text, ['calculate', 'complete', 'work', 'practice', 'guided', 'construct', 'draw'])) return 1;
       return 0;
     });
   }
@@ -304,6 +466,8 @@ function buildFallbackGuidance(input: {
     focus,
     supportExemplars: [],
     deferredExemplars: [],
+    supportIndicators: [],
+    deferredIndicators: [],
   }));
   const focusIndex = Math.min(Math.max((input.sessionIndex ?? 1) - 1, 0), Math.max(assignments.length - 1, 0));
   return {
@@ -390,6 +554,10 @@ function normalizeForMatch(value: string) {
 
 function normalizeSubject(value: string) {
   return value.trim().toLowerCase();
+}
+
+function cleanText(value?: string) {
+  return (value ?? '').trim();
 }
 
 function uniqueStrings(values: string[]) {
