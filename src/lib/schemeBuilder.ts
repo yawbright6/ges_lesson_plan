@@ -112,6 +112,15 @@ export function getBuilderCurriculumEntries(input: {
   return mergeCurriculumEntries([...mappedEntries, ...supplementalEntries]);
 }
 
+export function getAvailableCurriculumEntries(input: {
+  subject: string;
+  classLevel: ClassLevel;
+  term?: string;
+  includeFullYear?: boolean;
+}): CurriculumEntryOption[] {
+  return getBuilderCurriculumEntries(input);
+}
+
 export function getStrandOptions(entries: CurriculumEntryOption[]): CurriculumOption[] {
   return uniqueOptions(entries.map((entry) => entry.strand));
 }

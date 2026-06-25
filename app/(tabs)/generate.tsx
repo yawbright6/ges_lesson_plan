@@ -26,7 +26,7 @@ import { useToast } from '@/components/ToastProvider';
 import { formatAiActionError, isInsufficientCreditsError } from '@/lib/ai';
 import { defaultRuntimeSettings, loadRuntimeAppSettings } from '@/lib/appSettings';
 import { loadCreditBalance } from '@/lib/credits';
-import { getQuickLessonCurriculumItems, type QuickLessonCurriculumItem } from '@/lib/curriculum';
+import type { QuickLessonCurriculumItem } from '@/lib/curriculum';
 import { exportLessonPlanPdf, exportLessonPlansPdf, shareLessonPlan, shareLessonPlans } from '@/lib/export';
 import { buildWeeklyLessonAssignments } from '@/lib/lessonAssignments';
 import {
@@ -46,6 +46,7 @@ import {
   LOCAL_LANGUAGE_OPTIONS,
 } from '@/lib/options';
 import { DEFAULT_PDF_ACTIVITY_FONT_SIZE, PDF_ACTIVITY_FONT_SIZE_OPTIONS } from '@/lib/pdfOptions';
+import { getAvailableCurriculumEntries, type CurriculumEntryOption } from '@/lib/schemeBuilder';
 import { findMatchingScheme, loadMatchingSchemes } from '@/lib/schemeStore';
 import {
   getDefaultLessonsPerWeekSubjectPreference,
@@ -163,7 +164,14 @@ export default function GenerateScreen() {
     matchingSchemes.find((scheme) => scheme.id === selectedSchemeId) ?? matchedScheme;
   const sessionsPerWeek = Math.max(1, Math.min(4, Number(sessionsPerWeekInput) || 1));
   const quickCurriculumItems = useMemo(
-    () => getQuickLessonCurriculumItems({ subject, classLevel }),
+    () =>
+      buildQuickLessonItemsFromAvailableEntries(
+        getAvailableCurriculumEntries({
+          subject,
+          classLevel,
+          includeFullYear: true,
+        })
+      ),
     [classLevel, subject],
   );
   const showQuickAspectField = planningMethod === 'quick' && isQuickLanguageSubject(subject);
@@ -1219,6 +1227,58 @@ function formatCredits(value: number) {
   return `${value} ${value === 1 ? 'credit' : 'credits'}`;
 }
 
+function buildQuickLessonItemsFromAvailableEntries(
+  entries: CurriculumEntryOption[]
+): QuickLessonCurriculumItem[] {
+  return entries.map((entry, index) => {
+    const topic = entry.topic || cleanQuickText(stripLeadingIndicatorCode(entry.indicator)) || 'Curriculum focus';
+    const indicator = entry.indicator || entry.contentStandard || topic;
+    const code = entry.indicatorCode || extractQuickIndicatorCode(indicator);
+    const aspect = normalizeQuickAspectLabel(entry.strand || entry.subStrand);
+    const searchText = [
+      topic,
+      indicator,
+      code,
+      aspect,
+      entry.strand,
+      entry.subStrand,
+      entry.contentStandard,
+      ...(entry.exemplars ?? []),
+    ].filter(Boolean).join(' ');
+
+    return {
+      id: entry.id || [
+        entry.sourceTerm,
+        entry.sourceWeek,
+        index,
+        code || topic,
+      ].map((value) => normalizeSearchText(String(value))).join('__'),
+      topic,
+      indicator,
+      code,
+      aspect,
+      searchText,
+      sourceTerm: entry.sourceTerm,
+      sourceWeek: entry.sourceWeek,
+      week: {
+        week: entry.sourceWeek,
+        strand: entry.strand,
+        subStrand: entry.subStrand,
+        contentStandard: entry.contentStandard,
+        contentStandardCode: entry.contentStandardCode,
+        indicatorCode: entry.indicatorCode || code,
+        indicator,
+        topic,
+        resources: entry.resources,
+        exemplars: entry.exemplars,
+        sourcePage: entry.sourcePage,
+        matchedCurriculumTerm: entry.sourceTerm,
+        uploadedTopic: topic,
+      },
+    };
+  });
+}
+
 function SearchableCurriculumSelect({
   label,
   value,
@@ -1278,7 +1338,7 @@ function SearchableCurriculumSelect({
           </Text>
           {selectedItem ? (
             <Text style={styles.searchSelectValueMeta} numberOfLines={1}>
-              {[selectedItem.code, selectedItem.indicator].filter(Boolean).join(' ')}
+              {formatCurriculumIndicatorMeta(selectedItem)}
             </Text>
           ) : null}
         </View>
@@ -1351,7 +1411,7 @@ function SearchableCurriculumSelect({
                           {item.topic}
                         </Text>
                         <Text style={styles.curriculumOptionMeta} numberOfLines={3}>
-                          {[item.code, item.indicator].filter(Boolean).join(' ')}
+                          {formatCurriculumIndicatorMeta(item)}
                         </Text>
                         {item.aspect ? (
                           <Text style={styles.curriculumOptionAspect} numberOfLines={1}>
@@ -1425,6 +1485,41 @@ function buildQuickAspectOptions(items: QuickLessonCurriculumItem[]) {
     { label: 'All aspects', value: 'all' },
     ...aspects.map((aspect) => ({ label: aspect, value: aspect })),
   ];
+}
+
+function formatCurriculumIndicatorMeta(item: QuickLessonCurriculumItem) {
+  const indicator = cleanQuickText(item.indicator);
+  if (!item.code) return indicator;
+  if (indicator.toLowerCase().startsWith(item.code.toLowerCase())) return indicator;
+  return `${item.code} ${indicator}`;
+}
+
+function normalizeQuickAspectLabel(value?: string) {
+  const text = cleanQuickText(value);
+  if (!text) return undefined;
+  const normalized = text.toLowerCase();
+  if (normalized.includes('oral') || normalized.includes('speaking') || normalized.includes('listening') || normalized.includes('conversation')) {
+    return 'Oral Language';
+  }
+  if (normalized.includes('grammar') || normalized.includes('language and usage') || normalized.includes('convention')) {
+    return 'Grammar';
+  }
+  if (normalized.includes('writing') || normalized.includes('composition')) return 'Writing';
+  if (normalized.includes('literature')) return 'Literature';
+  if (normalized.includes('reading') || normalized.includes('comprehension') || normalized.includes('phonics')) return 'Reading';
+  return text;
+}
+
+function extractQuickIndicatorCode(value?: string) {
+  return value?.match(/B[1-9](?:\/JHS[1-3])?(?:\.\d+){3,4}/)?.[0];
+}
+
+function stripLeadingIndicatorCode(value?: string) {
+  return cleanQuickText(value).replace(/^B[1-9](?:\/JHS[1-3])?(?:\.\d+){3,4}\s*/, '').trim();
+}
+
+function cleanQuickText(value?: string) {
+  return (value ?? '').trim();
 }
 
 function normalizeSearchText(value?: string) {
