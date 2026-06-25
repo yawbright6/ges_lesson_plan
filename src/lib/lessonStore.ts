@@ -94,6 +94,7 @@ function normalizeLessonPlanBundle(plans: LessonPlan[], bundle?: Partial<LessonP
   const termTitle = bundle?.termTitle ?? first?.termTitle ?? '';
   const weekTitle = bundle?.weekTitle ?? first?.weekTitle ?? `WEEK ${week}`;
   const title = bundle?.title ?? `${subject} ${classLevel} Week ${week} (${lessonCount} lessons)`;
+  const planningMode = bundle?.planningMode ?? getBundlePlanningMode(normalizedPlans);
   const id =
     bundle?.id ??
     `${slugify(subject)}-${classLevel}-${week}-week-plan-${lessonCount}-lessons-${slugify(termTitle)}-${createdAt}`;
@@ -109,10 +110,16 @@ function normalizeLessonPlanBundle(plans: LessonPlan[], bundle?: Partial<LessonP
     weekTitle,
     lessonCount,
     plans: normalizedPlans,
+    planningMode,
     editedAt: bundle?.editedAt,
     createdAt,
     updatedAt: bundle?.updatedAt ?? createdAt,
   };
+}
+
+function getBundlePlanningMode(plans: LessonPlan[]) {
+  const modes = [...new Set(plans.map((plan) => plan.planningMode).filter(Boolean))];
+  return modes.length === 1 ? modes[0] : undefined;
 }
 
 function buildTitle(work: SavedLessonWork) {

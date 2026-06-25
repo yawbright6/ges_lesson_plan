@@ -23,6 +23,7 @@ import { useToast } from '@/components/ToastProvider';
 import { formatAiActionError, isInsufficientCreditsError } from '@/lib/ai';
 import { defaultRuntimeSettings, loadRuntimeAppSettings } from '@/lib/appSettings';
 import { loadCreditBalance } from '@/lib/credits';
+import { getQuickLessonCurriculumItems, type QuickLessonCurriculumItem } from '@/lib/curriculum';
 import { exportLessonPlanPdf, exportLessonPlansPdf, shareLessonPlan, shareLessonPlans } from '@/lib/export';
 import { buildWeeklyLessonAssignments } from '@/lib/lessonAssignments';
 import {
@@ -56,6 +57,18 @@ import type { ClassLevel, LessonPlan } from '@/types/lessonPlan';
 import type { SchemeOfWork } from '@/types/scheme';
 
 type LessonSelection = number | 'all';
+type PlanningMethod = 'quick' | 'scheme';
+
+const PLANNING_METHOD_OPTIONS = [
+  {
+    label: 'Quick lesson - Select your own topic and generate a lesson plan',
+    value: 'quick',
+  },
+  {
+    label: 'From organized scheme - Generate a lesson plan based on your scheme of work',
+    value: 'scheme',
+  },
+];
 
 export default function GenerateScreen() {
   const { showToast } = useToast();
@@ -66,6 +79,8 @@ export default function GenerateScreen() {
   const [termPrefsLoaded, setTermPrefsLoaded] = useState(false);
   const [sessionsPerWeekInput, setSessionsPerWeekInput] = useState('3');
   const [sessionIndex, setSessionIndex] = useState<LessonSelection>(1);
+  const [planningMethod, setPlanningMethod] = useState<PlanningMethod>('quick');
+  const [selectedQuickItemId, setSelectedQuickItemId] = useState('');
   const [termStartDate, setTermStartDate] = useState('');
   const [notes, setNotes] = useState('');
   const [loading, setLoading] = useState(false);
@@ -143,32 +158,70 @@ export default function GenerateScreen() {
   const selectedScheme =
     matchingSchemes.find((scheme) => scheme.id === selectedSchemeId) ?? matchedScheme;
   const sessionsPerWeek = Math.max(1, Math.min(4, Number(sessionsPerWeekInput) || 1));
+  const quickCurriculumItems = useMemo(
+    () => getQuickLessonCurriculumItems({ subject, classLevel }),
+    [classLevel, subject],
+  );
+  const quickCurriculumOptions = useMemo(
+    () =>
+      quickCurriculumItems.map((item) => ({
+        label: `${item.topic}\n${item.indicator}`,
+        value: item.id,
+      })),
+    [quickCurriculumItems],
+  );
+  const selectedQuickItem = useMemo(
+    () => quickCurriculumItems.find((item) => item.id === selectedQuickItemId) ?? quickCurriculumItems[0],
+    [quickCurriculumItems, selectedQuickItemId],
+  );
+  const quickScheme = useMemo(
+    () =>
+      selectedQuickItem
+        ? buildQuickLessonScheme({
+            item: selectedQuickItem,
+            subject,
+            classLevel,
+            term,
+            week: Number(week) || 1,
+          })
+        : null,
+    [classLevel, selectedQuickItem, subject, term, week],
+  );
+  const activeScheme = planningMethod === 'quick' ? quickScheme : selectedScheme;
   const selectedSchemeWeek = useMemo(
     () => selectedScheme?.weeks.find((item) => Number(item.week) === Number(week)),
     [selectedScheme, week],
   );
+  const activeSchemeWeek = planningMethod === 'quick'
+    ? quickScheme?.weeks[0]
+    : selectedSchemeWeek;
   const lessonFocusPreview = useMemo(
     () =>
       buildLessonFocusPreview({
         subject,
         classLevel,
-        selectedWeek: selectedSchemeWeek,
-        weeks: selectedScheme?.weeks,
+        selectedWeek: activeSchemeWeek,
+        weeks: activeScheme?.weeks,
         sessionsPerWeek,
       }),
-    [classLevel, selectedScheme?.weeks, selectedSchemeWeek, sessionsPerWeek, subject],
+    [activeScheme?.weeks, activeSchemeWeek, classLevel, sessionsPerWeek, subject],
   );
   const availableWeeks = useMemo(
     () =>
-      selectedScheme?.weeks.length
+      planningMethod === 'quick'
+        ? Array.from({ length: 14 }, (_, index) => index + 1)
+        : selectedScheme?.weeks.length
         ? selectedScheme.weeks.map((item) => item.week)
         : Array.from({ length: 12 }, (_, index) => index + 1),
-    [selectedScheme],
+    [planningMethod, selectedScheme],
   );
 
   const weekOptions = useMemo(
-    () => (selectedScheme?.weeks.length ? getExplicitWeekOptions(availableWeeks) : getWeekOptions(availableWeeks.length)),
-    [availableWeeks, selectedScheme?.weeks.length],
+    () =>
+      planningMethod === 'scheme' && selectedScheme?.weeks.length
+        ? getExplicitWeekOptions(availableWeeks)
+        : getWeekOptions(availableWeeks.length),
+    [availableWeeks, planningMethod, selectedScheme?.weeks.length],
   );
   const lessonNumbers = useMemo(
     () => Array.from({ length: sessionsPerWeek }, (_, index) => index + 1),
@@ -186,6 +239,13 @@ export default function GenerateScreen() {
       setSessionIndex(sessionsPerWeek);
     }
   }, [sessionIndex, sessionsPerWeek]);
+
+  useEffect(() => {
+    setSelectedQuickItemId((current) => {
+      if (current && quickCurriculumItems.some((item) => item.id === current)) return current;
+      return quickCurriculumItems[0]?.id ?? '';
+    });
+  }, [quickCurriculumItems]);
 
   useEffect(() => {
     let active = true;
@@ -255,7 +315,14 @@ export default function GenerateScreen() {
       Alert.alert('Subject required', 'Please select the subject.');
       return;
     }
-    if (!selectedScheme) {
+    if (planningMethod === 'quick' && !selectedQuickItem) {
+      Alert.alert(
+        'Curriculum focus required',
+        'Please select the indicator or topic for the quick lesson.',
+      );
+      return;
+    }
+    if (planningMethod === 'scheme' && !selectedScheme) {
       Alert.alert(
         'Scheme required',
         'Please generate or select a saved scheme of work for this subject, class and term before creating a lesson plan.',
@@ -294,7 +361,11 @@ export default function GenerateScreen() {
         selectedLessonNumbers,
         sessionIndex,
         notes,
-        selectedScheme,
+        selectedScheme: activeScheme as SchemeOfWork,
+        planningMode: planningMethod,
+        selectedCurriculumCode: planningMethod === 'quick' ? selectedQuickItem?.code : undefined,
+        selectedCurriculumTopic: planningMethod === 'quick' ? selectedQuickItem?.topic : undefined,
+        selectedIndicator: planningMethod === 'quick' ? selectedQuickItem?.indicator : undefined,
       });
 
       setSavedPlanIds(result.savedPlanIds);
@@ -463,10 +534,7 @@ export default function GenerateScreen() {
         <View style={styles.hero}>
           <Text style={styles.heroEyebrow}>Lesson Planner</Text>
           <Text style={styles.heading}>New Lesson Plan</Text>
-          <Text style={styles.sub}>
-            Choose the class first — the subject list updates automatically to show only subjects
-            mapped for that level.
-          </Text>
+          <Text style={styles.sub}>Choose quick lesson for your own curriculum topic, or use an organized scheme of work.</Text>
         </View>
 
         <View style={styles.headerPanel}>
@@ -520,6 +588,14 @@ export default function GenerateScreen() {
               disabled={!subjectOptions.length}
             />
           </View>
+          <View style={styles.coreFieldFull}>
+            <SelectField
+              label="Planning method"
+              value={planningMethod}
+              options={PLANNING_METHOD_OPTIONS}
+              onChange={(value) => setPlanningMethod(value as PlanningMethod)}
+            />
+          </View>
           <View style={styles.coreFieldCell}>
             <SelectField
               label="Week"
@@ -536,6 +612,23 @@ export default function GenerateScreen() {
               onChange={setSessionsPerWeekInput}
             />
           </View>
+          {planningMethod === 'quick' ? (
+            <View style={styles.coreFieldFull}>
+              <SelectField
+                label="Indicator / Topic"
+                value={selectedQuickItemId}
+                options={quickCurriculumOptions}
+                onChange={setSelectedQuickItemId}
+                placeholder="Select a curriculum topic"
+                helperText={
+                  quickCurriculumOptions.length
+                    ? 'Choose from the full mapped curriculum for this class and subject.'
+                    : 'No mapped curriculum topics are available for this class and subject yet.'
+                }
+                disabled={!quickCurriculumOptions.length}
+              />
+            </View>
+          ) : null}
         </View>
 
         <View style={styles.lessonStripWrap}>
@@ -578,7 +671,11 @@ export default function GenerateScreen() {
           <View style={styles.focusPreviewHeader}>
             <Text style={styles.focusPreviewTitle}>Weekly Lesson Focus</Text>
             <Text style={styles.focusPreviewMeta}>
-              {lessonFocusPreview.weekFocus ? `Week focus: ${lessonFocusPreview.weekFocus}` : 'Preview based on the selected week'}
+              {lessonFocusPreview.weekFocus
+                ? planningMethod === 'quick'
+                  ? `Selected focus: ${lessonFocusPreview.weekFocus}`
+                  : `Week focus: ${lessonFocusPreview.weekFocus}`
+                : 'Preview based on the selected focus'}
             </Text>
           </View>
           {lessonFocusPreview.items.map((item) => {
@@ -605,18 +702,26 @@ export default function GenerateScreen() {
 
         <View style={styles.schemeHint}>
           <Text style={styles.schemeHintTitle}>
-            {selectedScheme ? 'Using selected term scheme' : 'No saved term scheme found'}
+            {planningMethod === 'quick'
+              ? 'Using quick lesson topic'
+              : selectedScheme
+                ? 'Using selected term scheme'
+                : 'No saved term scheme found'}
           </Text>
           <Text style={styles.schemeHintText}>
-            {selectedScheme
+            {planningMethod === 'quick'
               ? sessionIndex === 'all'
-                ? `${selectedScheme.subject} - ${selectedScheme.classLevel} - ${selectedScheme.term}. Week ${week || '?'} will generate all ${sessionsPerWeek} lessons and use ${formatCredits(generationCost)}.`
-                : `${selectedScheme.subject} - ${selectedScheme.classLevel} - ${selectedScheme.term}. Week ${week || '?'} will be grounded on that scheme for Lesson ${sessionIndex} of ${sessionsPerWeek}.`
-              : 'Lesson plans now depend on a saved scheme of work. Generate or select a scheme for this subject, class and term first.'}
+                ? `${selectedQuickItem?.topic ?? 'Selected curriculum focus'} will generate all ${sessionsPerWeek} lessons and use ${formatCredits(generationCost)}.`
+                : `${selectedQuickItem?.topic ?? 'Selected curriculum focus'} will generate Lesson ${sessionIndex} of ${sessionsPerWeek}.`
+              : selectedScheme
+                ? sessionIndex === 'all'
+                  ? `${selectedScheme.subject} - ${selectedScheme.classLevel} - ${selectedScheme.term}. Week ${week || '?'} will generate all ${sessionsPerWeek} lessons and use ${formatCredits(generationCost)}.`
+                  : `${selectedScheme.subject} - ${selectedScheme.classLevel} - ${selectedScheme.term}. Week ${week || '?'} will be grounded on that scheme for Lesson ${sessionIndex} of ${sessionsPerWeek}.`
+                : 'Generate or select a scheme of work for this subject, class and term before using organized scheme mode.'}
           </Text>
         </View>
 
-        {matchingSchemes.length ? (
+        {planningMethod === 'scheme' && matchingSchemes.length ? (
           <View style={styles.schemeList}>
             <Text style={styles.schemeListTitle}>Select Scheme to Use</Text>
             {matchingSchemes.map((scheme) => {
@@ -752,6 +857,12 @@ const styles = StyleSheet.create({
   },
   coreFieldCell: {
     width: '47.5%',
+    flexGrow: 0,
+    flexShrink: 0,
+    minWidth: 0,
+  },
+  coreFieldFull: {
+    width: '100%',
     flexGrow: 0,
     flexShrink: 0,
     minWidth: 0,
@@ -909,6 +1020,40 @@ const styles = StyleSheet.create({
 
 function formatCredits(value: number) {
   return `${value} ${value === 1 ? 'credit' : 'credits'}`;
+}
+
+function buildQuickLessonScheme({
+  item,
+  subject,
+  classLevel,
+  term,
+  week,
+}: {
+  item: QuickLessonCurriculumItem;
+  subject: string;
+  classLevel: ClassLevel;
+  term: string;
+  week: number;
+}): SchemeOfWork {
+  const selectedWeek = {
+    ...item.week,
+    week,
+    topic: item.topic,
+    indicator: item.indicator,
+    matchedCurriculumTerm: item.sourceTerm,
+    uploadedTopic: item.topic,
+  };
+
+  return {
+    id: `quick-${classLevel}-${subject}-${item.id}`,
+    title: `Quick lesson - ${item.topic}`,
+    subject,
+    classLevel,
+    term,
+    source: 'mapped',
+    weeks: [selectedWeek],
+    createdAt: new Date().toISOString(),
+  };
 }
 
 function buildLessonFocusPreview({

@@ -29,6 +29,13 @@ import type { CompiledTestCompilation, CompiledTestItem, CompiledTestPaper, Test
 
 type SelectOption = { label: string; value: string };
 type RewriteModeDraft = { mode: TestItemMode; enabled: boolean; count: string };
+type AssessmentSourceFilter = 'both' | 'scheme' | 'quick';
+
+const ASSESSMENT_SOURCE_OPTIONS: SelectOption[] = [
+  { label: 'Both quick and organized scheme lessons', value: 'both' },
+  { label: 'Organized scheme lesson plans', value: 'scheme' },
+  { label: 'Quick lesson plans', value: 'quick' },
+];
 
 const REWRITE_MODE_LABELS: Record<TestItemMode, string> = {
   multiple_choice: 'Multiple choice',
@@ -44,6 +51,7 @@ export default function TestItemCompilerScreen() {
   const [subject, setSubject] = useState('');
   const [classLevel, setClassLevel] = useState('');
   const [termTitle, setTermTitle] = useState('');
+  const [assessmentSource, setAssessmentSource] = useState<AssessmentSourceFilter>('both');
   const [selectedLessonIds, setSelectedLessonIds] = useState<string[]>([]);
   const [removedItemIds, setRemovedItemIds] = useState<string[]>([]);
   const [rewrittenPaper, setRewrittenPaper] = useState<CompiledTestPaper | null>(null);
@@ -146,8 +154,9 @@ export default function TestItemCompilerScreen() {
         .filter((plan) => (!subject || plan.subject === subject))
         .filter((plan) => (!classLevel || plan.classLevel === classLevel))
         .filter((plan) => (!termTitle || (plan.termTitle || 'Untitled term') === termTitle))
+        .filter((plan) => assessmentSource === 'both' || getPlanAssessmentSource(plan) === assessmentSource)
         .sort(compareLessonPlans),
-    [plans, subject, classLevel, termTitle],
+    [assessmentSource, plans, subject, classLevel, termTitle],
   );
 
   const selectedPlans = useMemo(() => {
@@ -302,6 +311,14 @@ export default function TestItemCompilerScreen() {
           </View>
           <View style={styles.filterCell}>
             <SelectField label="Term" value={termTitle} options={termOptions} onChange={setTermTitle} placeholder="Select term" />
+          </View>
+          <View style={styles.filterCellWide}>
+            <SelectField
+              label="Assessment source"
+              value={assessmentSource}
+              options={ASSESSMENT_SOURCE_OPTIONS}
+              onChange={(value) => setAssessmentSource(value as AssessmentSourceFilter)}
+            />
           </View>
         </View>
         <View style={styles.buttonRow}>
@@ -663,6 +680,10 @@ function hasAssessmentItems(plan: LessonPlan) {
   return extractAssessmentItems(plan).length > 0;
 }
 
+function getPlanAssessmentSource(plan: LessonPlan): Exclude<AssessmentSourceFilter, 'both'> {
+  return plan.planningMode === 'quick' ? 'quick' : 'scheme';
+}
+
 function groupCompiledItems(items: CompiledTestItem[]) {
   const groups = new Map<string, { key: string; title: string; topic: string; items: CompiledTestItem[] }>();
   for (const item of items) {
@@ -739,6 +760,7 @@ const styles = StyleSheet.create({
   },
   filterGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing[5] },
   filterCell: { flex: 1, minWidth: 220 },
+  filterCellWide: { flex: 1.4, minWidth: 280 },
   buttonRow: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing[4] },
   actionButton: { flex: 1, minWidth: 150 },
   workspace: { gap: spacing[5] },

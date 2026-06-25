@@ -153,6 +153,11 @@ export interface LessonPlan {
   week: number;
   sessionIndex?: number;
   sessionsPerWeek?: number;
+  planningMode?: 'quick' | 'scheme';
+  schemeId?: string;
+  selectedCurriculumCode?: string;
+  selectedCurriculumTopic?: string;
+  selectedIndicator?: string;
   editedAt?: string;
   createdAt?: string;
   updatedAt?: string;
@@ -169,6 +174,7 @@ export interface LessonPlanBundle {
   weekTitle: string;
   lessonCount: number;
   plans: LessonPlan[];
+  planningMode?: 'quick' | 'scheme';
   editedAt?: string;
   createdAt?: string;
   updatedAt?: string;

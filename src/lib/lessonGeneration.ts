@@ -18,6 +18,10 @@ type GenerateAndSaveLessonPlansInput = {
   sessionIndex: LessonSelection;
   notes?: string;
   selectedScheme: SchemeOfWork;
+  planningMode?: 'quick' | 'scheme';
+  selectedCurriculumCode?: string;
+  selectedCurriculumTopic?: string;
+  selectedIndicator?: string;
 };
 
 export type GenerateAndSaveLessonPlansResult = {
@@ -37,6 +41,10 @@ export async function generateAndSaveLessonPlans({
   sessionIndex,
   notes,
   selectedScheme,
+  planningMode = 'scheme',
+  selectedCurriculumCode,
+  selectedCurriculumTopic,
+  selectedIndicator,
 }: GenerateAndSaveLessonPlansInput): Promise<GenerateAndSaveLessonPlansResult> {
   const teacherProfile = await loadTeacherProfile();
   const weekEnding = calculateWeekEnding(termStartDate, week);
@@ -72,6 +80,11 @@ export async function generateAndSaveLessonPlans({
       teacherName: teacherProfile.teacherName || undefined,
       schoolName: teacherProfile.schoolName || undefined,
       schoolDistrict: teacherProfile.schoolDistrict || undefined,
+      planningMode,
+      schemeId: planningMode === 'scheme' ? selectedScheme.id : undefined,
+      selectedCurriculumCode,
+      selectedCurriculumTopic,
+      selectedIndicator,
     };
 
     if (sessionIndex === 'all') {

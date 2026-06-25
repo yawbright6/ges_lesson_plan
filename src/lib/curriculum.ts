@@ -63,6 +63,16 @@ export type ExplicitCurriculumYearWeek = SchemeWeek & {
   sourceTerm: string;
 };
 
+export type QuickLessonCurriculumItem = {
+  id: string;
+  topic: string;
+  indicator: string;
+  code?: string;
+  sourceTerm: string;
+  sourceWeek: number;
+  week: SchemeWeek;
+};
+
 export function getExplicitSchemeOfWork(
   input: SchemeGenerationInput | CurriculumLookupInput
 ): SchemeOfWork | null {
@@ -275,6 +285,41 @@ export function getExplicitCurriculumYearWeeks(
       sourceTerm: scheme.term,
     }))
   );
+}
+
+export function getQuickLessonCurriculumItems(
+  input: Omit<CurriculumLookupInput, 'term'>
+): QuickLessonCurriculumItem[] {
+  return getExplicitCurriculumYearWeeks(input).flatMap((week) => {
+    const entries = week.entries?.length ? week.entries : [week];
+    return entries.map((entry, entryIndex) => {
+      const topic = entry.topic || week.topic || 'Curriculum focus';
+      const indicator = entry.indicator || week.indicator || entry.contentStandard || week.contentStandard || topic;
+      const code = entry.indicatorCode || extractIndicatorCode(indicator);
+      return {
+        id: [
+          week.sourceTerm,
+          week.week,
+          entryIndex,
+          code || topic,
+        ].map((value) => slugify(String(value))).join('__'),
+        topic,
+        indicator,
+        code,
+        sourceTerm: week.sourceTerm,
+        sourceWeek: week.week,
+        week: {
+          ...entry,
+          week: week.week,
+          theme: week.theme,
+          topic,
+          indicator,
+          resources: entry.resources ?? week.resources,
+          matchedCurriculumTerm: week.sourceTerm,
+        },
+      };
+    });
+  });
 }
 
 function isMathematicsSubject(subject: string): boolean {
@@ -507,4 +552,8 @@ function normalizeTerm(term?: string): string {
 
 function slugify(value: string): string {
   return value.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+}
+
+function extractIndicatorCode(value?: string) {
+  return value?.match(/B[1-9](?:\/JHS[1-3])?(?:\.\d+){3,4}/)?.[0];
 }
