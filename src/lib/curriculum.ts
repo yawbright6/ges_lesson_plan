@@ -68,6 +68,8 @@ export type QuickLessonCurriculumItem = {
   topic: string;
   indicator: string;
   code?: string;
+  aspect?: string;
+  searchText: string;
   sourceTerm: string;
   sourceWeek: number;
   week: SchemeWeek;
@@ -296,6 +298,19 @@ export function getQuickLessonCurriculumItems(
       const topic = entry.topic || week.topic || 'Curriculum focus';
       const indicator = entry.indicator || week.indicator || entry.contentStandard || week.contentStandard || topic;
       const code = entry.indicatorCode || extractIndicatorCode(indicator);
+      const aspect = normalizeQuickLessonAspect(entry.strand || entry.subStrand || week.strand || week.subStrand);
+      const searchText = [
+        topic,
+        indicator,
+        code,
+        aspect,
+        entry.strand,
+        entry.subStrand,
+        entry.contentStandard,
+        week.theme,
+        ...(entry.exemplars ?? []),
+        ...(week.exemplars ?? []),
+      ].filter(Boolean).join(' ');
       return {
         id: [
           week.sourceTerm,
@@ -306,6 +321,8 @@ export function getQuickLessonCurriculumItems(
         topic,
         indicator,
         code,
+        aspect,
+        searchText,
         sourceTerm: week.sourceTerm,
         sourceWeek: week.week,
         week: {
@@ -556,4 +573,18 @@ function slugify(value: string): string {
 
 function extractIndicatorCode(value?: string) {
   return value?.match(/B[1-9](?:\/JHS[1-3])?(?:\.\d+){3,4}/)?.[0];
+}
+
+function normalizeQuickLessonAspect(value?: string) {
+  const text = value?.trim();
+  if (!text) return undefined;
+  const normalized = text.toLowerCase();
+  if (normalized.includes('oral') || normalized.includes('speaking') || normalized.includes('listening') || normalized.includes('conversation')) {
+    return 'Oral Language';
+  }
+  if (normalized.includes('grammar') || normalized.includes('convention')) return 'Grammar';
+  if (normalized.includes('writing') || normalized.includes('composition')) return 'Writing';
+  if (normalized.includes('literature')) return 'Literature';
+  if (normalized.includes('reading') || normalized.includes('comprehension') || normalized.includes('phonics')) return 'Reading';
+  return text;
 }

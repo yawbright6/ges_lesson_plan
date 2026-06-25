@@ -2,13 +2,16 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Alert,
   KeyboardAvoidingView,
+  Modal,
   Platform,
   Pressable,
   ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   View,
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { router, useFocusEffect } from 'expo-router';
 import { Field } from '@/components/Field';
 import { Button } from '@/components/Button';
@@ -80,6 +83,7 @@ export default function GenerateScreen() {
   const [sessionsPerWeekInput, setSessionsPerWeekInput] = useState('3');
   const [sessionIndex, setSessionIndex] = useState<LessonSelection>(1);
   const [planningMethod, setPlanningMethod] = useState<PlanningMethod>('quick');
+  const [selectedQuickAspect, setSelectedQuickAspect] = useState('all');
   const [selectedQuickItemId, setSelectedQuickItemId] = useState('');
   const [termStartDate, setTermStartDate] = useState('');
   const [notes, setNotes] = useState('');
@@ -162,17 +166,23 @@ export default function GenerateScreen() {
     () => getQuickLessonCurriculumItems({ subject, classLevel }),
     [classLevel, subject],
   );
-  const quickCurriculumOptions = useMemo(
-    () =>
-      quickCurriculumItems.map((item) => ({
-        label: `${item.topic}\n${item.indicator}`,
-        value: item.id,
-      })),
+  const showQuickAspectField = planningMethod === 'quick' && isQuickLanguageSubject(subject);
+  const quickAspectOptions = useMemo(
+    () => buildQuickAspectOptions(quickCurriculumItems),
     [quickCurriculumItems],
   );
+  const filteredQuickCurriculumItems = useMemo(
+    () =>
+      showQuickAspectField && selectedQuickAspect !== 'all'
+        ? quickCurriculumItems.filter((item) => item.aspect === selectedQuickAspect)
+        : quickCurriculumItems,
+    [quickCurriculumItems, selectedQuickAspect, showQuickAspectField],
+  );
   const selectedQuickItem = useMemo(
-    () => quickCurriculumItems.find((item) => item.id === selectedQuickItemId) ?? quickCurriculumItems[0],
-    [quickCurriculumItems, selectedQuickItemId],
+    () =>
+      filteredQuickCurriculumItems.find((item) => item.id === selectedQuickItemId) ??
+      filteredQuickCurriculumItems[0],
+    [filteredQuickCurriculumItems, selectedQuickItemId],
   );
   const quickScheme = useMemo(
     () =>
@@ -242,10 +252,18 @@ export default function GenerateScreen() {
 
   useEffect(() => {
     setSelectedQuickItemId((current) => {
-      if (current && quickCurriculumItems.some((item) => item.id === current)) return current;
-      return quickCurriculumItems[0]?.id ?? '';
+      if (current && filteredQuickCurriculumItems.some((item) => item.id === current)) return current;
+      return filteredQuickCurriculumItems[0]?.id ?? '';
     });
-  }, [quickCurriculumItems]);
+  }, [filteredQuickCurriculumItems]);
+
+  useEffect(() => {
+    setSelectedQuickAspect((current) => {
+      if (!showQuickAspectField) return 'all';
+      if (quickAspectOptions.some((option) => option.value === current)) return current;
+      return 'all';
+    });
+  }, [quickAspectOptions, showQuickAspectField]);
 
   useEffect(() => {
     let active = true;
@@ -613,21 +631,35 @@ export default function GenerateScreen() {
             />
           </View>
           {planningMethod === 'quick' ? (
-            <View style={styles.coreFieldFull}>
-              <SelectField
-                label="Indicator / Topic"
-                value={selectedQuickItemId}
-                options={quickCurriculumOptions}
-                onChange={setSelectedQuickItemId}
-                placeholder="Select a curriculum topic"
-                helperText={
-                  quickCurriculumOptions.length
-                    ? 'Choose from the full mapped curriculum for this class and subject.'
-                    : 'No mapped curriculum topics are available for this class and subject yet.'
-                }
-                disabled={!quickCurriculumOptions.length}
-              />
-            </View>
+            <>
+              {showQuickAspectField ? (
+                <View style={styles.coreFieldCell}>
+                  <SelectField
+                    label="Aspect"
+                    value={selectedQuickAspect}
+                    options={quickAspectOptions}
+                    onChange={setSelectedQuickAspect}
+                  />
+                </View>
+              ) : null}
+              <View style={showQuickAspectField ? styles.coreFieldCell : styles.coreFieldFull}>
+                <SearchableCurriculumSelect
+                  label="Indicator / Topic"
+                  value={selectedQuickItemId}
+                  items={filteredQuickCurriculumItems}
+                  onChange={setSelectedQuickItemId}
+                  placeholder="Search or select a curriculum topic"
+                  helperText={
+                    filteredQuickCurriculumItems.length
+                      ? 'Search by keyword, topic, code, indicator, strand or exemplar.'
+                      : showQuickAspectField
+                        ? 'No curriculum topics are available for this aspect yet.'
+                        : 'No mapped curriculum topics are available for this class and subject yet.'
+                  }
+                  disabled={!filteredQuickCurriculumItems.length}
+                />
+              </View>
+            </>
           ) : null}
         </View>
 
@@ -867,6 +899,171 @@ const styles = StyleSheet.create({
     flexShrink: 0,
     minWidth: 0,
   },
+  searchSelectWrap: {
+    marginBottom: spacing[6],
+  },
+  searchSelectLabel: {
+    ...typography.label,
+    color: colors.text,
+    marginBottom: spacing[3],
+  },
+  searchSelectTrigger: {
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radii.md,
+    paddingHorizontal: spacing[5],
+    paddingVertical: spacing[4],
+    minHeight: 64,
+    backgroundColor: colors.surface,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: spacing[4],
+  },
+  searchSelectTriggerDisabled: {
+    opacity: 0.55,
+  },
+  searchSelectTriggerPressed: {
+    borderColor: colors.primary,
+  },
+  searchSelectValue: {
+    flex: 1,
+    minWidth: 0,
+    gap: spacing[1],
+  },
+  searchSelectValueTitle: {
+    ...typography.bodyLg,
+    color: colors.text,
+    fontWeight: '400',
+  },
+  searchSelectPlaceholder: {
+    color: colors.textSubtle,
+  },
+  searchSelectValueMeta: {
+    ...typography.caption,
+    color: colors.textMuted,
+  },
+  searchSelectHelper: {
+    ...typography.caption,
+    color: colors.textMuted,
+    marginTop: spacing[3],
+  },
+  searchSelectOverlay: {
+    flex: 1,
+    backgroundColor: colors.overlay,
+    justifyContent: 'center',
+    padding: spacing[6],
+  },
+  searchSelectSheet: {
+    backgroundColor: colors.bgElevated,
+    borderRadius: radii.lg,
+    borderWidth: 1,
+    borderColor: colors.border,
+    maxHeight: '82%',
+    overflow: 'hidden',
+    ...shadows.lg,
+  },
+  searchSelectHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: spacing[6],
+    paddingTop: spacing[6],
+    paddingBottom: spacing[4],
+  },
+  searchSelectTitle: {
+    ...typography.h4,
+    color: colors.text,
+  },
+  searchSelectClose: {
+    width: 32,
+    height: 32,
+    borderRadius: radii.pill,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.surfaceMuted,
+  },
+  searchInputShell: {
+    marginHorizontal: spacing[5],
+    marginBottom: spacing[3],
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radii.md,
+    backgroundColor: colors.surface,
+    minHeight: 46,
+    paddingHorizontal: spacing[4],
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing[3],
+  },
+  searchInput: {
+    flex: 1,
+    ...typography.body,
+    color: colors.text,
+    paddingVertical: spacing[3],
+  },
+  searchSelectList: {
+    maxHeight: 500,
+  },
+  searchSelectListContent: {
+    paddingHorizontal: spacing[4],
+    paddingBottom: spacing[5],
+  },
+  curriculumOptionRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: spacing[4],
+    borderRadius: radii.md,
+    paddingHorizontal: spacing[5],
+    paddingVertical: spacing[4],
+    marginTop: spacing[2],
+  },
+  curriculumOptionRowActive: {
+    backgroundColor: colors.primarySoft,
+  },
+  curriculumOptionRowPressed: {
+    backgroundColor: colors.surfaceMuted,
+  },
+  curriculumOptionTextWrap: {
+    flex: 1,
+    minWidth: 0,
+    gap: spacing[1],
+  },
+  curriculumOptionTitle: {
+    ...typography.body,
+    color: colors.text,
+    fontWeight: '500',
+  },
+  curriculumOptionTitleActive: {
+    color: colors.primary,
+    fontWeight: '700',
+  },
+  curriculumOptionMeta: {
+    ...typography.caption,
+    color: colors.textMuted,
+  },
+  curriculumOptionAspect: {
+    ...typography.caption,
+    color: colors.primaryDark,
+    fontWeight: '600',
+  },
+  searchEmptyState: {
+    paddingHorizontal: spacing[5],
+    paddingVertical: spacing[8],
+    alignItems: 'center',
+    gap: spacing[2],
+  },
+  searchEmptyTitle: {
+    ...typography.body,
+    color: colors.text,
+    fontWeight: '700',
+  },
+  searchEmptyText: {
+    ...typography.caption,
+    color: colors.textMuted,
+    textAlign: 'center',
+  },
   actions: {
     padding: spacing[6],
     borderTopWidth: 1,
@@ -1022,6 +1219,164 @@ function formatCredits(value: number) {
   return `${value} ${value === 1 ? 'credit' : 'credits'}`;
 }
 
+function SearchableCurriculumSelect({
+  label,
+  value,
+  items,
+  placeholder,
+  helperText,
+  disabled,
+  onChange,
+}: {
+  label: string;
+  value: string;
+  items: QuickLessonCurriculumItem[];
+  placeholder: string;
+  helperText?: string;
+  disabled?: boolean;
+  onChange: (value: string) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState('');
+  const selectedItem = useMemo(
+    () => items.find((item) => item.id === value),
+    [items, value],
+  );
+  const visibleItems = useMemo(() => {
+    const normalizedQuery = normalizeSearchText(query);
+    if (!normalizedQuery) return items;
+    const queryTokens = normalizedQuery.split(' ').filter(Boolean);
+    return items.filter((item) => {
+      const haystack = normalizeSearchText(item.searchText);
+      return queryTokens.every((token) => haystack.includes(token));
+    });
+  }, [items, query]);
+
+  return (
+    <View style={styles.searchSelectWrap}>
+      <Text style={styles.searchSelectLabel}>{label}</Text>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityState={{ disabled: !!disabled, expanded: open }}
+        disabled={disabled}
+        onPress={() => {
+          setQuery('');
+          setOpen(true);
+        }}
+        style={({ pressed }) => [
+          styles.searchSelectTrigger,
+          disabled && styles.searchSelectTriggerDisabled,
+          pressed && !disabled && styles.searchSelectTriggerPressed,
+        ]}
+      >
+        <View style={styles.searchSelectValue}>
+          <Text
+            style={[styles.searchSelectValueTitle, !selectedItem && styles.searchSelectPlaceholder]}
+            numberOfLines={1}
+          >
+            {selectedItem?.topic || placeholder}
+          </Text>
+          {selectedItem ? (
+            <Text style={styles.searchSelectValueMeta} numberOfLines={1}>
+              {[selectedItem.code, selectedItem.indicator].filter(Boolean).join(' ')}
+            </Text>
+          ) : null}
+        </View>
+        <Ionicons name="chevron-down" size={18} color={colors.textMuted} />
+      </Pressable>
+      {helperText ? <Text style={styles.searchSelectHelper}>{helperText}</Text> : null}
+
+      <Modal transparent animationType="fade" visible={open} onRequestClose={() => setOpen(false)}>
+        <Pressable style={styles.searchSelectOverlay} onPress={() => setOpen(false)}>
+          <Pressable style={styles.searchSelectSheet} onPress={() => undefined}>
+            <View style={styles.searchSelectHeader}>
+              <Text style={styles.searchSelectTitle}>{label}</Text>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Close"
+                onPress={() => setOpen(false)}
+                hitSlop={10}
+                style={styles.searchSelectClose}
+              >
+                <Ionicons name="close" size={20} color={colors.textMuted} />
+              </Pressable>
+            </View>
+            <View style={styles.searchInputShell}>
+              <Ionicons name="search" size={18} color={colors.textMuted} />
+              <TextInput
+                value={query}
+                onChangeText={setQuery}
+                placeholder="Type a keyword"
+                placeholderTextColor={colors.textSubtle}
+                autoCapitalize="none"
+                autoCorrect={false}
+                style={styles.searchInput}
+              />
+              {query ? (
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel="Clear search"
+                  onPress={() => setQuery('')}
+                  hitSlop={8}
+                >
+                  <Ionicons name="close-circle" size={18} color={colors.textMuted} />
+                </Pressable>
+              ) : null}
+            </View>
+            <ScrollView
+              style={styles.searchSelectList}
+              contentContainerStyle={styles.searchSelectListContent}
+              keyboardShouldPersistTaps="handled"
+            >
+              {visibleItems.length ? (
+                visibleItems.map((item) => {
+                  const active = item.id === value;
+                  return (
+                    <Pressable
+                      key={item.id}
+                      accessibilityRole="button"
+                      accessibilityState={{ selected: active }}
+                      onPress={() => {
+                        onChange(item.id);
+                        setOpen(false);
+                      }}
+                      style={({ pressed }) => [
+                        styles.curriculumOptionRow,
+                        active && styles.curriculumOptionRowActive,
+                        pressed && styles.curriculumOptionRowPressed,
+                      ]}
+                    >
+                      <View style={styles.curriculumOptionTextWrap}>
+                        <Text style={[styles.curriculumOptionTitle, active && styles.curriculumOptionTitleActive]} numberOfLines={2}>
+                          {item.topic}
+                        </Text>
+                        <Text style={styles.curriculumOptionMeta} numberOfLines={3}>
+                          {[item.code, item.indicator].filter(Boolean).join(' ')}
+                        </Text>
+                        {item.aspect ? (
+                          <Text style={styles.curriculumOptionAspect} numberOfLines={1}>
+                            {item.aspect}
+                          </Text>
+                        ) : null}
+                      </View>
+                      {active ? <Ionicons name="checkmark" size={18} color={colors.primary} /> : null}
+                    </Pressable>
+                  );
+                })
+              ) : (
+                <View style={styles.searchEmptyState}>
+                  <Text style={styles.searchEmptyTitle}>No matching curriculum focus</Text>
+                  <Text style={styles.searchEmptyText}>Try another keyword from the topic, indicator or exemplar.</Text>
+                </View>
+              )}
+            </ScrollView>
+          </Pressable>
+        </Pressable>
+      </Modal>
+    </View>
+  );
+}
+
 function buildQuickLessonScheme({
   item,
   subject,
@@ -1054,6 +1409,42 @@ function buildQuickLessonScheme({
     weeks: [selectedWeek],
     createdAt: new Date().toISOString(),
   };
+}
+
+function isQuickLanguageSubject(subject: string) {
+  const normalized = subject.trim().toLowerCase();
+  return normalized.includes('english') ||
+    normalized.includes('ghanaian language') ||
+    normalized.includes('gha language') ||
+    normalized.includes('gha. language');
+}
+
+function buildQuickAspectOptions(items: QuickLessonCurriculumItem[]) {
+  const aspects = uniqueValues(items.map((item) => item.aspect).filter(Boolean) as string[]);
+  return [
+    { label: 'All aspects', value: 'all' },
+    ...aspects.map((aspect) => ({ label: aspect, value: aspect })),
+  ];
+}
+
+function normalizeSearchText(value?: string) {
+  return (value ?? '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, ' ')
+    .trim();
+}
+
+function uniqueValues(values: string[]) {
+  const seen = new Set<string>();
+  const result: string[] = [];
+  values.forEach((value) => {
+    const cleaned = value.trim();
+    const key = cleaned.toLowerCase();
+    if (!cleaned || seen.has(key)) return;
+    seen.add(key);
+    result.push(cleaned);
+  });
+  return result;
 }
 
 function buildLessonFocusPreview({

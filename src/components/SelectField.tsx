@@ -161,6 +161,7 @@ const styles = StyleSheet.create({
     ...typography.bodyLg,
     color: colors.text,
     flex: 1,
+    fontWeight: '400',
   },
   triggerTextCompact: {
     fontSize: 13,
@@ -236,6 +237,7 @@ const styles = StyleSheet.create({
     ...typography.body,
     color: colors.text,
     flex: 1,
+    fontWeight: '400',
   },
   optionTextActive: {
     color: colors.primary,
